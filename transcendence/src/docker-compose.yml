@@ -10,7 +10,6 @@ services:
     volumes:
       - sqlite_data:/app/data # Mount SQLite data volume
     networks:
-      - hellvault
       - backend_net
 
   backend_service_1:
@@ -41,7 +40,6 @@ services:
       - backend_net # If Nginx needs to talk to nexus
 
 networks:
-  hellvault: # Keeping it for if it's needed another DB that needs it in the future
   backend_net:
   frontend_net:
 
