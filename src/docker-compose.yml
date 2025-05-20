@@ -35,6 +35,10 @@ services:
     secrets:
       - RABBITMQ_USER
       - RABBITMQ_PASS
+    volumes:
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro # Mount the config file
+      - ./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro # Mount the enabled plugins
+      - ./rabbitmq/entrypoint.sh:/docker-entrypoint.d/rabbitmq_entrypoint.sh:ro # Mount the entrypoint
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
       interval: 10s
@@ -116,7 +120,9 @@ secrets:
     external: true
   RABBITMQ_PASS:
     external: true
-    
+
 volumes:
   shared_sqlite_data:
      driver: local
+  rabbitmq_data: 
+    driver: local
