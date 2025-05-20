@@ -1,0 +1,122 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:latest
+    container_name: ${PROJECT_NAME}_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+    depends_on:
+      - frontend
+      - backend-auth # Nginx might proxy to your authentication service or an API gateway
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: ${PROJECT_NAME}_frontend
+    volumes:
+      - /home/data/frontend_data:/app/data
+
+  # --- Message Broker Service ---
+  rabbitmq:
+    image: rabbitmq:3-management-alpine # Lightweight RabbitMQ with management UI
+    container_name: ${PROJECT_NAME}_rabbitmq
+    ports:
+      - "5672:5672" # AMQP protocol port
+      - "15672:15672" # Management UI port (access at http://localhost:15672)
+    environment:
+      RABBITMQ_DEFAULT_USER_FILE: /run/secrets/RABBITMQ_USER
+      RABBITMQ_DEFAULT_PASS_FILE: /run/secrets/RABBITMQ_PASS
+    secrets:
+      - RABBITMQ_USER
+      - RABBITMQ_PASS
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Dedicated SQLite Access Microservice (Processor) ---
+  backend-db-access:
+    build:
+      context: ./backend-db-access # This is the ONLY service that mounts the SQLite volume
+    container_name: ${PROJECT_NAME}_backend_db_access
+    environment:
+      DATABASE_URL: /app/data/shared.sqlite # Path to the shared SQLite file INSIDE this container
+      RABBITMQ_HOST: rabbitmq # Connect to the RabbitMQ service
+      RABBITMQ_USER_FILE: /run/secrets/RABBITMQ_USER
+      RABBITMQ_PASS_FILE: /run/secrets/RABBITMQ_PASS
+      REQUEST_QUEUE: db_requests # Name of the queue for incoming DB requests
+      RESPONSE_QUEUE: db_responses # Name of the queue for outgoing DB responses (optional)
+    volumes:
+      - /home/data/shared_sqlite:/app/data # Mount the volume for SQLite persistence
+    secrets:
+      - RABBITMQ_USER
+      - RABBITMQ_PASS
+      - DB_PASSWORD # If this service also needs DB_PASSWORD for other reasons (e.g. internal checks)
+      - API_KEY
+    depends_on:
+      rabbitmq:
+        condition: service_healthy # Wait for RabbitMQ to be ready
+    # Note: This service typically doesn't expose a direct HTTP port if it's purely queue-driven
+    # If it has a health endpoint, expose it.
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'python app.py' > /dev/null || exit 1"] # Example: check if process is running
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # --- Other Backend Microservices (Publishers/Consumers) ---
+  backend-auth:
+    build:
+      context: ./backend-auth
+    container_name: ${PROJECT_NAME}_backend_auth
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER_FILE: /run/secrets/RABBITMQ_USER
+      RABBITMQ_PASS_FILE: /run/secrets/RABBITMQ_PASS
+      REQUEST_QUEUE: db_requests
+      RESPONSE_QUEUE: db_responses # If auth needs responses
+    secrets:
+      - RABBITMQ_USER
+      - RABBITMQ_PASS
+      - API_KEY
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  backend-game:
+    build:
+      context: ./backend-game
+    container_name: ${PROJECT_NAME}_backend_game
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER_FILE: /run/secrets/RABBITMQ_USER
+      RABBITMQ_PASS_FILE: /run/secrets/RABBITMQ_PASS
+      REQUEST_QUEUE: db_requests
+      RESPONSE_QUEUE: db_responses # If game needs responses
+    secrets:
+      - RABBITMQ_USER
+      - RABBITMQ_PASS
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+secrets:
+  DB_PASSWORD:
+    external: true
+  API_KEY:
+    external: true
+  RABBITMQ_USER:
+    external: true
+  RABBITMQ_PASS:
+    external: true
+    
+volumes:
+  shared_sqlite_data:
+     driver: local
