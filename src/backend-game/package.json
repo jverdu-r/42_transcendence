@@ -1,0 +1,20 @@
+{
+  "name": "backend-game",
+  "version": "1.0.0",
+  "description": "Game logic microservice",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^4.18.3",      // If you have any direct HTTP endpoints
+    "amqplib": "^0.10.3",    // RabbitMQ client
+    "body-parser": "^1.20.4",  //If you are using Express
+    "uuid": "^9.0.1"         // For generating unique IDs
+    // Add other game-related libraries here (e.g., for physics, AI)
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"      // Optional, for development
+  }
+}
