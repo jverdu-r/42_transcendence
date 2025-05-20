@@ -1,8 +1,4 @@
 services:
-  db_data: # Dedicated volume for SQLite data
-    volumes:
-      - sqlite_data:/data
-
   nexus:
     build: ./requirements/nexus/Dockerfile # Path to the Dockerfile for the nexus service
     ports:
