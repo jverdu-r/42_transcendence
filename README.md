@@ -8,7 +8,7 @@ Abre tu terminal o línea de comandos en el directorio raíz del proyecto (donde
 
 ```bash
 docker-compose up --build
-
+```
 ## 2. Acceder a la Aplicación Web
 
 Una vez que los servicios de Docker Compose se hayan iniciado correctamente, podrás acceder a la aplicación web a través de tu navegador.
