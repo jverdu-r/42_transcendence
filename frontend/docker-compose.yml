@@ -8,7 +8,5 @@ services:
       dockerfile: Dockerfile # Usa el Dockerfile en el directorio raíz
     ports:
       - "8080:80" # Mapea el puerto 8080 del host al puerto 80 del contenedor Nginx
-    depends_on:
-      - backend # El frontend depende del backend para conexiones WebSocket
 
 
