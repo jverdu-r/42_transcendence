@@ -2,7 +2,7 @@
 
 Para poner en marcha este proyecto, sigue los sencillos pasos a continuación:
 
-## 1. Construir y Ejecutar con Docker Compose
+## 1. Construir y Ejecutar con Docker Compose dentro de la carpeta de frontend
 
 Abre tu terminal o línea de comandos en el directorio raíz del proyecto (donde se encuentra el archivo `docker-compose.yml`) y ejecuta el siguiente comando:
 
