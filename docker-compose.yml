@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  # Servicio para el frontend de tu juego Pong
+  frontend:
+    build:
+      context: ./frontend/ # El contexto es el subdirectorio 'frontend'
+      dockerfile: Dockerfile # El Dockerfile está directamente dentro de 'frontend'
+    ports:
+      - "8080:80" # Mapea el puerto 8080 del host al puerto 80 del contenedor (asumiendo que Nginx o tu app web escucha en el 80)
+    container_name: pong-frontend # Nombre opcional para el contenedor para fácil identificación
+    restart: unless-stopped # Reinicia el contenedor a menos que se detenga manualmente
+
+  # Servicio para el backend de tu juego Pong
+  backend:
+    build:
+      context: ./back/ # El contexto es el subdirectorio 'back'
+      dockerfile: Dockerfile # El Dockerfile está directamente dentro de 'back'
+    ports:
+      - "3000:3000" # Mapea el puerto 3000 del host al puerto 3000 del contenedor (donde escucha Fastify)
+    container_name: pong-backend # Nombre opcional para el contenedor
+    restart: unless-stopped # Reinicia el contenedor a menos que se detenga manualmente

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buscador de Oponente (WebSocket)</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        input[type="text"] { padding: 8px; margin-right: 10px; }
+        button { padding: 10px 15px; background-color: #28a745; color: white; border: none; cursor: pointer; margin-top: 10px; }
+        button:hover { background-color: #218838; }
+        #statusMessage { margin-top: 20px; padding: 15px; border: 1px solid #ccc; background-color: #e9ecef; min-height: 50px; }
+    </style>
+</head>
+<body>
+    <h1>Buscador de Oponente para el Juego (WebSocket)</h1>
+
+    <div>
+        <label for="playerName">Tu Nombre:</label>
+        <input type="text" id="playerName" placeholder="Introduce tu nombre">
+        <button onclick="findOpponent()" id="findButton">Buscar Oponente</button>
+    </div>
+
+    <div id="statusMessage">
+        Pulsa "Buscar Oponente" para empezar a buscar...
+    </div>
+
+    <script>
+        let ws = null; // Variable para almacenar la conexión WebSocket globalmente
+
+        async function findOpponent() {
+            const playerNameInput = document.getElementById('playerName');
+            const statusMessageElement = document.getElementById('statusMessage');
+            const findButton = document.getElementById('findButton');
+            const name = playerNameInput.value.trim(); // Captura el nombre aquí
+
+            if (!name) {
+                statusMessageElement.textContent = 'Por favor, introduce tu nombre para buscar un oponente.';
+                return;
+            }
+
+            // Deshabilita el botón mientras busca para evitar múltiples clicks
+            findButton.disabled = true;
+            statusMessageElement.textContent = `Intentando conectar para buscar oponente como ${name}...`;
+
+            // Cierra una conexión WebSocket existente si la hay (útil para reintentos o refrescos)
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+            }
+
+            // URL del WebSocket
+            const wsUrl = `ws://localhost:3000/ws/join-game`;
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                // Evento que se dispara cuando la conexión WebSocket se establece con éxito
+                ws.onopen = () => {
+                    console.log('Conexión WebSocket establecida.');
+                    // Envía el nombre del jugador inmediatamente después de abrir la conexión
+                    // Asegúrate de que 'name' es la variable capturada del 'findOpponent' actual
+                    ws.send(JSON.stringify({ name: name })); // <--- ¡Esta línea es CRÍTICA!
+                    statusMessageElement.textContent = `Buscando oponente para ${name}... esperando.`;
+                };
+
+                // Evento que se dispara cuando se recibe un mensaje del servidor
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    console.log('Mensaje recibido del servidor:', data);
+
+                    if (data.type === 'status') {
+                        // Mensaje de estado (ej. "esperando oponente")
+                        statusMessageElement.textContent = data.message;
+                    } else if (data.type === 'opponentFound') {
+                        // Mensaje de emparejamiento exitoso
+                        statusMessageElement.textContent = data.message;
+                        findButton.disabled = false; // Habilita el botón de nuevo
+                        // Aquí podrías añadir lógica para iniciar el juego o redirigir
+                    } else if (data.type === 'error') {
+                        // Mensajes de error del servidor
+                        statusMessageElement.textContent = `Error: ${data.message}`;
+                        findButton.disabled = false;
+                        ws.close(); // Cierra la conexión en caso de un error irrecuperable
+                    }
+                };
+
+                // Evento que se dispara cuando la conexión WebSocket se cierra
+                ws.onclose = (event) => {
+                    console.log('Conexión WebSocket cerrada:', event);
+                    // Solo muestra un mensaje de "perdida" si no fue una desconexión intencionada (por emparejamiento)
+                    if (!statusMessageElement.textContent.includes('¡Oponente encontrado!')) {
+                         statusMessageElement.textContent = 'Conexión perdida o cerrada. Haz clic de nuevo para buscar.';
+                    }
+                    findButton.disabled = false; // Asegura que el botón se habilite
+                };
+
+                // Evento que se dispara si hay un error en la conexión WebSocket
+                ws.onerror = (error) => {
+                    console.error('Error en WebSocket:', error);
+                    statusMessageElement.textContent = 'Error en la conexión WebSocket. Inténtalo de nuevo.';
+                    findButton.disabled = false; // Asegura que el botón se habilite
+                };
+
+            } catch (error) {
+                console.error('Error al intentar establecer conexión WebSocket:', error);
+                statusMessageElement.textContent = 'Error al intentar iniciar la conexión para buscar oponente.';
+                findButton.disabled = false; // Asegura que el botón se habilite
+            }
+        }
+    </script>
+</body>
+</html>
