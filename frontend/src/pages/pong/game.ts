@@ -55,25 +55,26 @@ interface Ball {
 /**
  * The main Game class responsible for managing the Pong game.
  */
+
 export class Game {
     private canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
-    private player1: Paddle; // Main paddle for Player 1 (or top paddle in 2v1)
-    private player1Paddle2: Paddle | null; // Second paddle for Player 1 (only for 2v1 or 2v2)
-    private player2Paddle1: Paddle; // Main paddle for Player 2 (or top paddle in 1v2 or 2v2)
-    private player2Paddle2: Paddle | null; // Second paddle for Player 2 (only for 1v2 or 2v2)
-    private ball: Ball;
-    private score1: number;
-    private score2: number;
-    private gameState: string;
+    protected player1: Paddle; // <--- CAMBIAR
+    protected player1Paddle2: Paddle | null; // <--- CAMBIAR
+    protected player2Paddle1: Paddle; // <--- CAMBIAR
+    protected player2Paddle2: Paddle | null; // <--- CAMBIAR
+    protected ball: Ball; // <--- CAMBIAR
+    protected score1: number; // <--- CAMBIAR
+    protected score2: number; // <--- CAMBIAR
+    protected gameState: string;
     private animationFrameId: number | null;
     private keysPressed: { [key: string]: boolean };
-    private gameMode: GameMode; // Updated to use the imported GameMode type
-    private aiPlayer: AIPlayer | null; // Instancia de la IA
-    private isMobile: boolean; // Propiedad para saber si es móvil
-    private countdownTimer: number; // Temporizador para la cuenta regresiva
-    private countdownValue: number; // Valor actual de la cuenta regresiva
-    public isRunning: boolean; // NEW: Added isRunning property
+    private gameMode: GameMode;
+    private aiPlayer: AIPlayer | null;
+    private isMobile: boolean;
+    private countdownTimer: number;
+    private countdownValue: number;
+    public isRunning: boolean;
 
     // Updated constructor to use the imported GameMode and AIDifficulty types
     // Removed `context` as it's not passed from index.ts in the snippet
