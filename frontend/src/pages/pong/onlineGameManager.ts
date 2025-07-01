@@ -79,7 +79,20 @@ onlineGameService.onOpponentDisconnectedEvent(() => {
   }
 
   private generatePlayerName(): string {
-    // Puedes usar el usuario logueado o un random
+    // Intentar obtener el nombre de usuario del token JWT si está autenticado
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.username) {
+          return payload.username;
+        }
+      } catch (error) {
+        console.warn('No se pudo obtener el username del token:', error);
+      }
+    }
+    
+    // Fallback: generar nombre aleatorio
     return 'Player_' + Math.floor(Math.random() * 10000)
   }
 

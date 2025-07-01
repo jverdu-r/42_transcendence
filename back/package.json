@@ -14,10 +14,7 @@
     "@fastify/cors": "^8.2.0",      
     "@fastify/websocket": "^8.2.0",  
     "fastify": "^4.27.0",
-<<<<<<< HEAD
-=======
     "prom-client": "^15.1.0",
->>>>>>> main
     "ws": "^8.18.0",
     "sqlite3": "^5.1.6",
     "jsonwebtoken": "^9.0.2",

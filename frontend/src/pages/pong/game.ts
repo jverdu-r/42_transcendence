@@ -76,12 +76,19 @@ export class Game {
     protected countdownTimer: number;
     protected countdownValue: number;
     public isRunning: boolean;
+    protected gameStartTime: number = 0;
 
     // Updated constructor to use the imported GameMode and AIDifficulty types
     // Removed `context` as it's not passed from index.ts in the snippet
     constructor(canvas: HTMLCanvasElement, gameMode: GameMode = '1v1_local', aiDifficulty: AIDifficulty = 'MEDIUM', isMobile: boolean = false) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d')!;
+
+        // Safari-specific canvas optimizations
+        this.ctx.imageSmoothingEnabled = false;
+        (this.ctx as any).webkitImageSmoothingEnabled = false;
+        (this.ctx as any).mozImageSmoothingEnabled = false;
+        (this.ctx as any).msImageSmoothingEnabled = false;
 
         this.canvas.width = CANVAS_WIDTH;
         this.canvas.height = CANVAS_HEIGHT;
@@ -329,6 +336,7 @@ export class Game {
             if (this.countdownValue <= 0) {
                 this.gameState = GAME_STATE.PLAYING;
                 this.countdownValue = 0; // Don't show 0 or negative
+                this.gameStartTime = Date.now(); // Record when the game actually starts
                 console.log('Countdown finished. Game state:', this.gameState);
                 this.resetBall(); // Reset ball position and initial direction
                 this.isRunning = true; // Set isRunning to true when game starts
@@ -696,6 +704,47 @@ export class Game {
     }
 
     /**
+     * Saves game result to the backend
+     */
+    private async saveGameResult(): Promise<void> {
+        try {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                console.warn('No auth token found, cannot save game result');
+                return;
+            }
+
+            const gameData = {
+                opponent: 'Local Player', // For local games
+                score: this.score1,
+                opponentScore: this.score2, 
+                gameMode: this.gameMode,
+                duration: Date.now() - this.gameStartTime // Calculate game duration
+            };
+
+            console.log('Saving game result:', gameData);
+
+            const response = await fetch('/api/game-result', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(gameData)
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log('Game result saved successfully:', result);
+            } else {
+                console.error('Failed to save game result:', response.status);
+            }
+        } catch (error) {
+            console.error('Error saving game result:', error);
+        }
+    }
+
+    /**
      * Shows the victory screen with a button to return to game mode selection
      */
     private showVictoryScreen(winnerMessage: string): void {
@@ -704,6 +753,9 @@ export class Game {
         if (victoryOverlay) {
             return; // Already showing
         }
+
+        // Save game result when the game ends
+        this.saveGameResult();
 
         // Create victory overlay
         victoryOverlay = document.createElement('div');

@@ -354,7 +354,7 @@ export function renderPongPage(gameMode: GameMode, aiDifficulty: AIDifficulty = 
   const mobileControlsHtml = isMobile ? player1ControlsHtml : ""
 
   const pongHtml = `
-        <main id="main-content" class="flex-grow w-full p-2 sm:p-4 flex flex-col items-center justify-center relative mt-16 sm:mt-24 lg:mt-32 text-gray-100 animate__animated animate__fadeIn">
+        <main id="main-content" class="flex-grow w-full p-2 sm:p-4 flex flex-col items-center justify-center relative mt-16 sm:mt-24 lg:mt-32 text-gray-100 animate__animated animate__fadeIn game-container safe-area-top safe-area-bottom">
             <div class="relative bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl p-3 sm:p-4 md:p-6 lg:p-8 border border-[#003566] flex flex-col items-center w-full max-w-7xl transition-all duration-500 ease-in-out transform hover:scale-[1.01] hover:shadow-custom-deep">
                 <h2 class="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-display font-extrabold text-[#ffc300] mb-3 sm:mb-4 drop-shadow-md text-center leading-tight"
                     data-i18n="pong.gameTitle">${getTranslation("pong", "gameTitle")}</h2>

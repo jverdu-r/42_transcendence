@@ -2,7 +2,7 @@
 
 import { getTranslation as t } from '../i18n';
 import { onlineGameManager } from './pong/onlineGameManager';
-import { onlineGameService } from '../services/websocket';
+import { onlineGameService, MatchFoundData } from '../services/websocket';
 
 export function renderMatchmakingPage(): void {
   const pageContent = document.getElementById('page-content') as HTMLElement;
@@ -194,6 +194,16 @@ function startMatchmaking(mode: string): void {
   const currentModeSpan = document.getElementById('current-mode');
 
   if (modeSelection && matchmakingStatus && searchingState && currentModeSpan) {
+    // Verificar si el usuario está autenticado
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      alert('Debes estar autenticado para jugar online. Por favor, inicia sesión.');
+      import('../router').then(({ navigateTo }) => {
+        navigateTo('/login');
+      });
+      return;
+    }
+
     // Hide mode selection and show searching state
     modeSelection.classList.add('hidden');
     matchmakingStatus.classList.remove('hidden');
@@ -202,10 +212,19 @@ function startMatchmaking(mode: string): void {
     // Update current mode display
     currentModeSpan.textContent = mode;
 
-    // Start matchmaking through onlineGameManager
-    // For now, we'll simulate matchmaking since the manager expects canvas and mobile params
-    console.log(`Starting matchmaking for mode: ${mode}`);
-    // TODO: Implement proper matchmaking integration
+    // Start matchmaking with the new user-based system
+    console.log(`Starting user-based matchmaking for mode: ${mode}`);
+    
+    // Connect to online game service directly
+    onlineGameService.connect(mode)
+      .then(() => {
+        console.log('Connected to matchmaking service');
+      })
+      .catch((error) => {
+        console.error('Failed to connect to matchmaking:', error);
+        showModeSelection();
+        alert('No se pudo conectar al servicio de matchmaking. Inténtalo de nuevo.');
+      });
   }
 }
 
