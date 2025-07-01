@@ -74,13 +74,29 @@ export class OnlineGameService {
         this.playerName = this.generatePlayerName();
     }
 
-    // Genera un nombre de jugador aleatorio
+    // Obtiene el nombre de usuario autenticado o genera uno aleatorio
     private generatePlayerName(): string {
+        // Intentar obtener el nombre de usuario del token JWT si está autenticado
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                if (payload.username) {
+                    console.log('🔐 Usando nombre de usuario autenticado:', payload.username);
+                    return payload.username;
+                }
+            } catch (error) {
+                console.warn('No se pudo obtener el username del token:', error);
+            }
+        }
+        
+        // Fallback: generar nombre aleatorio
         const adjectives = ['Swift', 'Mighty', 'Clever', 'Bold', 'Quick', 'Sharp', 'Brave', 'Smart'];
         const nouns = ['Pong', 'Player', 'Master', 'Champion', 'Ace', 'Pro', 'Star', 'Hero'];
         const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
         const noun = nouns[Math.floor(Math.random() * nouns.length)];
         const num = Math.floor(Math.random() * 1000);
+        console.log('🎲 Generando nombre aleatorio para usuario no autenticado');
         return `${adj}${noun}${num}`;
     }
 
@@ -92,6 +108,29 @@ export class OnlineGameService {
     // Obtiene el nombre del jugador
     public getPlayerName(): string {
         return this.playerName;
+    }
+
+    // Obtiene las preferencias del usuario para el matchmaking
+    private getUserPreferences(): any {
+        const token = localStorage.getItem('authToken');
+        const preferences: any = {
+            skill_level: 'beginner', // Default skill level
+            preferred_modes: ['1v1', 'classic'],
+            max_wait_time: 30000 // 30 seconds
+        };
+
+        if (token) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                // Aquí podrías agregar más datos del usuario si están disponibles en el token
+                preferences.user_id = payload.userId;
+                preferences.authenticated = true;
+            } catch (error) {
+                console.warn('No se pudo obtener información adicional del token:', error);
+            }
+        }
+
+        return preferences;
     }
 
     // Verifica si es el host del juego
@@ -138,12 +177,23 @@ export class OnlineGameService {
         return new Promise((resolve, reject) => {
             try {
                 this.gameMode = gameMode;
-                // *** CORRECCIÓN CRÍTICA AQUÍ: ***
-                // La URL del WebSocket debe apuntar a Nginx (que actúa como proxy),
-                // y Nginx redirigirá al backend. Usar el mismo host y puerto que la aplicación.
-                const wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
-                window.location.host + '/ws';
-                console.log('Connecting to WebSocket:', wsUrl);
+                // Safari-compatible WebSocket URL generation
+                let wsUrl: string;
+                
+                // For Safari, ensure we use the correct protocol
+                if (window.location.protocol === 'https:') {
+                    wsUrl = 'wss://' + window.location.host + '/ws';
+                } else {
+                    wsUrl = 'ws://' + window.location.host + '/ws';
+                }
+                
+                // Safari fallback: if on localhost, try different ports
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                    wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + 
+                           window.location.hostname + ':3000/ws';
+                }
+                
+                console.log('🍎 Safari-compatible WebSocket URL:', wsUrl);
                 this.ws = new WebSocket(wsUrl);
 
                 // Evento al abrir la conexión WebSocket
@@ -153,11 +203,12 @@ export class OnlineGameService {
                     this.reconnectAttempts = 0;
                     this.onConnectionChange?.(true); // Llama al callback de cambio de conexión
                     
-                    // Envía el mensaje de unirse al juego una vez la conexión esté abierta
+                    // Envía el mensaje de unirse al juego con información adicional del usuario
                     this.sendMessage({
                         type: 'join-game',
                         name: this.playerName,
-                        gameMode: gameMode
+                        gameMode: gameMode,
+                        userPreferences: this.getUserPreferences() // Agregar preferencias del usuario
                     });
                     
                     resolve(true); // Resuelve la promesa indicando éxito
@@ -307,16 +358,39 @@ export class OnlineGameService {
         });
     }
 
-    // Envía un mensaje de fin de juego
-    public sendGameEnd(winner: string, score1: number, score2: number): void {
+    // Envía un mensaje de fin de juego - CADA JUGADOR ENVÍA SU PROPIO RESULTADO
+    public sendGameEnd(winner: string, score1: number, score2: number, duration?: number): void {
         if (!this.isConnected || !this.ws) return;
 
+        // Determinar si este jugador ganó o perdió
+        let didIWin: boolean;
+        let myScore: number;
+        let opponentScore: number;
+        
+        if (this.isHost) {
+            // Soy el host (player1)
+            didIWin = (winner === 'player1');
+            myScore = score1;
+            opponentScore = score2;
+        } else {
+            // Soy el guest (player2)
+            didIWin = (winner === 'player2');
+            myScore = score2;
+            opponentScore = score1;
+        }
+
+        // Cada jugador envía SOLO su propio resultado
         this.sendMessage({
-            type: 'game_end',
-            winner,
-            score1,
-            score2,
-            timestamp: Date.now()
+            type: 'individual_game_result',
+            player_name: this.playerName,  // Mi nombre
+            opponent_name: this.opponent, // Nombre del oponente
+            my_score: myScore,           // Mi puntuación
+            opponent_score: opponentScore, // Puntuación del oponente
+            did_i_win: didIWin,          // Si yo gané o no
+            gameMode: this.gameMode,
+            duration: duration || 0,
+            timestamp: Date.now(),
+            is_host: this.isHost         // Para referencia
         });
     }
 

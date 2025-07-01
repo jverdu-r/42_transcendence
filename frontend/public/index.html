@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="description" content="Transcendence - A modern Pong game experience with online multiplayer, AI, and multiple game modes" />
     <meta name="keywords" content="pong, game, multiplayer, online, transcendence, paddle, ball" />
     <meta name="theme-color" content="#000814" />
@@ -62,11 +65,20 @@
       html, body {
         overflow-x: hidden;
         scroll-behavior: smooth;
+        /* Safari viewport fixes */
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
       }
       
       body {
         -webkit-overflow-scrolling: touch;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+        /* Safari rendering improvements */
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        /* Safari fix for viewport height */
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
       }
       
       /* Prevent text selection on interactive elements */
@@ -104,6 +116,64 @@
       
       ::-webkit-scrollbar-thumb:hover {
         background: #ffc300;
+      }
+      
+      /* Safari-specific game container fixes */
+      .game-container {
+        /* Safari viewport fix */
+        height: 100vh;
+        height: -webkit-fill-available;
+        /* Safari touch optimization */
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      /* Safari canvas optimization */
+      canvas {
+        -webkit-transform: translateZ(0);
+        transform: translateZ(0);
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
+        /* Safari touch events */
+        touch-action: none;
+      }
+      
+      /* Safari button fixes */
+      button {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        border: none;
+        outline: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      /* Safari input fixes */
+      input, textarea {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        border-radius: 0;
+      }
+      
+      /* Safari safe area support */
+      @supports (padding: max(0px)) {
+        .safe-area-top {
+          padding-top: max(1rem, env(safe-area-inset-top));
+        }
+        
+        .safe-area-bottom {
+          padding-bottom: max(1rem, env(safe-area-inset-bottom));
+        }
+        
+        .safe-area-left {
+          padding-left: max(1rem, env(safe-area-inset-left));
+        }
+        
+        .safe-area-right {
+          padding-right: max(1rem, env(safe-area-inset-right));
+        }
       }
     </style>
   </head>
