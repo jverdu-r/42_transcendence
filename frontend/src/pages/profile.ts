@@ -111,7 +111,8 @@ async function fetchGameHistory(): Promise<GameHistory[]> {
 
     if (response.ok) {
       const data = await response.json();
-      return data;
+      // Extract the games array from the response object
+      return Array.isArray(data.games) ? data.games : [];
     } else {
       console.error(`Failed to fetch game history: ${response.status}`);
       return [];

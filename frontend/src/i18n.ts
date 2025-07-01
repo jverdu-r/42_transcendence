@@ -115,7 +115,19 @@ const translations: Translations = {
             error: "Error",
             errorMessage: "Error al cargar el perfil. Por favor, inténtalo de nuevo.",
             loadingProfile: "Cargando perfil...",
-            profileLoadError: "No se pudo cargar la información del perfil"
+            profileLoadError: "No se pudo cargar la información del perfil",
+            memberSince: "Miembro desde",
+            gameStatsTitle: "Estadísticas de Juego",
+            noGamesPlayed: "No has jugado ninguna partida aún",
+            startPlaying: "¡Empieza a jugar!",
+            victory: "Victoria",
+            defeat: "Derrota",
+            "1dayAgo": "hace 1 día",
+            "daysAgo": "días atrás",
+            "1weekAgo": "hace 1 semana",
+            "weeksAgo": "semanas atrás",
+            loading: "Cargando...",
+            retry: "Reintentar"
         },
         play: {
             selectGameMode: "Selecciona un Modo de Juego",
@@ -177,7 +189,12 @@ const translations: Translations = {
             losses: "Derrotas:",
             pointsAbbreviation: "pts",
             yourCurrentPosition: "Tu posición actual:",
-            viewMyPositionButton: "Ver mi posición"
+            viewMyPositionButton: "Ver mi posición",
+            allModes: "Todos los modos",
+            loading: "Cargando...",
+            error: "Error al cargar datos",
+            noPlayers: "No hay jugadores en el ranking",
+            position: "Posición"
         },
         settings: {
             title: "Ajustes",
@@ -381,7 +398,12 @@ const translations: Translations = {
             losses: "Losses:",
             pointsAbbreviation: "pts",
             yourCurrentPosition: "Your current position:",
-            viewMyPositionButton: "View my position"
+            viewMyPositionButton: "View my position",
+            allModes: "All modes",
+            loading: "Loading...",
+            error: "Error loading data",
+            noPlayers: "No players in ranking",
+            position: "Position"
         },
         settings: {
             title: "Settings",

@@ -23,6 +23,7 @@ export class OnlineGame extends Game {
   private isHost = false
   private opponent = ""
   private connectionLost = false
+  protected gameStartTime = 0 // Para calcular la duración del juego
 
   constructor(canvas: HTMLCanvasElement, gameMode: GameMode, isMobile = false) {
     super(canvas, gameMode, "MEDIUM", isMobile)
@@ -55,6 +56,7 @@ export class OnlineGame extends Game {
   public initOnlineGame(matchData: MatchFoundData): void {
     this.isHost = matchData.isHost
     this.opponent = matchData.opponent
+    this.gameStartTime = Date.now() // Marcar el inicio del juego
 
     console.log(`Online game initialized. Host: ${this.isHost}, Opponent: ${this.opponent}`)
 
@@ -65,6 +67,9 @@ export class OnlineGame extends Game {
 
     // Initialize the game
     this.init()
+    
+    // Update player names display immediately
+    this.updateScoreDisplay()
   }
 
   private startSyncLoop(): void {
@@ -114,7 +119,8 @@ export class OnlineGame extends Game {
     this.ball.currentDx = data.ball.dx
     this.ball.currentDy = data.ball.dy
 
-    // Apply paddle states
+    // Apply paddle states from guest perspective:
+    // Guest is player2, so data.player1 goes to opponent (player1) and data.player2 goes to self (player2)
     this.player1.y = data.player1.y
     if (this.player1Paddle2 && data.player1.paddle2Y !== undefined) {
       this.player1Paddle2.y = data.player1.paddle2Y
@@ -207,8 +213,8 @@ export class OnlineGame extends Game {
       // Host controls Player 1 paddles (left side)
       super.movePlayer1Up()
     } else {
-      // Non-host controls Player 2 paddles (right side) - map to Player 2 movement
-      this.moveRemotePlayer2Up()
+      // Non-host controls Player 2 paddles (right side) - control them directly
+      this.player2Paddle1.dy = -PADDLE_SPEED
     }
     this.sendPlayerInput()
   }
@@ -218,8 +224,8 @@ export class OnlineGame extends Game {
       // Host controls Player 1 paddles (left side)
       super.movePlayer1Down()
     } else {
-      // Non-host controls Player 2 paddles (right side) - map to Player 2 movement
-      this.moveRemotePlayer2Down()
+      // Non-host controls Player 2 paddles (right side) - control them directly
+      this.player2Paddle1.dy = PADDLE_SPEED
     }
     this.sendPlayerInput()
   }
@@ -229,8 +235,8 @@ export class OnlineGame extends Game {
       // Host stops Player 1 paddles (left side)
       super.stopPlayer1()
     } else {
-      // Non-host stops Player 2 paddles (right side)
-      this.stopRemotePlayer2()
+      // Non-host stops Player 2 paddles (right side) - control them directly
+      this.player2Paddle1.dy = 0
     }
     this.sendPlayerInput()
   }
@@ -240,8 +246,10 @@ export class OnlineGame extends Game {
       // Host controls Player 1 second paddle (left side)
       super.movePlayer1Paddle2Up()
     } else {
-      // Non-host controls Player 2 second paddle (right side)
-      this.moveRemotePlayer2Paddle2Up()
+      // Non-host controls Player 2 second paddle (right side) - control them directly
+      if (this.player2Paddle2) {
+        this.player2Paddle2.dy = -PADDLE_SPEED
+      }
     }
     this.sendPlayerInput()
   }
@@ -251,8 +259,10 @@ export class OnlineGame extends Game {
       // Host controls Player 1 second paddle (left side)
       super.movePlayer1Paddle2Down()
     } else {
-      // Non-host controls Player 2 second paddle (right side)
-      this.moveRemotePlayer2Paddle2Down()
+      // Non-host controls Player 2 second paddle (right side) - control them directly
+      if (this.player2Paddle2) {
+        this.player2Paddle2.dy = PADDLE_SPEED
+      }
     }
     this.sendPlayerInput()
   }
@@ -262,8 +272,10 @@ export class OnlineGame extends Game {
       // Host stops Player 1 second paddle (left side)
       super.stopPlayer1Paddle2()
     } else {
-      // Non-host stops Player 2 second paddle (right side)
-      this.stopRemotePlayer2Paddle2()
+      // Non-host stops Player 2 second paddle (right side) - control them directly
+      if (this.player2Paddle2) {
+        this.player2Paddle2.dy = 0
+      }
     }
     this.sendPlayerInput()
   }
@@ -344,11 +356,19 @@ export class OnlineGame extends Game {
     const player1ScoreElement = document.getElementById("player1-score")
     const player2ScoreElement = document.getElementById("player2-score")
 
+    // Get real player names
+    const currentPlayerName = onlineGameService.getPlayerName()
+    const opponentName = this.opponent
+    
+    // Determine which name goes where based on host status
+    const player1Name = this.isHost ? currentPlayerName : opponentName
+    const player2Name = this.isHost ? opponentName : currentPlayerName
+
     if (player1ScoreElement) {
-      player1ScoreElement.textContent = `Player 1: ${this.score1}`
+      player1ScoreElement.textContent = `${player1Name}: ${this.score1}`
     }
     if (player2ScoreElement) {
-      player2ScoreElement.textContent = `Player 2: ${this.score2}`
+      player2ScoreElement.textContent = `${player2Name}: ${this.score2}`
     }
   }
 
@@ -360,10 +380,11 @@ export class OnlineGame extends Game {
       this.syncInterval = null
     }
 
-    // Send game end notification
+    // Send game end notification with duration
     if (this.isHost) {
       const winner = this.score1 >= 5 ? "player1" : this.score2 >= 5 ? "player2" : "none"
-      onlineGameService.sendGameEnd(winner, this.score1, this.score2)
+      const gameDuration = Math.floor((Date.now() - this.gameStartTime) / 1000) // Duración en segundos
+      onlineGameService.sendGameEnd(winner, this.score1, this.score2, gameDuration)
     }
 
     onlineGameService.disconnect()
@@ -507,6 +528,12 @@ export class OnlineGame extends Game {
       if (this.score1 >= MAX_SCORE || this.score2 >= MAX_SCORE) {
         this.gameState = GAME_STATE.GAME_OVER;
         this.isRunning = false;
+        
+        // Send game end notification with complete data
+        const winner = this.score1 >= MAX_SCORE ? "player1" : "player2";
+        const gameDuration = Math.floor((Date.now() - this.gameStartTime) / 1000);
+        onlineGameService.sendGameEnd(winner, this.score1, this.score2, gameDuration);
+        
         // Show online victory screen instead of the regular one
         setTimeout(() => this.showOnlineVictoryScreen(), 500);
       }

@@ -2,6 +2,7 @@
 import { navigateTo } from './router';
 import { renderNavbar } from './components/navbar'; // Import the new navbar component
 import { getTranslation } from './i18n'; // Only need getTranslation for basic layout for now
+import { initSafariCompatibility, isSafari, isIOSSafari } from './utils/safariPolyfills';
 
 // Define the root element where the application will be mounted
 const appRoot = document.getElementById('app-root') as HTMLElement;
@@ -22,6 +23,12 @@ if (!appRoot) {
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
+    // Initialize Safari compatibility fixes first
+    if (isSafari() || isIOSSafari()) {
+      initSafariCompatibility();
+      console.log('🍎 Safari detected, compatibility fixes applied');
+    }
+    
     // Initial render of the navbar and the current page
     renderNavbar(location.pathname);
     await navigateTo(location.pathname);
