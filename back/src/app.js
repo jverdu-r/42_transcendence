@@ -74,6 +74,7 @@ function initializeDatabase() {
             FOREIGN KEY (user_id) REFERENCES users (id)
         );
         
+<<<<<<< HEAD
         CREATE TABLE IF NOT EXISTS user_stats_by_mode (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -90,6 +91,8 @@ function initializeDatabase() {
             UNIQUE(user_id, game_mode)
         );
         
+=======
+>>>>>>> main
         CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
         CREATE INDEX IF NOT EXISTS idx_sessions_token ON user_sessions (session_token);
         CREATE INDEX IF NOT EXISTS idx_games_players ON games (player1_id, player2_id);
@@ -135,6 +138,47 @@ async function authenticate(request, reply) {
 }
 
 
+<<<<<<< HEAD
+=======
+// Custom metrics
+const websocketConnections = new client.Gauge({
+    name: 'websocket_connections_total',
+    help: 'Total number of active WebSocket connections'
+});
+
+const activeGamesGauge = new client.Gauge({
+    name: 'active_games_total',
+    help: 'Total number of active games'
+});
+
+const playersWaitingGauge = new client.Gauge({
+    name: 'players_waiting_total',
+    help: 'Total number of players waiting for a match'
+});
+
+const matchmakingCounter = new client.Counter({
+    name: 'matchmaking_attempts_total',
+    help: 'Total number of matchmaking attempts'
+});
+
+const gameStartCounter = new client.Counter({
+    name: 'games_started_total',
+    help: 'Total number of games started'
+});
+
+const gameEndCounter = new client.Counter({
+    name: 'games_ended_total',
+    help: 'Total number of games ended'
+});
+
+// Register custom metrics
+register.registerMetric(websocketConnections);
+register.registerMetric(activeGamesGauge);
+register.registerMetric(playersWaitingGauge);
+register.registerMetric(matchmakingCounter);
+register.registerMetric(gameStartCounter);
+register.registerMetric(gameEndCounter);
+>>>>>>> main
 
 // CORS Configuration
 fastify.register(require('@fastify/cors'), {
@@ -172,6 +216,11 @@ fastify.register(async function (fastify) {
         const tempConnectionId = `ConexionWS_${Math.random().toString(36).substring(7)}`;
         fastify.log.info(`Nueva conexión WebSocket: ${tempConnectionId}`);
         
+<<<<<<< HEAD
+=======
+        // Update metrics
+        websocketConnections.inc();
+>>>>>>> main
         
         // Enviar mensaje inicial usando connection.socket.send
         try {
@@ -216,6 +265,12 @@ fastify.register(async function (fastify) {
                         waitingPlayerSocket = { id: playerName, connection: connection };
                         fastify.log.info(`${playerName} está esperando un oponente.`);
                         
+<<<<<<< HEAD
+=======
+                        // Update metrics
+                        matchmakingCounter.inc();
+                        playersWaitingGauge.set(1);
+>>>>>>> main
 
                         connection.socket.send(JSON.stringify({
                             type: 'waiting',
@@ -231,6 +286,13 @@ fastify.register(async function (fastify) {
                         // Agregar a juegos activos
                         activeGames.push({ player1, player2 });
                         
+<<<<<<< HEAD
+=======
+                        // Update metrics
+                        gameStartCounter.inc();
+                        activeGamesGauge.set(activeGames.length);
+                        playersWaitingGauge.set(0);
+>>>>>>> main
 
                         // Notificar a ambos jugadores
                         player1.connection.socket.send(JSON.stringify({
@@ -277,6 +339,12 @@ fastify.register(async function (fastify) {
                                 // Remover de juegos activos
                                 activeGames.splice(gameIdx, 1);
                                 
+<<<<<<< HEAD
+=======
+                                // Update metrics
+                                gameEndCounter.inc();
+                                activeGamesGauge.set(activeGames.length);
+>>>>>>> main
                                 
                                 // Limpiar la marca después de un tiempo para evitar acumulación
                                 setTimeout(() => {
@@ -313,10 +381,19 @@ fastify.register(async function (fastify) {
             const disconnectedId = playerName || tempConnectionId;
             fastify.log.info(`WebSocket ${disconnectedId} desconectado`);
             
+<<<<<<< HEAD
+=======
+            // Update metrics
+            websocketConnections.dec();
+>>>>>>> main
 
             // Limpiar jugador en espera
             if (waitingPlayerSocket && waitingPlayerSocket.connection === connection) {
                 fastify.log.info(`${waitingPlayerSocket.id} abandonó la cola de espera`);
+<<<<<<< HEAD
+=======
+                playersWaitingGauge.set(0);
+>>>>>>> main
                 waitingPlayerSocket = null;
             }
 
@@ -340,6 +417,14 @@ fastify.register(async function (fastify) {
                 
                 activeGames.splice(gameIdx, 1);
                 
+<<<<<<< HEAD
+=======
+                // Update metrics
+                if (!finishedGames.has(gameId)) {
+                    gameEndCounter.inc();
+                }
+                activeGamesGauge.set(activeGames.length);
+>>>>>>> main
             }
         });
 
@@ -376,8 +461,14 @@ fastify.get('/health', async (request, reply) => {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
+<<<<<<< HEAD
         activeGames: activeGames.length,
         playersWaiting: waitingPlayerSocket ? 1 : 0
+=======
+        websocketConnections: websocketConnections.get(),
+        activeGames: activeGamesGauge.get(),
+        playersWaiting: playersWaitingGauge.get()
+>>>>>>> main
     };
 });
 
@@ -541,6 +632,7 @@ fastify.get('/api/profile', { preHandler: authenticate }, async (request, reply)
             );
         });
         
+<<<<<<< HEAD
         // Obtener estadísticas por modo
         const statsByMode = await new Promise((resolve, reject) => {
             db.all(
@@ -615,6 +707,19 @@ fastify.get('/api/profile', { preHandler: authenticate }, async (request, reply)
                 global_ranking: globalRanking
             },
             statsByMode: modeStats
+=======
+        return reply.code(200).send({
+            user: request.user,
+            stats: userStats || {
+                games_played: 0,
+                games_won: 0,
+                games_lost: 0,
+                total_score: 0,
+                highest_score: 0,
+                win_streak: 0,
+                best_win_streak: 0
+            }
+>>>>>>> main
         });
     } catch (error) {
         console.error('Error obteniendo perfil:', error);
@@ -645,7 +750,11 @@ fastify.post('/api/game-result', { preHandler: authenticate }, async (request, r
             );
         });
         
+<<<<<<< HEAD
         // Actualizar estadísticas globales del usuario
+=======
+        // Actualizar estadísticas del usuario
+>>>>>>> main
         await new Promise((resolve, reject) => {
             db.run(`
                 UPDATE user_stats SET 
@@ -664,6 +773,7 @@ fastify.post('/api/game-result', { preHandler: authenticate }, async (request, r
             });
         });
         
+<<<<<<< HEAD
         // Actualizar estadísticas por modo de juego
         await new Promise((resolve, reject) => {
             // Primero intentar insertar si no existe
@@ -694,6 +804,8 @@ fastify.post('/api/game-result', { preHandler: authenticate }, async (request, r
             });
         });
         
+=======
+>>>>>>> main
         return reply.code(200).send({
             message: 'Resultado de juego guardado',
             gameId,
@@ -736,6 +848,7 @@ fastify.get('/api/game-history', { preHandler: authenticate }, async (request, r
     }
 });
 
+<<<<<<< HEAD
 // Obtener ranking global
 fastify.get('/api/rankings/global', async (request, reply) => {
     try {
@@ -840,6 +953,8 @@ fastify.get('/api/game-modes', async (request, reply) => {
     }
 });
 
+=======
+>>>>>>> main
 // Ruta HTTP de ejemplo
 fastify.post('/greet', async (request, reply) => {
     const { username } = request.body;

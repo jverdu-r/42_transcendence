@@ -4,6 +4,7 @@ import { navigateTo } from '../router';
 // Importa las funciones de internacionalización
 import { getTranslation, setLanguage, getCurrentLanguage } from '../i18n';
 
+<<<<<<< HEAD
 // Interface for user profile data (matching backend response structure)
 interface UserProfile {
   user: {
@@ -12,6 +13,14 @@ interface UserProfile {
     email: string;
     created_at: string;
   };
+=======
+// Interface for user profile data
+interface UserProfile {
+  id: number;
+  username: string;
+  email: string;
+  created_at: string;
+>>>>>>> main
   stats: {
     matches_played: number;
     wins: number;
@@ -113,8 +122,12 @@ async function fetchGameHistory(): Promise<GameHistory[]> {
 
     if (response.ok) {
       const data = await response.json();
+<<<<<<< HEAD
       // Extract the games array from the response object
       return Array.isArray(data.games) ? data.games : [];
+=======
+      return data;
+>>>>>>> main
     } else {
       console.error(`Failed to fetch game history: ${response.status}`);
       return [];
@@ -187,7 +200,11 @@ function renderProfileWithData(userProfile: UserProfile, gameHistory: GameHistor
     }
     
     return games.map(game => {
+<<<<<<< HEAD
       const currentUserId = userProfile.user.id;
+=======
+      const currentUserId = userProfile.id;
+>>>>>>> main
       const isWinner = game.winner_id === currentUserId;
       const opponentName = game.player1_id === currentUserId ? game.player2_username : game.player1_username;
       const playerScore = game.player1_id === currentUserId ? game.player1_score : game.player2_score;
@@ -224,9 +241,15 @@ function renderProfileWithData(userProfile: UserProfile, gameHistory: GameHistor
             </svg>
             </div>
           </div>
+<<<<<<< HEAD
         <h2 class="text-3xl sm:text-4xl font-display font-extrabold text-[#ffc300] mb-4 sm:mb-6 drop-shadow-md leading-tight">${userProfile.user.username}</h2>
         <p class="text-gray-300 mb-2">${userProfile.user.email}</p>
         <p class="text-gray-400 text-sm mb-4">${getTranslation('profile', 'memberSince') || 'Member since'} ${formatDate(userProfile.user.created_at)}</p>
+=======
+        <h2 class="text-3xl sm:text-4xl font-display font-extrabold text-[#ffc300] mb-4 sm:mb-6 drop-shadow-md leading-tight">${userProfile.username}</h2>
+        <p class="text-gray-300 mb-2">${userProfile.email}</p>
+        <p class="text-gray-400 text-sm mb-4">${getTranslation('profile', 'memberSince') || 'Member since'} ${formatDate(userProfile.created_at)}</p>
+>>>>>>> main
         <button
           id="edit-profile-button"
           class="bg-gradient-to-r from-[#ffc300] to-[#ffd60a] text-[#000814] py-2 sm:py-3 px-4 sm:px-6 rounded-xl font-bold text-base sm:text-lg hover:from-[#ffd60a] hover:to-[#ffc300] transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-75"

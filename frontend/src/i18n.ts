@@ -115,6 +115,7 @@ const translations: Translations = {
             error: "Error",
             errorMessage: "Error al cargar el perfil. Por favor, inténtalo de nuevo.",
             loadingProfile: "Cargando perfil...",
+<<<<<<< HEAD
             profileLoadError: "No se pudo cargar la información del perfil",
             memberSince: "Miembro desde",
             gameStatsTitle: "Estadísticas de Juego",
@@ -128,6 +129,9 @@ const translations: Translations = {
             "weeksAgo": "semanas atrás",
             loading: "Cargando...",
             retry: "Reintentar"
+=======
+            profileLoadError: "No se pudo cargar la información del perfil"
+>>>>>>> main
         },
         play: {
             selectGameMode: "Selecciona un Modo de Juego",
