@@ -8,6 +8,8 @@ import { renderSettingsPage } from './pages/settings';
 import { renderLoginPage } from './pages/login';
 import { renderRegister } from './pages/register'; // Asegúrate de importar renderRegister
 import { renderNavbar } from './components/navbar';
+import { renderMatchmakingPage } from './pages/matchmaking';
+import { isAuthenticated, requireAuth } from './auth';
 
 // Define tus rutas
 const routes: { [key: string]: () => void } = {
@@ -19,7 +21,7 @@ const routes: { [key: string]: () => void } = {
   '/settings': renderSettingsPage,
   '/login': renderLoginPage,
   '/register': renderRegister, // Añade la ruta para la página de registro
-  // Añade otras rutas según sea necesario
+  '/matchmaking': renderMatchmakingPage, // Añade la ruta para la página de matchmaking
 };
 
 /**
@@ -45,9 +47,10 @@ function setupMainAppLayout(): void {
 /**
  * Navega a una nueva ruta, renderiza la página correspondiente y actualiza el historial del navegador.
  * También asegura que el navbar se vuelva a renderizar para reflejar el enlace activo, si aplica.
+ * Incluye protección de rutas basada en autenticación.
  * @param path La ruta a la que navegar.
  */
-export function navigateTo(path: string): void {
+export async function navigateTo(path: string): Promise<void> {
   const appRoot = document.getElementById('app-root') as HTMLElement;
   if (!appRoot) {
     console.error('Elemento con id "app-root" no encontrado. No se puede navegar.');
@@ -57,6 +60,24 @@ export function navigateTo(path: string): void {
   const isAuthPage = path === '/login' || path === '/register';
   const currentPagePath = window.location.pathname;
   const wasAuthPage = currentPagePath === '/login' || currentPagePath === '/register';
+  
+  // Verificar autenticación del usuario
+  const userIsAuthenticated = await isAuthenticated();
+
+  // Protección de rutas
+  if (isAuthPage && userIsAuthenticated) {
+    // Si el usuario está autenticado y trata de acceder a login/register, redirigir a home
+    console.log('Usuario autenticado intentando acceder a página de auth, redirigiendo a home');
+    navigateTo('/home');
+    return;
+  }
+
+  if (!isAuthPage && !userIsAuthenticated) {
+    // Si el usuario no está autenticado y trata de acceder a páginas protegidas, redirigir a login
+    console.log('Usuario no autenticado intentando acceder a página protegida, redirigiendo a login');
+    navigateTo('/login');
+    return;
+  }
 
   if (isAuthPage) {
     // Si vamos a una página de autenticación, limpiamos todo el appRoot

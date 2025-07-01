@@ -32,6 +32,7 @@ import {
     drawMessage
 } from './draw';
 import { AIPlayer } from './ai'; // Importa la clase AIPlayer
+import { navigateTo } from '../../router'; // Importar navegación
 
 // NEW: Import GameMode and AIDifficulty from index.ts to ensure type consistency
 import { GameMode, AIDifficulty } from './index';
@@ -57,7 +58,7 @@ interface Ball {
  */
 
 export class Game {
-    private canvas: HTMLCanvasElement;
+    protected canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
     protected player1: Paddle; // <--- CAMBIAR
     protected player1Paddle2: Paddle | null; // <--- CAMBIAR
@@ -68,12 +69,12 @@ export class Game {
     protected score2: number; // <--- CAMBIAR
     protected gameState: string;
     private animationFrameId: number | null;
-    private keysPressed: { [key: string]: boolean };
-    private gameMode: GameMode;
+    protected keysPressed: { [key: string]: boolean };
+    protected gameMode: GameMode;
     private aiPlayer: AIPlayer | null;
-    private isMobile: boolean;
-    private countdownTimer: number;
-    private countdownValue: number;
+    protected isMobile: boolean;
+    protected countdownTimer: number;
+    protected countdownValue: number;
     public isRunning: boolean;
 
     // Updated constructor to use the imported GameMode and AIDifficulty types
@@ -318,7 +319,7 @@ export class Game {
     }
 
 
-    private updateGameLogic(): void { // Renamed from `update` to avoid confusion with the public `update` in loop
+    protected updateGameLogic(): void { // Renamed from `update` to avoid confusion with the public `update` in loop
         // Handle countdown logic first.
         if (this.gameState === GAME_STATE.COUNTDOWN) {
             this.countdownTimer -= (1000 / 60); // Assuming 60 FPS
@@ -519,7 +520,7 @@ export class Game {
      * @param paddle The paddle to check collision against.
      * @param prevBallX The ball's X position in the previous frame.
      */
-    private checkPaddleCollision(paddle: Paddle, prevBallX: number): boolean {
+    protected checkPaddleCollision(paddle: Paddle, prevBallX: number): boolean {
         const ballLeft = this.ball.x - BALL_RADIUS;
         const ballRight = this.ball.x + BALL_RADIUS;
         const ballTop = this.ball.y - BALL_RADIUS;
@@ -562,7 +563,7 @@ export class Game {
      * Resets the ball to the center of the canvas and randomizes its initial direction.
      * Ball speed is reset to original values.
      */
-    private resetBall(): void {
+    protected resetBall(): void {
         this.ball.x = CANVAS_WIDTH / 2;
         this.ball.y = CANVAS_HEIGHT / 2;
         // Reset current speeds to original base speeds, with a random initial horizontal direction
@@ -595,6 +596,7 @@ export class Game {
         } else if (this.gameState === GAME_STATE.GAME_OVER) {
             const winnerMessage = this.score1 >= MAX_SCORE ? MESSAGES.PLAYER1_WINS : MESSAGES.PLAYER2_WINS;
             drawMessage(this.ctx, winnerMessage);
+            this.showVictoryScreen(winnerMessage);
         } else if (this.gameState === GAME_STATE.COUNTDOWN) { // Dibuja la cuenta regresiva
             drawMessage(this.ctx, this.countdownValue.toString());
         }
@@ -691,5 +693,47 @@ export class Game {
         }
         this.gameState = GAME_STATE.STOPPED;
         this.isRunning = false; // Ensure isRunning is false when stopped
+    }
+
+    /**
+     * Shows the victory screen with a button to return to game mode selection
+     */
+    private showVictoryScreen(winnerMessage: string): void {
+        // Check if victory overlay already exists
+        let victoryOverlay = document.getElementById('victory-overlay');
+        if (victoryOverlay) {
+            return; // Already showing
+        }
+
+        // Create victory overlay
+        victoryOverlay = document.createElement('div');
+        victoryOverlay.id = 'victory-overlay';
+        victoryOverlay.className = 'absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-20 rounded-lg';
+        
+        const victoryContent = document.createElement('div');
+        victoryContent.className = 'text-center p-6 bg-white bg-opacity-10 backdrop-filter backdrop-blur-xl rounded-xl border border-[#003566] max-w-sm w-full mx-4';
+        
+        const victoryTitle = document.createElement('h3');
+        victoryTitle.className = 'text-2xl md:text-3xl font-bold text-[#ffc300] mb-4';
+        victoryTitle.textContent = winnerMessage;
+        
+        const victoryButton = document.createElement('button');
+        victoryButton.className = 'bg-[#ffc300] text-[#000814] py-3 px-6 rounded-lg font-semibold hover:bg-[#ffd60a] transition-colors text-base';
+        victoryButton.textContent = 'Volver al menú de selección';
+        victoryButton.onclick = () => {
+            this.stop();
+            navigateTo('/play');
+        };
+        
+        victoryContent.appendChild(victoryTitle);
+        victoryContent.appendChild(victoryButton);
+        victoryOverlay.appendChild(victoryContent);
+        
+        // Add to canvas container
+        const canvasContainer = this.canvas.parentElement;
+        if (canvasContainer) {
+            canvasContainer.style.position = 'relative';
+            canvasContainer.appendChild(victoryOverlay);
+        }
     }
 }

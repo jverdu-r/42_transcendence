@@ -12,7 +12,7 @@ export class OnlineGameManager {
   private matchmakingActive = false
   private playerName: string = ''
   private opponent: string = ''
-  private ws: WebSocket | null = null
+  // Remove duplicate WebSocket - we'll use onlineGameService
 
   constructor() {
     this.setupEventListeners()
@@ -33,65 +33,48 @@ export class OnlineGameManager {
     this.opponent = ''
     this.updateMatchmakingUI('searching')
 
-    // Cierra cualquier conexión previa
-    if (this.ws) {
-      this.ws.close()
-      this.ws = null
-    }
+    // Use onlineGameService instead of creating our own WebSocket
+    onlineGameService.setPlayerName(this.playerName)
 
-    // Conexión WebSocket
-    const wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
-      window.location.hostname + ':3000/ws'
-    this.ws = new WebSocket(wsUrl)
-
-    this.ws.onopen = () => {
-      // Envía join-game al conectar
-      this.ws?.send(JSON.stringify({ type: 'join-game', name: this.playerName }))
-    }
-
-    this.ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data)
-        if (data.type === 'waiting') {
-          this.updateMatchmakingUI('searching')
-        } else if (data.type === 'opponentFound') {
-          this.opponent = data.opponent
-          this.updateMatchmakingUI('found', this.opponent)
-          // Solo pasa las propiedades de MatchFoundData
-          this.handleMatchFound({
-            type: 'opponentFound',
-            opponent: data.opponent,
-            message: data.message,
-            gameMode: data.gameMode,
-            isHost: data.isHost
-          })
-        } else if (data.type === 'opponent_disconnected') {
-          this.showErrorMessage(getTranslation('play', 'opponentDisconnected'))
-          this.endGame()
-        } else if (data.type === 'waiting_timeout') {
-          this.showErrorMessage(getTranslation('play', 'matchmakingTimeout'))
-          this.cancelMatchmaking()
-        } else if (data.type === 'error') {
-          this.showErrorMessage(data.message || 'Error en matchmaking')
-          this.cancelMatchmaking()
-        }
-        // Puedes manejar otros tipos de mensajes aquí
-      } catch (e) {
-        this.showErrorMessage('Error de comunicación con el servidor')
+    // Setup event listeners for onlineGameService
+    onlineGameService.onConnectionChanged((connected: boolean) => {
+      if (!connected && this.matchmakingActive) {
+        this.showErrorMessage('Conexión perdida con el servidor')
         this.cancelMatchmaking()
       }
-    }
+    })
 
-    this.ws.onerror = () => {
-      this.showErrorMessage('Error de red o conexión con el servidor')
+    onlineGameService.onMatchFoundEvent((data: MatchFoundData) => {
+      this.opponent = data.opponent
+      this.updateMatchmakingUI('found', this.opponent)
+      this.handleMatchFound(data)
+    })
+
+    onlineGameService.onErrorEvent((error: string) => {
+      this.showErrorMessage(error)
       this.cancelMatchmaking()
-    }
+    })
 
-    this.ws.onclose = () => {
+onlineGameService.onOpponentDisconnectedEvent(() => {
+      this.showErrorMessage(getTranslation('play', 'opponentDisconnected'));
+      this.endGame();
+    });
+
+    window.addEventListener('beforeunload', (event) => {
       if (this.matchmakingActive) {
-        this.showErrorMessage('Conexión cerrada inesperadamente')
-        this.cancelMatchmaking()
+        event.preventDefault();
+        event.returnValue = 'Hay una partida en progreso. ¿Seguro que quieres salir?';
       }
+    });
+
+    // Connect to the online game service
+    try {
+      await onlineGameService.connect(gameMode)
+      console.log('Connected to online game service')
+    } catch (error) {
+      console.error('Failed to connect to online game service:', error)
+      this.showErrorMessage('No se pudo conectar al servidor de juego')
+      this.cancelMatchmaking()
     }
   }
 
@@ -109,8 +92,20 @@ export class OnlineGameManager {
       this.showErrorMessage('No se puede iniciar la partida: falta canvas o modo de juego')
       return
     }
+    
+    // Check if there's already a game running (from renderPongPage)
+    const existingGame = (window as any).currentPongGame
+    if (existingGame) {
+      console.log('Stopping existing local game to start online game')
+      existingGame.stop()
+    }
+    
     this.currentGame = new OnlineGame(this.canvas, this.gameMode, this.isMobile)
     this.currentGame.initOnlineGame(matchData)
+    
+    // Store the online game as the current game
+    ;(window as any).currentPongGame = this.currentGame
+    
     this.updateGameUI(matchData)
     this.matchmakingActive = false
     console.log('Online game started')
@@ -143,9 +138,33 @@ export class OnlineGameManager {
   }
 
   private updateGameUI(matchData: MatchFoundData): void {
-    // Aquí puedes actualizar la UI para mostrar el juego online
-    // Por ejemplo, ocultar el matchmaking y mostrar el canvas
-    // O mostrar los nombres de los jugadores
+    // Ocultar la pantalla de matchmaking (overlay)
+    const overlay = document.getElementById('game-overlay')
+    if (overlay) {
+      overlay.style.display = 'none'
+    }
+
+    // Actualizar los nombres de los jugadores en el marcador
+    const player1Element = document.getElementById('player1-score')
+    const player2Element = document.getElementById('player2-score')
+    
+    if (player1Element) {
+      player1Element.textContent = `${matchData.isHost ? this.playerName : matchData.opponent}: 0`
+    }
+    
+    if (player2Element) {
+      player2Element.textContent = `${matchData.isHost ? matchData.opponent : this.playerName}: 0`
+    }
+
+    console.log(`Game UI updated - You: ${this.playerName}, Opponent: ${matchData.opponent}, Host: ${matchData.isHost}`)
+    
+    // Iniciar automáticamente la cuenta atrás cuando ambos jugadores estén conectados
+    setTimeout(() => {
+      if (this.currentGame) {
+        console.log('Starting automatic countdown for online game')
+        this.currentGame.startCountdown()
+      }
+    }, 1000) // Pequeño delay para asegurar que todo esté listo
   }
 
   private handleError(error: string): void {
@@ -177,10 +196,6 @@ export class OnlineGameManager {
   public cancelMatchmaking(): void {
     if (this.matchmakingActive) {
       this.matchmakingActive = false
-      if (this.ws) {
-        this.ws.close()
-        this.ws = null
-      }
       onlineGameService.disconnect()
       this.updateMatchmakingUI('disconnected')
       console.log('Matchmaking cancelled')
@@ -191,10 +206,6 @@ export class OnlineGameManager {
     if (this.currentGame) {
       this.currentGame.stop()
       this.currentGame = null
-    }
-    if (this.ws) {
-      this.ws.close()
-      this.ws = null
     }
     onlineGameService.disconnect()
     this.matchmakingActive = false
@@ -216,8 +227,9 @@ export class OnlineGameManager {
     playerName: string
     opponent: string
   } {
+    const serviceStatus = onlineGameService.getConnectionStatus()
     return {
-      connected: !!this.ws && this.ws.readyState === WebSocket.OPEN,
+      connected: serviceStatus.connected,
       matchmaking: this.matchmakingActive,
       inGame: this.currentGame !== null,
       playerName: this.playerName,

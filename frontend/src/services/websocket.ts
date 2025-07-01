@@ -1,7 +1,8 @@
 // src/services/websocket.ts
 
 /**
- * WebSocket service for online matchmaking and game synchronization
+ * Servicio WebSocket para el emparejamiento online y la sincronización del juego.
+ * Este archivo gestiona la conexión WebSocket del cliente al servidor de emparejamiento.
  */
 
 export interface GameSyncData {
@@ -14,11 +15,11 @@ export interface GameSyncData {
     };
     player1: {
         y: number;
-        paddle2Y?: number; // For 2v1 and 2v2 modes
+        paddle2Y?: number; // Para modos 2v1 y 2v2
     };
     player2: {
         y: number;
-        paddle2Y?: number; // For 1v2 and 2v2 modes
+        paddle2Y?: number; // Para modos 1v2 y 2v2
     };
     score1: number;
     score2: number;
@@ -31,7 +32,7 @@ export interface PlayerInputData {
     playerId: string;
     input: {
         paddle1: { dy: number };
-        paddle2?: { dy: number }; // For multi-paddle modes
+        paddle2?: { dy: number }; // Para modos de múltiples paletas
     };
     timestamp: number;
 }
@@ -41,7 +42,7 @@ export interface MatchFoundData {
     opponent: string;
     message: string;
     gameMode: string;
-    isHost: boolean; // Host controls game state
+    isHost: boolean; // El host controla el estado del juego
 }
 
 export interface WebSocketMessage {
@@ -60,18 +61,20 @@ export class OnlineGameService {
     private maxReconnectAttempts: number = 5;
     private reconnectDelay: number = 1000;
 
-    // Event callbacks
+    // Callbacks para eventos del servicio
     private onConnectionChange: ((connected: boolean) => void) | null = null;
     private onMatchFound: ((data: MatchFoundData) => void) | null = null;
     private onGameSync: ((data: GameSyncData) => void) | null = null;
     private onPlayerInput: ((data: PlayerInputData) => void) | null = null;
     private onOpponentDisconnected: (() => void) | null = null;
+    private onGameEnd: ((data: any) => void) | null = null;
     private onError: ((error: string) => void) | null = null;
 
     constructor() {
         this.playerName = this.generatePlayerName();
     }
 
+    // Genera un nombre de jugador aleatorio
     private generatePlayerName(): string {
         const adjectives = ['Swift', 'Mighty', 'Clever', 'Bold', 'Quick', 'Sharp', 'Brave', 'Smart'];
         const nouns = ['Pong', 'Player', 'Master', 'Champion', 'Ace', 'Pro', 'Star', 'Hero'];
@@ -81,23 +84,27 @@ export class OnlineGameService {
         return `${adj}${noun}${num}`;
     }
 
+    // Establece el nombre del jugador
     public setPlayerName(name: string): void {
         this.playerName = name.trim() || this.generatePlayerName();
     }
 
+    // Obtiene el nombre del jugador
     public getPlayerName(): string {
         return this.playerName;
     }
 
+    // Verifica si es el host del juego
     public isGameHost(): boolean {
         return this.isHost;
     }
 
+    // Obtiene el nombre del oponente
     public getOpponent(): string {
         return this.opponent;
     }
 
-    // Event listeners
+    // Métodos para registrar callbacks de eventos
     public onConnectionChanged(callback: (connected: boolean) => void): void {
         this.onConnectionChange = callback;
     }
@@ -118,76 +125,92 @@ export class OnlineGameService {
         this.onOpponentDisconnected = callback;
     }
 
+    public onGameEndEvent(callback: (data: any) => void): void {
+        this.onGameEnd = callback;
+    }
+
     public onErrorEvent(callback: (error: string) => void): void {
         this.onError = callback;
     }
 
+    // Conecta al servicio WebSocket
     public async connect(gameMode: string): Promise<boolean> {
         return new Promise((resolve, reject) => {
             try {
                 this.gameMode = gameMode;
-                this.ws = new WebSocket('ws://localhost:3000/ws');
+                // *** CORRECCIÓN CRÍTICA AQUÍ: ***
+                // La URL del WebSocket debe apuntar a Nginx (que actúa como proxy),
+                // y Nginx redirigirá al backend. Usar el mismo host y puerto que la aplicación.
+                const wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
+                window.location.host + '/ws';
+                console.log('Connecting to WebSocket:', wsUrl);
+                this.ws = new WebSocket(wsUrl);
 
+                // Evento al abrir la conexión WebSocket
                 this.ws.onopen = () => {
-                    console.log('WebSocket connected');
+                    console.log('WebSocket conectado');
                     this.isConnected = true;
                     this.reconnectAttempts = 0;
-                    this.onConnectionChange?.(true);
+                    this.onConnectionChange?.(true); // Llama al callback de cambio de conexión
                     
-                    // Send join game message
+                    // Envía el mensaje de unirse al juego una vez la conexión esté abierta
                     this.sendMessage({
                         type: 'join-game',
                         name: this.playerName,
                         gameMode: gameMode
                     });
                     
-                    resolve(true);
+                    resolve(true); // Resuelve la promesa indicando éxito
                 };
 
+                // Evento al recibir un mensaje del WebSocket
                 this.ws.onmessage = (event) => {
                     try {
-                        const data = JSON.parse(event.data);
-                        this.handleMessage(data);
+                        const data = JSON.parse(event.data); // Parsea el mensaje JSON
+                        this.handleMessage(data); // Procesa el mensaje
                     } catch (error) {
-                        console.error('Error parsing WebSocket message:', error);
+                        console.error('Error al parsear mensaje WebSocket:', error);
                     }
                 };
 
+                // Evento al cerrar la conexión WebSocket
                 this.ws.onclose = () => {
-                    console.log('WebSocket disconnected');
+                    console.log('WebSocket desconectado');
                     this.isConnected = false;
-                    this.onConnectionChange?.(false);
-                    this.attemptReconnect();
+                    this.onConnectionChange?.(false); // Llama al callback de cambio de conexión
+                    this.attemptReconnect(); // Intenta reconectar automáticamente
                 };
 
+                // Evento de error del WebSocket
                 this.ws.onerror = (error) => {
-                    console.error('WebSocket error:', error);
-                    this.onError?.('Connection error. Please check if the server is running.');
-                    reject(error);
+                    console.error('Error WebSocket:', error);
+                    this.onError?.('Error de conexión. Por favor, verifica si el servidor está funcionando.'); // Llama al callback de error
+                    reject(error); // Rechaza la promesa indicando un error
                 };
 
             } catch (error) {
-                console.error('Failed to create WebSocket connection:', error);
-                this.onError?.('Failed to connect to game server.');
-                reject(error);
+                console.error('Fallo al crear la conexión WebSocket:', error);
+                this.onError?.('Fallo al conectar al servidor de juego.'); // Llama al callback de error
+                reject(error); // Rechaza la promesa
             }
         });
     }
 
+    // Maneja los diferentes tipos de mensajes recibidos del servidor
     private handleMessage(data: WebSocketMessage): void {
         switch (data.type) {
             case 'status':
-                console.log('Server status:', data.message);
+                console.log('Estado del servidor:', data.message);
                 break;
 
             case 'waiting':
-                console.log('Waiting for opponent:', data.message);
+                console.log('Esperando oponente:', data.message);
                 break;
 
             case 'opponentFound':
-                console.log('Match found:', data);
+                console.log('Emparejamiento encontrado:', data);
                 this.opponent = data.opponent;
-                this.isHost = data.isHost || false; // Backend should send this
+                this.isHost = data.isHost || false; // Asigna si es el host (viene del backend)
                 
                 const matchData: MatchFoundData = {
                     type: 'opponentFound',
@@ -196,46 +219,58 @@ export class OnlineGameService {
                     gameMode: this.gameMode,
                     isHost: this.isHost
                 };
-                this.onMatchFound?.(matchData);
+                this.onMatchFound?.(matchData); // Llama al callback de emparejamiento encontrado
                 break;
 
             case 'game_sync':
-                this.onGameSync?.(data as GameSyncData);
+                this.onGameSync?.(data as GameSyncData); // Llama al callback de sincronización de juego
                 break;
 
             case 'player_input':
-                this.onPlayerInput?.(data as PlayerInputData);
+                this.onPlayerInput?.(data as PlayerInputData); // Llama al callback de entrada del jugador
                 break;
 
             case 'opponent_disconnected':
-                this.onOpponentDisconnected?.();
+                this.onOpponentDisconnected?.(); // Llama al callback de desconexión del oponente
+                break;
+
+            case 'game_end':
+                this.onGameEnd?.(data); // Llama al callback de fin de juego
+                break;
+
+            case 'waiting_timeout':
+                console.log('Timeout en matchmaking:', data.message);
+                this.onError?.(data.message || 'No se encontró oponente a tiempo');
                 break;
 
             case 'error':
-                console.error('Server error:', data.message);
-                this.onError?.(data.message);
+                console.error('Error del servidor:', data.message);
+                this.onError?.(data.message); // Llama al callback de error
                 break;
 
             default:
-                console.warn('Unknown message type:', data.type);
+                console.warn('Tipo de mensaje desconocido:', data.type);
         }
     }
 
+    // Intenta reconectar al servidor después de una desconexión
     private attemptReconnect(): void {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
-            console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+            console.log(`Intentando reconectar... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
             
             setTimeout(() => {
+                // Solo intenta reconectar si no está ya conectado y el modo de juego está definido
                 if (!this.isConnected && this.gameMode) {
                     this.connect(this.gameMode);
                 }
-            }, this.reconnectDelay * this.reconnectAttempts);
+            }, this.reconnectDelay * this.reconnectAttempts); // Retraso exponencial
         } else {
-            this.onError?.('Connection lost. Maximum reconnection attempts reached.');
+            this.onError?.('Conexión perdida. Se alcanzó el máximo de intentos de reconexión.'); // Llama al callback de error
         }
     }
 
+    // Envía datos de sincronización del juego al servidor
     public sendGameSync(data: Omit<GameSyncData, 'type' | 'timestamp'>): void {
         if (!this.isConnected || !this.ws) return;
 
@@ -248,6 +283,7 @@ export class OnlineGameService {
         this.sendMessage(message);
     }
 
+    // Envía la entrada del jugador al servidor
     public sendPlayerInput(input: PlayerInputData['input']): void {
         if (!this.isConnected || !this.ws) return;
 
@@ -261,6 +297,7 @@ export class OnlineGameService {
         this.sendMessage(message);
     }
 
+    // Envía un mensaje de inicio de juego (solo si es el host)
     public sendGameStart(): void {
         if (!this.isConnected || !this.ws || !this.isHost) return;
 
@@ -270,6 +307,7 @@ export class OnlineGameService {
         });
     }
 
+    // Envía un mensaje de fin de juego
     public sendGameEnd(winner: string, score1: number, score2: number): void {
         if (!this.isConnected || !this.ws) return;
 
@@ -282,12 +320,14 @@ export class OnlineGameService {
         });
     }
 
+    // Método privado para enviar mensajes a través del WebSocket
     private sendMessage(message: any): void {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify(message));
         }
     }
 
+    // Desconecta el WebSocket y reinicia el estado del servicio
     public disconnect(): void {
         if (this.ws) {
             this.isConnected = false;
@@ -297,6 +337,7 @@ export class OnlineGameService {
         this.reset();
     }
 
+    // Reinicia el estado interno del servicio
     private reset(): void {
         this.isHost = false;
         this.opponent = '';
@@ -304,6 +345,7 @@ export class OnlineGameService {
         this.reconnectAttempts = 0;
     }
 
+    // Obtiene el estado actual de la conexión y el jugador
     public getConnectionStatus(): {
         connected: boolean;
         playerName: string;
@@ -321,5 +363,5 @@ export class OnlineGameService {
     }
 }
 
-// Singleton instance
+// Instancia Singleton del servicio para asegurar una única conexión
 export const onlineGameService = new OnlineGameService();

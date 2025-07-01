@@ -140,10 +140,60 @@ export function renderLoginPage(): void {
 
         const loginButton = document.getElementById('login-button');
         if (loginButton) {
-            loginButton.addEventListener('click', (event) => {
+            loginButton.addEventListener('click', async (event) => {
                 event.preventDefault();
-                console.log('Intento de inicio de sesión...');
-                navigateTo('/home');
+                
+                const usernameInput = document.getElementById('username') as HTMLInputElement;
+                const passwordInput = document.getElementById('password') as HTMLInputElement;
+                
+                if (!usernameInput || !passwordInput) {
+                    console.error('No se encontraron los campos de username o password');
+                    return;
+                }
+                
+                const username = usernameInput.value.trim();
+                const password = passwordInput.value;
+                
+                if (!username || !password) {
+                    alert('Por favor, completa todos los campos');
+                    return;
+                }
+                
+                try {
+                    // Deshabilitar botón durante la solicitud
+                    loginButton.setAttribute('disabled', 'true');
+                    loginButton.textContent = 'Iniciando sesión...';
+                    
+                    const response = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ username, password })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok && data.token) {
+                        // Guardar token y datos del usuario en localStorage
+                        localStorage.setItem('authToken', data.token);
+                        localStorage.setItem('userData', JSON.stringify(data.user));
+                        
+                        console.log('Login exitoso:', data.user);
+                        navigateTo('/home');
+                    } else {
+                        // Mostrar error
+                        alert(data.message || 'Error al iniciar sesión');
+                        console.error('Error de login:', data);
+                    }
+                } catch (error) {
+                    console.error('Error de red al hacer login:', error);
+                    alert('Error de conexión. Por favor, intenta nuevamente.');
+                } finally {
+                    // Rehabilitar botón
+                    loginButton.removeAttribute('disabled');
+                    loginButton.textContent = getTranslation('login', 'loginButton');
+                }
             });
         }
 

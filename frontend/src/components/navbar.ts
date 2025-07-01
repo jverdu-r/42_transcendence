@@ -2,6 +2,7 @@
 
 import { navigateTo } from '../router';
 import { getTranslation, setLanguage, getCurrentLanguage } from '../i18n';
+import { logout } from '../auth';
 
 /**
  * Renders the navigation bar and attaches its event listeners.
@@ -32,7 +33,7 @@ export function renderNavbar(currentPath: string): void {
                         <a href="/settings" class="${currentPath === '/settings' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('home', 'settings')}</a>
                     </li>
                     <li>
-                        <a href="/login" class="${currentPath === '/login' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('home', 'logout')}</a>
+                        <button id="logout-btn-desktop" class="text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200 bg-transparent border-none cursor-pointer">${getTranslation('home', 'logout')}</button>
                     </li>
                 </ul>
                 <div class="relative z-50">
@@ -103,7 +104,7 @@ export function renderNavbar(currentPath: string): void {
                             <a href="/settings" class="${currentPath === '/settings' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}">${getTranslation('home', 'settings')}</a>
                         </li>
                         <li>
-                            <a href="/login" class="${currentPath === '/login' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}">${getTranslation('home', 'logout')}</a>
+                            <button id="logout-btn-mobile" class="block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2 bg-transparent border-none cursor-pointer w-full text-center">${getTranslation('home', 'logout')}</button>
                         </li>
                         <li class="mt-4 pt-4 border-t border-[#003566] w-full text-center">
                             <div class="inline-block">
@@ -247,6 +248,26 @@ export function renderNavbar(currentPath: string): void {
                     // Cierra el menú principal al hacer clic en un enlace de navegación
                     menuToggle.checked = false;
                 });
+            });
+        }
+
+        // Logout button event listeners
+        const logoutBtnDesktop = document.getElementById('logout-btn-desktop');
+        const logoutBtnMobile = document.getElementById('logout-btn-mobile');
+
+        if (logoutBtnDesktop) {
+            logoutBtnDesktop.addEventListener('click', (event) => {
+                event.preventDefault();
+                logout();
+            });
+        }
+
+        if (logoutBtnMobile) {
+            logoutBtnMobile.addEventListener('click', (event) => {
+                event.preventDefault();
+                // Close mobile menu first
+                if (menuToggle) menuToggle.checked = false;
+                logout();
             });
         }
     } else {

@@ -1,281 +1,874 @@
-// src/app.js
+// src/app.js - VERSIÓN CON AUTENTICACIÓN SQLITE
 
 const fastify = require('fastify')({
-    logger: true // Habilita el logger para ver los mensajes de info, warn y error
+    logger: true
+});
+const sqlite3 = require('sqlite3').verbose();
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const path = require('path');
+
+// JWT Secret (en producción debería venir de variables de entorno)
+const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_muy_larga_y_segura';
+
+// Inicializar base de datos SQLite
+const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../../database/game.db');
+console.log('🔍 Database path:', dbPath);
+const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+        console.error('Error conectando a SQLite:', err.message);
+    } else {
+        console.log('✅ Conectado a la base de datos SQLite');
+        // Crear tablas si no existen
+        initializeDatabase();
+    }
 });
 
-// AÑADE ESTA LÍNEA AQUÍ
-const WebSocket = require('ws'); // Asegúrate de que el módulo 'ws' esté disponible explícitamente
-
-// Registrar el plugin CORS para permitir peticiones desde el frontend
-// COMENTA TEMPORALMENTE ESTA LÍNEA Y EL BLOQUE PARA DEPURACIÓN
-// fastify.register(require('@fastify/cors'), {
-//     origin: '*', // Permite cualquier origen. En producción, deberías especificar los dominios permitidos.
-//     methods: ['GET', 'POST', 'PUT', 'DELETE'], // Métodos HTTP permitidos
-//     allowedHeaders: ['Content-Type', 'Authorization'] // Cabeceras permitidas
-// });
-
-// Registrar el plugin WebSocket
-fastify.register(require('@fastify/websocket'));
-
-let waitingPlayerSocket = null; // Almacena el socket del jugador esperando oponente
-let waitingTimeout = null;      // Temporizador para el timeout de espera
-const activeGames = [];         // Array para almacenar los juegos activos
-
-/**
- * Limpia el estado del jugador en espera (si lo hay).
- * @param {string} reason - Razón por la cual se limpia la espera (ej. 'timeout', 'matched', 'left', 'error').
- */
-function clearWaitingPlayer(reason = 'timeout') {
-    if (waitingPlayerSocket) {
-        // Solo intenta enviar si el socket existe y está abierto
-        if (waitingPlayerSocket.ws && waitingPlayerSocket.ws.readyState === 1) {
-            waitingPlayerSocket.ws.send(JSON.stringify({
-                type: 'waiting_timeout',
-                message: reason === 'timeout'
-                    ? 'No se encontró oponente a tiempo. Intenta de nuevo.'
-                    : 'Saliste de la cola de espera.'
-            }));
-            waitingPlayerSocket.ws.close(); // Cierra el socket del jugador en espera
+// Función para inicializar la base de datos
+function initializeDatabase() {
+    const createTables = `
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            email TEXT UNIQUE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            session_token TEXT UNIQUE NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        );
+        
+        CREATE TABLE IF NOT EXISTS games (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player1_id INTEGER NOT NULL,
+            player2_id INTEGER NOT NULL,
+            winner_id INTEGER,
+            player1_score INTEGER DEFAULT 0,
+            player2_score INTEGER DEFAULT 0,
+            game_mode TEXT DEFAULT 'classic',
+            duration INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (player1_id) REFERENCES users (id),
+            FOREIGN KEY (player2_id) REFERENCES users (id),
+            FOREIGN KEY (winner_id) REFERENCES users (id)
+        );
+        
+        CREATE TABLE IF NOT EXISTS user_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER UNIQUE NOT NULL,
+            games_played INTEGER DEFAULT 0,
+            games_won INTEGER DEFAULT 0,
+            games_lost INTEGER DEFAULT 0,
+            total_score INTEGER DEFAULT 0,
+            highest_score INTEGER DEFAULT 0,
+            win_streak INTEGER DEFAULT 0,
+            best_win_streak INTEGER DEFAULT 0,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        );
+        
+        CREATE TABLE IF NOT EXISTS user_stats_by_mode (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            game_mode TEXT NOT NULL,
+            games_played INTEGER DEFAULT 0,
+            games_won INTEGER DEFAULT 0,
+            games_lost INTEGER DEFAULT 0,
+            total_score INTEGER DEFAULT 0,
+            highest_score INTEGER DEFAULT 0,
+            win_streak INTEGER DEFAULT 0,
+            best_win_streak INTEGER DEFAULT 0,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            UNIQUE(user_id, game_mode)
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
+        CREATE INDEX IF NOT EXISTS idx_sessions_token ON user_sessions (session_token);
+        CREATE INDEX IF NOT EXISTS idx_games_players ON games (player1_id, player2_id);
+        CREATE INDEX IF NOT EXISTS idx_stats_user ON user_stats (user_id);
+    `;
+    
+    db.exec(createTables, (err) => {
+        if (err) {
+            console.error('Error creando tablas:', err.message);
+        } else {
+            console.log('✅ Tablas de base de datos verificadas/creadas');
         }
-    }
-    waitingPlayerSocket = null; // Restablece el jugador en espera
-    if (waitingTimeout) {
-        clearTimeout(waitingTimeout); // Limpia el temporizador si existe
-        waitingTimeout = null;
+    });
+}
+
+// Middleware para autenticación JWT
+async function authenticate(request, reply) {
+    try {
+        const authorization = request.headers.authorization;
+        if (!authorization || !authorization.startsWith('Bearer ')) {
+            return reply.code(401).send({ error: 'Token de autorización requerido' });
+        }
+        
+        const token = authorization.substring(7);
+        const decoded = jwt.verify(token, JWT_SECRET);
+        
+        // Verificar que el usuario existe
+        const user = await new Promise((resolve, reject) => {
+            db.get('SELECT id, username, email FROM users WHERE id = ?', [decoded.userId], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+        
+        if (!user) {
+            return reply.code(401).send({ error: 'Usuario no válido' });
+        }
+        
+        request.user = user;
+    } catch (error) {
+        return reply.code(401).send({ error: 'Token no válido' });
     }
 }
 
-// Ruta WebSocket para la conexión del juego
-fastify.get('/ws', { websocket: true }, (connection, req) => {
-    // connection.socket es el objeto WebSocket real proporcionado por ws
-    const ws = connection.socket;
-    const tempConnectionId = `ConexionWS_${Math.random().toString(36).substring(7)}`;
-    fastify.log.info(`Nueva conexión WebSocket entrante: ${tempConnectionId}`);
-
-    // Log más detallado del estado del socket al inicio
-    fastify.log.info(`Estado del socket ${tempConnectionId} al inicio: readyState=${ws.readyState}, typeof ws.send=${typeof ws.send}`);
-    
-    // AÑADE ESTAS DOS LÍNEAS DE LOG PARA DEPURACIÓN PROFUNDA
-    fastify.log.info(`Es 'ws' una instancia de WebSocket del módulo 'ws'?: ${ws instanceof WebSocket}`);
-    fastify.log.info(`Métodos propios del prototipo de 'ws': ${Object.getOwnPropertyNames(Object.getPrototypeOf(ws))}`);
 
 
-    // Comprobaciones defensivas antes de enviar el mensaje inicial
-    // readyState: 0 (CONNECTING), 1 (OPEN), 2 (CLOSING), 3 (CLOSED)
-    if (ws && typeof ws.send === 'function' && ws.readyState === 1) {
-        ws.send(JSON.stringify({ type: 'status', message: 'Estoy vivo' }));
-        fastify.log.info(`Mensaje "Estoy vivo" enviado a ${tempConnectionId}`);
-    } else {
-        fastify.log.warn(`No se pudo enviar mensaje "Estoy vivo" a ${tempConnectionId}. El socket no está listo o es inválido. readyState: ${ws ? ws.readyState : 'N/A'}`);
-        // Si el socket no está listo para enviar de inmediato, es posible que sea mejor
-        // no continuar con este socket, ya que es probable que haya un problema de sincronización.
-        // Opcional: ws.close(); // Descomentar si quieres cerrar la conexión inmediatamente.
-        return; // Salir de la función para evitar procesar un socket no funcional.
+// CORS Configuration
+fastify.register(require('@fastify/cors'), {
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+});
+
+// WebSocket Configuration
+fastify.register(require('@fastify/websocket'));
+
+// Matchmaking Logic
+let waitingPlayerSocket = null;
+const activeGames = [];
+const finishedGames = new Set(); // Para evitar enviar opponent_disconnected después de game_end
+
+function clearWaitingPlayer(reason = 'timeout') {
+    if (waitingPlayerSocket) {
+        if (waitingPlayerSocket.connection && waitingPlayerSocket.connection.socket) {
+            waitingPlayerSocket.connection.socket.send(JSON.stringify({
+                type: 'waiting_timeout',
+                message: reason === 'timeout'
+                    ? 'No se encontró oponente a tiempo. Intenta de nuevo.'
+                    : `Saliste de la cola de espera por ${reason}.`
+            }));
+            waitingPlayerSocket.connection.socket.close();
+        }
     }
+    waitingPlayerSocket = null;
+}
 
-    let playerName = null; // Almacena el nombre del jugador una vez que se une a la cola
-
-    // Manejador de mensajes recibidos del cliente WebSocket
-    ws.on('message', message => {
-        fastify.log.info(`Mensaje recibido: ${message.toString()}`);
+// *** CORRECCIÓN CRÍTICA AQUÍ ***
+fastify.register(async function (fastify) {
+    fastify.get('/ws', { websocket: true }, (connection, req) => {
+        const tempConnectionId = `ConexionWS_${Math.random().toString(36).substring(7)}`;
+        fastify.log.info(`Nueva conexión WebSocket: ${tempConnectionId}`);
+        
+        
+        // Enviar mensaje inicial usando connection.socket.send
         try {
-            const data = JSON.parse(message.toString());
+            connection.socket.send(JSON.stringify({ type: 'status', message: 'Servidor WebSocket conectado' }));
+            fastify.log.info(`Mensaje inicial enviado a ${tempConnectionId}`);
+        } catch (error) {
+            fastify.log.error(`Error enviando mensaje inicial: ${error.message}`);
+        }
 
-            if (data.type === 'join-game') {
-                // Validación del nombre de usuario
-                if (!data.name || typeof data.name !== 'string' || !data.name.trim()) {
-                    if (ws.readyState === 1) {
-                        ws.send(JSON.stringify({
+        let playerName = null;
+
+        connection.socket.on('message', message => {
+            fastify.log.info(`Mensaje recibido de ${playerName || tempConnectionId}: ${message.toString()}`);
+            
+            try {
+                const data = JSON.parse(message.toString());
+
+                if (data.type === 'join-game') {
+                    // Validación del nombre
+                    if (!data.name || typeof data.name !== 'string' || !data.name.trim()) {
+                        connection.socket.send(JSON.stringify({
                             type: 'error',
                             message: 'El nombre de usuario es obligatorio y debe ser válido.'
                         }));
+                        return;
                     }
-                    return;
-                }
-                playerName = data.name.trim(); // Asigna el nombre al jugador
+                    
+                    playerName = data.name.trim();
+                    fastify.log.info(`Jugador ${playerName} se unió al matchmaking`);
 
-                // Evitar que el mismo jugador se una dos veces a la cola de espera
-                if (waitingPlayerSocket && waitingPlayerSocket.id === playerName) {
-                    if (ws.readyState === 1) {
-                        ws.send(JSON.stringify({
+                    // Prevenir duplicados
+                    if (waitingPlayerSocket && waitingPlayerSocket.id === playerName) {
+                        connection.socket.send(JSON.stringify({
                             type: 'error',
                             message: 'Ya estás esperando un oponente con ese nombre.'
                         }));
+                        return;
                     }
-                    return;
-                }
 
-                fastify.log.info(`Mensaje 'join-game' recibido de ${playerName}: ${message.toString()}`);
+                    if (waitingPlayerSocket === null) {
+                        // Primer jugador en la cola
+                        waitingPlayerSocket = { id: playerName, connection: connection };
+                        fastify.log.info(`${playerName} está esperando un oponente.`);
+                        
 
-                if (waitingPlayerSocket === null) {
-                    // Si no hay nadie esperando, este jugador entra en espera
-                    waitingPlayerSocket = { id: playerName, ws: ws };
-                    fastify.log.info(`${playerName} está esperando un oponente.`);
-
-                    if (ws.readyState === 1) {
-                        ws.send(JSON.stringify({
+                        connection.socket.send(JSON.stringify({
                             type: 'waiting',
-                            message: `Buscando oponente para ${playerName}... por favor espera.`
+                            message: `Buscando oponente para ${playerName}...`
                         }));
-                    }
+                    } else {
+                        // Emparejar jugadores
+                        const player1 = waitingPlayerSocket;
+                        const player2 = { id: playerName, connection: connection };
 
-                    // Configura un temporizador para limpiar al jugador en espera si no se encuentra oponente
-                    waitingTimeout = setTimeout(() => {
-                        fastify.log.info(`Timeout de espera para ${playerName}`);
-                        clearWaitingPlayer('timeout');
-                    }, 30000); // 30 segundos de espera
+                        fastify.log.info(`Emparejando: ${player1.id} vs ${player2.id}`);
 
-                } else {
-                    // Si ya hay un jugador esperando, empareja a ambos
-                    const player1 = waitingPlayerSocket;
-                    const player2 = { id: playerName, ws: ws };
+                        // Agregar a juegos activos
+                        activeGames.push({ player1, player2 });
+                        
 
-                    fastify.log.info(`Emparejando: ${player1.id} vs ${player2.id}`);
-
-                    // Añade el nuevo juego a la lista de juegos activos
-                    activeGames.push({ player1, player2 });
-
-                    // Notifica a Player 1 que se encontró un oponente
-                    if (player1.ws.readyState === 1) {
-                        player1.ws.send(JSON.stringify({
+                        // Notificar a ambos jugadores
+                        player1.connection.socket.send(JSON.stringify({
                             type: 'opponentFound',
                             opponent: player2.id,
-                            message: `¡Oponente encontrado! Tu oponente es ${player2.id}`
+                            message: `¡Oponente encontrado! Jugando contra ${player2.id}`,
+                            gameMode: data.gameMode || 'classic',
+                            isHost: true // Player1 es el host
                         }));
-                    }
-                    fastify.log.info(`Enviado a ${player1.id}: Tu oponente es ${player2.id}`);
 
-                    // Notifica a Player 2 que se encontró un oponente
-                    if (player2.ws.readyState === 1) {
-                        player2.ws.send(JSON.stringify({
+                        player2.connection.socket.send(JSON.stringify({
                             type: 'opponentFound',
                             opponent: player1.id,
-                            message: `¡Oponente encontrado! Tu oponente es ${player1.id}`
+                            message: `¡Oponente encontrado! Jugando contra ${player1.id}`,
+                            gameMode: data.gameMode || 'classic',
+                            isHost: false // Player2 no es el host
+                        }));
+
+                        // Limpiar cola de espera SIN desconectar al jugador
+                        waitingPlayerSocket = null;
+                    }
+                }
+                // Manejo de mensajes de juego
+                else if (['game_sync', 'game_start', 'game_end', 'player_input'].includes(data.type)) {
+                    const game = activeGames.find(g => (g.player1.connection === connection || g.player2.connection === connection));
+                    if (game) {
+                        const opponentConnection = (game.player1.connection === connection) ? game.player2.connection : game.player1.connection;
+                        
+                        // Reenviar mensaje al oponente
+                        if (opponentConnection && opponentConnection.socket) {
+                            opponentConnection.socket.send(message.toString());
+                        }
+                        
+                        // Si es game_end, marcar el juego como terminado y limpiar de activeGames
+                        if (data.type === 'game_end') {
+                            const gameIdx = activeGames.findIndex(g => g === game);
+                            if (gameIdx !== -1) {
+                                // Marcar como terminado para evitar mensajes de desconexión
+                                const gameId = `${game.player1.id}_vs_${game.player2.id}`;
+                                finishedGames.add(gameId);
+                                
+                                fastify.log.info(`Juego terminado: ${game.player1.id} vs ${game.player2.id}, ganador: ${data.winner}`);
+                                
+                                // Remover de juegos activos
+                                activeGames.splice(gameIdx, 1);
+                                
+                                
+                                // Limpiar la marca después de un tiempo para evitar acumulación
+                                setTimeout(() => {
+                                    finishedGames.delete(gameId);
+                                }, 30000); // 30 segundos
+                            }
+                        }
+                    } else {
+                        fastify.log.warn(`Mensaje de juego sin juego activo de ${playerName || tempConnectionId}`);
+                        connection.socket.send(JSON.stringify({
+                            type: 'error',
+                            message: 'No estás en un juego activo'
                         }));
                     }
-                    fastify.log.info(`Enviado a ${player2.id}: Tu oponente es ${player1.id}`);
-
-                    // Limpia el estado del jugador en espera, ya que ha sido emparejado
-                    clearWaitingPlayer('matched');
-                }
-            }
-            // Maneja mensajes relacionados con el juego (sincronización, inicio, fin, entrada del jugador)
-            else if (["game_sync", "game_start", "game_end", "player_input"].includes(data.type)) {
-                // Encuentra el juego activo al que pertenece este socket
-                const game = activeGames.find(g => (g.player1.ws === ws || g.player2.ws === ws));
-                if (game) {
-                    // Determina quién es el oponente para reenviar el mensaje
-                    const opponentWs = (game.player1.ws === ws) ? game.player2.ws : game.player1.ws;
-                    // Reenvía el mensaje al oponente si su socket está abierto
-                    if (opponentWs && opponentWs.readyState === 1) {
-                        opponentWs.send(message.toString());
-                    }
-                }
-            } else {
-                // Mensajes de tipo desconocido o inválido
-                fastify.log.warn(`Mensaje WebSocket inválido de ${playerName || tempConnectionId}: ${message.toString()}`);
-                if (ws.readyState === 1) {
-                    ws.send(JSON.stringify({
+                } else {
+                    // Mensaje desconocido
+                    fastify.log.warn(`Mensaje desconocido de ${playerName || tempConnectionId}: ${data.type}`);
+                    connection.socket.send(JSON.stringify({
                         type: 'error',
-                        message: 'Tipo de mensaje desconocido o formato inválido.'
+                        message: 'Tipo de mensaje desconocido'
                     }));
                 }
-            }
 
-        } catch (e) {
-            // Manejo de errores al parsear mensajes JSON
-            fastify.log.error(`Error al procesar mensaje WebSocket de ${playerName || tempConnectionId}: ${e.message}`);
-            if (ws.readyState === 1) {
-                ws.send(JSON.stringify({
+            } catch (e) {
+                fastify.log.error(`Error procesando mensaje de ${playerName || tempConnectionId}: ${e.message}`);
+                connection.socket.send(JSON.stringify({
                     type: 'error',
-                    message: 'Formato de mensaje inválido o error interno del servidor.'
+                    message: 'Error procesando mensaje'
                 }));
             }
-            ws.close(); // Cierra la conexión en caso de error grave
-        }
-    });
+        });
 
-    // Manejador para el cierre de la conexión WebSocket
-    ws.on('close', () => {
-        const disconnectedId = playerName || tempConnectionId;
-        fastify.log.info(`WebSocket de ${disconnectedId} desconectado.`);
+        connection.socket.on('close', () => {
+            const disconnectedId = playerName || tempConnectionId;
+            fastify.log.info(`WebSocket ${disconnectedId} desconectado`);
+            
 
-        // Si el jugador desconectado estaba en la cola de espera, límpialo
-        if (waitingPlayerSocket && waitingPlayerSocket.ws === ws) {
-            fastify.log.info(`El jugador ${waitingPlayerSocket.id} abandonó la cola de espera.`);
-            clearWaitingPlayer('left');
-        }
-        // Si el jugador desconectado estaba en un juego activo, notifica al oponente y elimina el juego
-        const gameIdx = activeGames.findIndex(g => g.player1.ws === ws || g.player2.ws === ws);
-        if (gameIdx !== -1) {
-            const game = activeGames[gameIdx];
-            const opponentWs = (game.player1.ws === ws) ? game.player2.ws : game.player1.ws;
-            if (opponentWs && opponentWs.readyState === 1) {
-                opponentWs.send(JSON.stringify({ type: 'opponent_disconnected', message: 'Tu oponente se ha desconectado.' }));
+            // Limpiar jugador en espera
+            if (waitingPlayerSocket && waitingPlayerSocket.connection === connection) {
+                fastify.log.info(`${waitingPlayerSocket.id} abandonó la cola de espera`);
+                waitingPlayerSocket = null;
             }
-            activeGames.splice(gameIdx, 1); // Elimina el juego de la lista de activos
-        }
-    });
 
-    // Manejador de errores del WebSocket
-    ws.on('error', error => {
-        const errorId = playerName || tempConnectionId;
-        fastify.log.error(`Error en WebSocket de ${errorId}: ${error.message}`);
+            // Manejar desconexión en juego activo
+            const gameIdx = activeGames.findIndex(g => g.player1.connection === connection || g.player2.connection === connection);
+            if (gameIdx !== -1) {
+                const game = activeGames[gameIdx];
+                const opponentConnection = (game.player1.connection === connection) ? game.player2.connection : game.player1.connection;
+                const opponentId = (game.player1.connection === connection) ? game.player2.id : game.player1.id;
+                const gameId = `${game.player1.id}_vs_${game.player2.id}`;
 
-        // Las mismas acciones que en 'close' en caso de error
-        if (waitingPlayerSocket && waitingPlayerSocket.ws === ws) {
-            fastify.log.info(`El jugador ${waitingPlayerSocket.id} abandonó la cola por error.`);
-            clearWaitingPlayer('error');
-        }
-        const gameIdx = activeGames.findIndex(g => g.player1.ws === ws || g.player2.ws === ws);
-        if (gameIdx !== -1) {
-            const game = activeGames[gameIdx];
-            const opponentWs = (game.player1.ws === ws) ? game.player2.ws : game.player1.ws;
-            if (opponentWs && opponentWs.readyState === 1) {
-                opponentWs.send(JSON.stringify({ type: 'opponent_disconnected', message: 'Tu oponente se ha desconectado por error.' }));
+                fastify.log.info(`${disconnectedId} desconectado de partida con ${opponentId}`);
+                
+                // Solo enviar opponent_disconnected si el juego no terminó normalmente
+                if (!finishedGames.has(gameId) && opponentConnection && opponentConnection.socket) {
+                    opponentConnection.socket.send(JSON.stringify({
+                        type: 'opponent_disconnected',
+                        message: 'Tu oponente se ha desconectado'
+                    }));
+                }
+                
+                activeGames.splice(gameIdx, 1);
+                
             }
-            activeGames.splice(gameIdx, 1);
-        }
+        });
+
+        connection.socket.on('error', error => {
+            const errorId = playerName || tempConnectionId;
+            fastify.log.error(`Error WebSocket ${errorId}: ${error.message}`);
+
+            // Limpiar estado en caso de error
+            if (waitingPlayerSocket && waitingPlayerSocket.connection === connection) {
+                clearWaitingPlayer('error');
+            }
+
+            const gameIdx = activeGames.findIndex(g => g.player1.connection === connection || g.player2.connection === connection);
+            if (gameIdx !== -1) {
+                const game = activeGames[gameIdx];
+                const opponentConnection = (game.player1.connection === connection) ? game.player2.connection : game.player1.connection;
+                
+                if (opponentConnection && opponentConnection.socket) {
+                    opponentConnection.socket.send(JSON.stringify({
+                        type: 'opponent_disconnected',
+                        message: 'Tu oponente se desconectó por error'
+                    }));
+                }
+                activeGames.splice(gameIdx, 1);
+            }
+        });
     });
 });
 
-// Ruta HTTP POST de ejemplo para probar la comunicación básica
-fastify.post('/greet', async (request, reply) => {
-    fastify.log.info('Petición HTTP POST recibida en /greet!');
-    const { username } = request.body;
 
-    if (username && typeof username === 'string' && username.trim()) {
-        fastify.log.info(`Nombre de usuario recibido: ${username}`);
+// Health check endpoint
+fastify.get('/health', async (request, reply) => {
+    return {
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        activeGames: activeGames.length,
+        playersWaiting: waitingPlayerSocket ? 1 : 0
+    };
+});
+
+// Simple GET version for health checks
+fastify.get('/greet', async (request, reply) => {
+    return {
+        message: '¡Hola! Servidor funcionando correctamente.'
+    };
+});
+
+// =========================
+// RUTAS DE AUTENTICACIÓN
+// =========================
+
+// Registro de usuario
+fastify.post('/api/register', async (request, reply) => {
+    try {
+        const { username, password, email } = request.body;
+        
+        // Validaciones
+        if (!username || !password) {
+            return reply.code(400).send({ error: 'Username y password son obligatorios' });
+        }
+        
+        if (username.length < 3 || username.length > 20) {
+            return reply.code(400).send({ error: 'El username debe tener entre 3 y 20 caracteres' });
+        }
+        
+        if (password.length < 6) {
+            return reply.code(400).send({ error: 'La contraseña debe tener al menos 6 caracteres' });
+        }
+        
+        // Verificar si el usuario ya existe
+        const existingUser = await new Promise((resolve, reject) => {
+            db.get('SELECT id FROM users WHERE username = ? OR email = ?', [username, email], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+        
+        if (existingUser) {
+            return reply.code(409).send({ error: 'Username o email ya existen' });
+        }
+        
+        // Hash de la contraseña
+        const saltRounds = 10;
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+        
+        // Crear usuario
+        const userId = await new Promise((resolve, reject) => {
+            db.run(
+                'INSERT INTO users (username, password_hash, email) VALUES (?, ?, ?)',
+                [username, passwordHash, email || null],
+                function(err) {
+                    if (err) reject(err);
+                    else resolve(this.lastID);
+                }
+            );
+        });
+        
+        // Crear estadísticas iniciales para el usuario
+        await new Promise((resolve, reject) => {
+            db.run(
+                'INSERT INTO user_stats (user_id) VALUES (?)',
+                [userId],
+                function(err) {
+                    if (err) reject(err);
+                    else resolve();
+                }
+            );
+        });
+        
+        // Generar JWT token
+        const token = jwt.sign(
+            { userId, username },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+        
+        return reply.code(201).send({
+            message: 'Usuario registrado exitosamente',
+            user: { id: userId, username, email },
+            token
+        });
+        
+    } catch (error) {
+        console.error('Error en registro:', error);
+        return reply.code(500).send({ error: 'Error interno del servidor' });
+    }
+});
+
+// Login de usuario
+fastify.post('/api/login', async (request, reply) => {
+    try {
+        const { username, password } = request.body;
+        
+        if (!username || !password) {
+            return reply.code(400).send({ error: 'Username y password son obligatorios' });
+        }
+        
+        // Buscar usuario
+        const user = await new Promise((resolve, reject) => {
+            db.get(
+                'SELECT id, username, password_hash, email FROM users WHERE username = ?',
+                [username],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        });
+        
+        if (!user) {
+            return reply.code(401).send({ error: 'Credenciales inválidas' });
+        }
+        
+        // Verificar contraseña
+        const passwordValid = await bcrypt.compare(password, user.password_hash);
+        if (!passwordValid) {
+            return reply.code(401).send({ error: 'Credenciales inválidas' });
+        }
+        
+        // Generar JWT token
+        const token = jwt.sign(
+            { userId: user.id, username: user.username },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+        
         return reply.code(200).send({
-            message: `¡Hola, ${username}! Tu petición fue recibida.`
+            message: 'Login exitoso',
+            user: { id: user.id, username: user.username, email: user.email },
+            token
+        });
+        
+    } catch (error) {
+        console.error('Error en login:', error);
+        return reply.code(500).send({ error: 'Error interno del servidor' });
+    }
+});
+
+// Verificar token (para validar autenticación en frontend)
+fastify.get('/api/verify', { preHandler: authenticate }, async (request, reply) => {
+    return reply.code(200).send({
+        valid: true,
+        user: request.user
+    });
+});
+
+// Obtener perfil del usuario autenticado
+fastify.get('/api/profile', { preHandler: authenticate }, async (request, reply) => {
+    try {
+        const userStats = await new Promise((resolve, reject) => {
+            db.get(
+                'SELECT * FROM user_stats WHERE user_id = ?',
+                [request.user.id],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        });
+        
+        // Obtener estadísticas por modo
+        const statsByMode = await new Promise((resolve, reject) => {
+            db.all(
+                'SELECT * FROM user_stats_by_mode WHERE user_id = ?',
+                [request.user.id],
+                (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows);
+                }
+            );
+        });
+        
+        // Adaptar nombres de campos para el frontend
+        const defaultStats = {
+            games_played: 0,
+            games_won: 0,
+            games_lost: 0,
+            total_score: 0,
+            highest_score: 0,
+            win_streak: 0,
+            best_win_streak: 0
+        };
+        
+        const stats = userStats || defaultStats;
+        
+        // Calcular win_rate
+        const winRate = stats.games_played > 0 ? 
+            Math.round((stats.games_won / stats.games_played) * 100) : 0;
+        
+        // Para global_ranking, podemos calcularlo basado en total_score
+        const globalRanking = await new Promise((resolve, reject) => {
+            db.get(
+                'SELECT COUNT(*) + 1 as ranking FROM user_stats WHERE total_score > ?',
+                [stats.total_score],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row ? row.ranking : 1);
+                }
+            );
+        });
+        
+        // Formatear estadísticas por modo
+        const modeStats = {};
+        statsByMode.forEach(modeStat => {
+            const modeWinRate = modeStat.games_played > 0 ? 
+                Math.round((modeStat.games_won / modeStat.games_played) * 100) : 0;
+            
+            modeStats[modeStat.game_mode] = {
+                matches_played: modeStat.games_played,
+                wins: modeStat.games_won,
+                losses: modeStat.games_lost,
+                win_rate: modeWinRate,
+                total_score: modeStat.total_score,
+                highest_score: modeStat.highest_score,
+                win_streak: modeStat.win_streak,
+                best_win_streak: modeStat.best_win_streak
+            };
+        });
+        
+        return reply.code(200).send({
+            user: request.user,
+            stats: {
+                // Nombres que espera el frontend
+                matches_played: stats.games_played,
+                wins: stats.games_won,
+                losses: stats.games_lost,
+                win_rate: winRate,
+                total_score: stats.total_score,
+                highest_score: stats.highest_score,
+                win_streak: stats.win_streak,
+                best_win_streak: stats.best_win_streak,
+                global_ranking: globalRanking
+            },
+            statsByMode: modeStats
+        });
+    } catch (error) {
+        console.error('Error obteniendo perfil:', error);
+        return reply.code(500).send({ error: 'Error interno del servidor' });
+    }
+});
+
+// Guardar resultado de juego
+fastify.post('/api/game-result', { preHandler: authenticate }, async (request, reply) => {
+    try {
+        const { opponent, score, opponentScore, gameMode, duration } = request.body;
+        const userId = request.user.id;
+        
+        // Para el modo single-player, el oponente es el mismo usuario
+        const opponentId = userId; // Ya que el matchmaking ahora es contra uno mismo
+        
+        const isWin = score > opponentScore;
+        
+        // Guardar el juego
+        const gameId = await new Promise((resolve, reject) => {
+            db.run(
+                'INSERT INTO games (player1_id, player2_id, winner_id, player1_score, player2_score, game_mode, duration) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [userId, opponentId, isWin ? userId : null, score, opponentScore, gameMode || 'classic', duration || 0],
+                function(err) {
+                    if (err) reject(err);
+                    else resolve(this.lastID);
+                }
+            );
+        });
+        
+        // Actualizar estadísticas globales del usuario
+        await new Promise((resolve, reject) => {
+            db.run(`
+                UPDATE user_stats SET 
+                    games_played = games_played + 1,
+                    games_won = games_won + ?,
+                    games_lost = games_lost + ?,
+                    total_score = total_score + ?,
+                    highest_score = MAX(highest_score, ?),
+                    win_streak = CASE WHEN ? = 1 THEN win_streak + 1 ELSE 0 END,
+                    best_win_streak = MAX(best_win_streak, CASE WHEN ? = 1 THEN win_streak + 1 ELSE win_streak END),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = ?
+            `, [isWin ? 1 : 0, isWin ? 0 : 1, score, score, isWin ? 1 : 0, isWin ? 1 : 0, userId], (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+        
+        // Actualizar estadísticas por modo de juego
+        await new Promise((resolve, reject) => {
+            // Primero intentar insertar si no existe
+            db.run(`
+                INSERT OR IGNORE INTO user_stats_by_mode (user_id, game_mode)
+                VALUES (?, ?)
+            `, [userId, gameMode || 'classic'], (err) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    // Luego actualizar las estadísticas
+                    db.run(`
+                        UPDATE user_stats_by_mode SET 
+                            games_played = games_played + 1,
+                            games_won = games_won + ?,
+                            games_lost = games_lost + ?,
+                            total_score = total_score + ?,
+                            highest_score = MAX(highest_score, ?),
+                            win_streak = CASE WHEN ? = 1 THEN win_streak + 1 ELSE 0 END,
+                            best_win_streak = MAX(best_win_streak, CASE WHEN ? = 1 THEN win_streak + 1 ELSE win_streak END),
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE user_id = ? AND game_mode = ?
+                    `, [isWin ? 1 : 0, isWin ? 0 : 1, score, score, isWin ? 1 : 0, isWin ? 1 : 0, userId, gameMode || 'classic'], (err) => {
+                        if (err) reject(err);
+                        else resolve();
+                    });
+                }
+            });
+        });
+        
+        return reply.code(200).send({
+            message: 'Resultado de juego guardado',
+            gameId,
+            result: isWin ? 'win' : 'loss'
+        });
+        
+    } catch (error) {
+        console.error('Error guardando resultado de juego:', error);
+        return reply.code(500).send({ error: 'Error interno del servidor' });
+    }
+});
+
+// Obtener historial de juegos del usuario
+fastify.get('/api/game-history', { preHandler: authenticate }, async (request, reply) => {
+    try {
+        const games = await new Promise((resolve, reject) => {
+            db.all(`
+                SELECT 
+                    g.*,
+                    u1.username as player1_name,
+                    u2.username as player2_name,
+                    w.username as winner_name
+                FROM games g
+                LEFT JOIN users u1 ON g.player1_id = u1.id
+                LEFT JOIN users u2 ON g.player2_id = u2.id
+                LEFT JOIN users w ON g.winner_id = w.id
+                WHERE g.player1_id = ? OR g.player2_id = ?
+                ORDER BY g.created_at DESC
+                LIMIT 50
+            `, [request.user.id, request.user.id], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+        
+        return reply.code(200).send({ games });
+    } catch (error) {
+        console.error('Error obteniendo historial:', error);
+        return reply.code(500).send({ error: 'Error interno del servidor' });
+    }
+});
+
+// Obtener ranking global
+fastify.get('/api/rankings/global', async (request, reply) => {
+    try {
+        const { limit = 50, offset = 0 } = request.query;
+        
+        const rankings = await new Promise((resolve, reject) => {
+            db.all(`
+                SELECT 
+                    u.id,
+                    u.username,
+                    s.games_played,
+                    s.games_won,
+                    s.games_lost,
+                    s.total_score,
+                    s.highest_score,
+                    s.best_win_streak,
+                    CASE 
+                        WHEN s.games_played > 0 
+                        THEN ROUND((s.games_won * 100.0) / s.games_played, 2)
+                        ELSE 0 
+                    END as win_rate,
+                    ROW_NUMBER() OVER (ORDER BY s.total_score DESC, s.games_won DESC) as ranking
+                FROM users u
+                INNER JOIN user_stats s ON u.id = s.user_id
+                WHERE s.games_played > 0
+                ORDER BY s.total_score DESC, s.games_won DESC
+                LIMIT ? OFFSET ?
+            `, [parseInt(limit), parseInt(offset)], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+        
+        return reply.code(200).send({ rankings });
+    } catch (error) {
+        console.error('Error obteniendo ranking global:', error);
+        return reply.code(500).send({ error: 'Error interno del servidor' });
+    }
+});
+
+// Obtener ranking por modo de juego
+fastify.get('/api/rankings/mode/:gameMode', async (request, reply) => {
+    try {
+        const { gameMode } = request.params;
+        const { limit = 50, offset = 0 } = request.query;
+        
+        const rankings = await new Promise((resolve, reject) => {
+            db.all(`
+                SELECT 
+                    u.id,
+                    u.username,
+                    sm.game_mode,
+                    sm.games_played,
+                    sm.games_won,
+                    sm.games_lost,
+                    sm.total_score,
+                    sm.highest_score,
+                    sm.best_win_streak,
+                    CASE 
+                        WHEN sm.games_played > 0 
+                        THEN ROUND((sm.games_won * 100.0) / sm.games_played, 2)
+                        ELSE 0 
+                    END as win_rate,
+                    ROW_NUMBER() OVER (ORDER BY sm.total_score DESC, sm.games_won DESC) as ranking
+                FROM users u
+                INNER JOIN user_stats_by_mode sm ON u.id = sm.user_id
+                WHERE sm.game_mode = ? AND sm.games_played > 0
+                ORDER BY sm.total_score DESC, sm.games_won DESC
+                LIMIT ? OFFSET ?
+            `, [gameMode, parseInt(limit), parseInt(offset)], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+        
+        return reply.code(200).send({ rankings, gameMode });
+    } catch (error) {
+        console.error('Error obteniendo ranking por modo:', error);
+        return reply.code(500).send({ error: 'Error interno del servidor' });
+    }
+});
+
+// Obtener lista de modos de juego disponibles
+fastify.get('/api/game-modes', async (request, reply) => {
+    try {
+        const gameModes = await new Promise((resolve, reject) => {
+            db.all(`
+                SELECT DISTINCT game_mode, COUNT(*) as total_games
+                FROM games
+                GROUP BY game_mode
+                ORDER BY total_games DESC
+            `, [], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+        
+        return reply.code(200).send({ gameModes });
+    } catch (error) {
+        console.error('Error obteniendo modos de juego:', error);
+        return reply.code(500).send({ error: 'Error interno del servidor' });
+    }
+});
+
+// Ruta HTTP de ejemplo
+fastify.post('/greet', async (request, reply) => {
+    const { username } = request.body;
+    if (username && typeof username === 'string' && username.trim()) {
+        return reply.code(200).send({
+            message: `¡Hola, ${username}! Servidor funcionando correctamente.`
         });
     } else {
-        fastify.log.warn('Petición recibida en /greet sin nombre de usuario válido.');
         return reply.code(400).send({
-            error: 'El nombre de usuario es requerido en el cuerpo de la petición.'
+            error: 'Nombre de usuario requerido'
         });
     }
 });
 
-// Función para iniciar el servidor Fastify
+// Iniciar servidor
 const start = async () => {
     try {
-        // Escucha en todas las interfaces de red en el puerto 3000
         await fastify.listen({ port: 3000, host: '0.0.0.0' });
-        fastify.log.info('El backend de emparejamiento con WebSocket está funcionando y esperando conexiones...');
-        fastify.log.info('Esperando conexiones WebSocket en ws://localhost:3000/ws');
-        fastify.log.info('Puedes probar la ruta HTTP POST en http://localhost:3000/greet con un cuerpo JSON {"username": "TuNombre"}');
+        fastify.log.info('🚀 Servidor WebSocket funcionando en puerto 3000');
+        fastify.log.info('📡 WebSocket disponible en: ws://localhost:3000/ws');
+        fastify.log.info('🌐 HTTP API disponible en: http://localhost:3000');
     } catch (err) {
         fastify.log.error(err);
-        process.exit(1); // Sale del proceso con un código de error si falla al iniciar el servidor
+        process.exit(1);
     }
 };
 
-// Si este script es el módulo principal, inicia el servidor
 if (require.main === module) {
     start();
 }
 
-// Exporta la función start para posibles pruebas o uso en otros módulos
 module.exports = start;

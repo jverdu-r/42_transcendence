@@ -38,70 +38,63 @@ function applyTranslations(): void {
  */
 export function renderPlay(): void {
   const playHtml = `
-    <div class="rounded-3xl p-6 sm:p-8 lg:p-10 bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl border border-[#003566] shadow-2xl w-full max-w-2xl text-center transition-all duration-500 ease-in-out transform hover:scale-[1.01] hover:shadow-custom-deep">
-        <h2 class="text-3xl sm:text-4xl lg:text-5xl font-display font-extrabold text-[#ffc300] mb-6 sm:mb-8 drop-shadow-md leading-tight" data-i18n="play.chooseModeTitle">${getTranslation("play", "chooseModeTitle")}</h2>
-        <p class="text-base sm:text-lg text-gray-300 mb-8" data-i18n="play.chooseModeDescription">${getTranslation("play", "chooseModeDescription")}</p>
+    <div class="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
+      <div class="rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 lg:p-10 bg-white/5 backdrop-blur-xl border border-tertiary-bg shadow-2xl w-full text-center transition-all duration-500 ease-in-out transform hover:scale-[1.01] hover:shadow-2xl hover:shadow-accent/20">
+          <h2 class="text-2xl xs:text-3xl sm:text-4xl lg:text-5xl font-display font-extrabold text-accent mb-4 sm:mb-6 lg:mb-8 drop-shadow-md leading-tight" data-i18n="play.chooseModeTitle">${getTranslation("play", "chooseModeTitle")}</h2>
+          <p class="text-sm xs:text-base sm:text-lg text-gray-300 mb-6 sm:mb-8 max-w-2xl mx-auto" data-i18n="play.chooseModeDescription">${getTranslation("play", "chooseModeDescription")}</p>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          <button
-            id="play-ia-button"
-            class="group bg-[#001d3d] text-gray-100 py-4 sm:py-5 px-6 sm:px-8 rounded-xl font-bold text-lg sm:text-xl hover:bg-[#003566] hover:text-[#ffc300] transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#ffd60a] focus:ring-opacity-75"
-            data-i18n="play.vsAIButton"
-          >
-            ${getTranslation("play", "vsAIButton")}
-          </button>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 xs:gap-4 sm:gap-4 md:gap-6">
+            <button
+              id="play-ia-button"
+              class="group bg-secondary-bg text-gray-100 py-3 sm:py-4 lg:py-5 px-4 sm:px-6 lg:px-8 rounded-lg sm:rounded-xl font-bold text-sm xs:text-base sm:text-lg lg:text-xl hover:bg-tertiary-bg hover:text-accent transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-accent-light focus:ring-opacity-75 min-h-[3rem] sm:min-h-[3.5rem] lg:min-h-[4rem] touch-manipulation"
+              data-i18n="play.vsAIButton"
+            >
+              ${getTranslation("play", "vsAIButton")}
+            </button>
 
-          <button
-            id="play-1v1-button"
-            class="group bg-[#001d3d] text-gray-100 py-4 sm:py-5 px-6 sm:px-8 rounded-xl font-bold text-lg sm:text-xl hover:bg-[#003566] hover:text-[#ffc300] transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#ffd60a] focus:ring-opacity-75"
-            data-i18n="play.oneVsOneButton"
-          >
-            ${getTranslation("play", "oneVsOneButton")}
-          </button>
+            <button
+              id="play-1v1-button"
+              class="group bg-secondary-bg text-gray-100 py-3 sm:py-4 lg:py-5 px-4 sm:px-6 lg:px-8 rounded-lg sm:rounded-xl font-bold text-sm xs:text-base sm:text-lg lg:text-xl hover:bg-tertiary-bg hover:text-accent transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-accent-light focus:ring-opacity-75 min-h-[3rem] sm:min-h-[3.5rem] lg:min-h-[4rem] touch-manipulation"
+              data-i18n="play.oneVsOneButton"
+            >
+              ${getTranslation("play", "oneVsOneButton")}
+            </button>
 
-          <button
-            id="play-2v2-button"
-            class="group bg-[#001d3d] text-gray-100 py-4 sm:py-5 px-6 sm:px-8 rounded-xl font-bold text-lg sm:text-xl hover:bg-[#003566] hover:text-[#ffc300] transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#ffd60a] focus:ring-opacity-75"
-            data-i18n="play.twoVsTwoButton"
-          >
-            ${getTranslation("play", "twoVsTwoButton")}
-          </button>
+            <button
+              id="play-2v2-button"
+              class="group bg-secondary-bg text-gray-100 py-3 sm:py-4 lg:py-5 px-4 sm:px-6 lg:px-8 rounded-lg sm:rounded-xl font-bold text-sm xs:text-base sm:text-lg lg:text-xl hover:bg-tertiary-bg hover:text-accent transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-accent-light focus:ring-opacity-75 min-h-[3rem] sm:min-h-[3.5rem] lg:min-h-[4rem] touch-manipulation"
+              data-i18n="play.twoVsTwoButton"
+            >
+              ${getTranslation("play", "twoVsTwoButton")}
+            </button>
 
-          <button
-            id="play-1v2-button"
-            class="group bg-[#001d3d] text-gray-100 py-4 sm:py-5 px-6 sm:px-8 rounded-xl font-bold text-lg sm:text-xl hover:bg-[#003566] hover:text-[#ffc300] transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#ffd60a] focus:ring-opacity-75"
-            data-i18n="play.oneVsTwoButton"
-          >
-            ${getTranslation("play", "oneVsTwoButton")}
-          </button>
+            <button
+              id="play-1v2-button"
+              class="group bg-secondary-bg text-gray-100 py-3 sm:py-4 lg:py-5 px-4 sm:px-6 lg:px-8 rounded-lg sm:rounded-xl font-bold text-sm xs:text-base sm:text-lg lg:text-xl hover:bg-tertiary-bg hover:text-accent transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-accent-light focus:ring-opacity-75 min-h-[3rem] sm:min-h-[3.5rem] lg:min-h-[4rem] touch-manipulation"
+              data-i18n="play.oneVsTwoButton"
+            >
+              ${getTranslation("play", "oneVsTwoButton")}
+            </button>
 
-          <button
-            id="play-2v1-button"
-            class="group bg-[#001d3d] text-gray-100 py-4 sm:py-5 px-6 sm:px-8 rounded-xl font-bold text-lg sm:text-xl hover:bg-[#003566] hover:text-[#ffc300] transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#ffd60a] focus:ring-opacity-75"
-            data-i18n="play.twoVsOneButton"
-          >
-            ${getTranslation("play", "twoVsOneButton")}
-          </button>
+            <button
+              id="play-2v1-button"
+              class="group bg-secondary-bg text-gray-100 py-3 sm:py-4 lg:py-5 px-4 sm:px-6 lg:px-8 rounded-lg sm:rounded-xl font-bold text-sm xs:text-base sm:text-lg lg:text-xl hover:bg-tertiary-bg hover:text-accent transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-accent-light focus:ring-opacity-75 min-h-[3rem] sm:min-h-[3.5rem] lg:min-h-[4rem] touch-manipulation"
+              data-i18n="play.twoVsOneButton"
+            >
+              ${getTranslation("play", "twoVsOneButton")}
+            </button>
 
-          <button
-            id="play-tournament-button"
-            class="group bg-gradient-to-r from-[#ffc300] to-[#ffd60a] text-[#000814] py-4 sm:py-5 px-6 sm:px-8 rounded-xl font-bold text-lg sm:text-xl hover:from-[#ffd60a] hover:to-[#ffc300] transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-75"
-            data-i18n="play.tournamentButton"
-          >
-            ${getTranslation("play", "tournamentButton")} <span class="text-sm font-normal" data-i18n="play.comingSoon">${getTranslation("play", "comingSoon")}</span>
-          </button>
-        </div>
+            <button
+              id="play-tournament-button"
+              class="group bg-gradient-to-r from-accent to-accent-light text-primary-bg py-3 sm:py-4 lg:py-5 px-4 sm:px-6 lg:px-8 rounded-lg sm:rounded-xl font-bold text-sm xs:text-base sm:text-lg lg:text-xl hover:from-accent-light hover:to-accent transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-opacity-75 min-h-[3rem] sm:min-h-[3.5rem] lg:min-h-[4rem] col-span-1 sm:col-span-2 lg:col-span-3 max-w-md mx-auto w-full touch-manipulation"
+              data-i18n="play.tournamentButton"
+            >
+              <span class="block sm:inline">${getTranslation("play", "tournamentButton")}</span>
+              <span class="block sm:inline text-xs sm:text-sm font-normal opacity-80 mt-1 sm:mt-0 sm:ml-2" data-i18n="play.comingSoon">${getTranslation("play", "comingSoon")}</span>
+            </button>
+          </div>
+      </div>
     </div>
-    <style>
-        .animate__animated.animate__fadeIn {
-            animation-duration: 0.5s;
-        }
-
-        /* Custom Shadow for Hover Effect (deeper glow) */
-        .hover\\:shadow-custom-deep:hover {
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3), 0 0 50px rgba(255, 195, 0, 0.3); /* Deeper, yellowish glow */
-        }
-    </style>
   `
 
   // Asumimos que el "app-root" contendrá la estructura principal (ej. header + main)
@@ -459,80 +452,86 @@ function renderAIOptions(): void {
  * @param gameMode The selected online game mode.
  */
 function renderOnlineMatchmaking(gameMode: string): void {
-  const pageContent = document.getElementById("page-content")
-  if (!pageContent) {
-    console.error("Page content area not found!")
-    return
-  }
+  // Import the renderPongPage function to render the exact same layout
+  import("./pong/index").then(({ renderPongPage }) => {
+    // Set a flag to indicate we're in online mode
+    ;(window as any).isOnlineMode = true
+    ;(window as any).onlineGameMode = gameMode
+    
+    // Render using the exact same layout as local games
+    renderPongPage(gameMode as any, "MEDIUM", true) // Pass true for online mode
+    
+    // After rendering, use the built-in overlay
+    setTimeout(() => {
+      const canvas = document.getElementById("pongCanvas") as HTMLCanvasElement
+      const overlay = document.getElementById("game-overlay")
+      const overlayStatus = document.getElementById("overlay-status")
+      const overlayMessage = document.getElementById("overlay-message")
+      const overlayOpponent = document.getElementById("overlay-opponent")
+      const overlayCancel = document.getElementById("overlay-cancel")
+      
+      if (!canvas || !overlay) {
+        console.error("Required elements not found for online game!")
+        return
+      }
 
-  const optionsHtml = `
-        <div id="matchmaking-container" class="rounded-3xl p-6 sm:p-8 lg:p-10 bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl border border-[#003566] shadow-2xl w-full max-w-2xl text-center transition-all duration-500 ease-in-out">
-            <h2 class="text-3xl sm:text-4xl lg:text-5xl font-display font-extrabold text-[#ffc300] mb-6 sm:mb-8 drop-shadow-md leading-tight" id="matchmaking-status" data-i18n="play.searchingMatchTitle">${getTranslation("play", "searchingMatchTitle")}</h2>
-            <p class="text-base sm:text-lg text-gray-300 mb-6" data-i18n="play.searchingMatchDescription">
-                ${getTranslation("play", "searchingMatchDescriptionPrefix")} ${gameMode.replace("_", " ")}...
-                <br>
-                ${getTranslation("play", "pleaseWaitMessage")}
-            </p>
-            <div id="opponent-name" class="text-lg text-[#ffc300] mb-4"></div>
-            <div class="loader ease-linear rounded-full border-8 border-t-8 border-[#ffd60a] h-24 w-24 mb-6 mx-auto"></div>
-            <button
-                id="cancel-matchmaking-button"
-                class="bg-[#ffc300] text-[#000814] py-3 px-6 rounded-lg font-semibold hover:bg-[#ffd60a] transition-colors duration-300 shadow-md transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-75"
-                data-i18n="play.cancelSearchButton"
-            >
-                ${getTranslation("play", "cancelSearchButton")}
-            </button>
-        </div>
-        <div id="game-container" style="display: none;">
-            <!-- Game will be rendered here -->
-        </div>
-        <style>
-            .loader {
-                border-top-color: #ffc300;
-                -webkit-animation: spinner 1.5s linear infinite;
-                animation: spinner 1.5s linear infinite;
-            }
-            @-webkit-keyframes spinner {
-                0% { -webkit-transform: rotate(0deg); }
-                100% { -webkit-transform: rotate(360deg); }
-            }
-            @keyframes spinner {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-        </style>
-    `
-  pageContent.innerHTML = optionsHtml
+      // Show the built-in overlay
+      overlay.style.display = "flex"
+      
+      // Set overlay content
+      if (overlayStatus) overlayStatus.textContent = getTranslation("play", "searchingMatchTitle")
+      if (overlayMessage) overlayMessage.textContent = `${getTranslation("play", "searchingMatchDescriptionPrefix")} ${gameMode.replace("_", " ")}...`
+      if (overlayCancel) overlayCancel.textContent = getTranslation("play", "cancelSearchButton")
 
-  // Import and use the online game manager
-  import("./pong/onlineGameManager").then(({ onlineGameManager }) => {
-    // Create a temporary canvas for the game
-    const canvas = document.createElement("canvas")
-    canvas.id = "pongCanvas"
-    canvas.width = 800
-    canvas.height = 600
-    canvas.className = "border-2 border-[#003566] rounded-lg shadow-md mb-4 bg-black"
+      // Initialize online game manager
+      import("./pong/onlineGameManager").then(({ onlineGameManager }) => {
+        const isMobile = window.innerWidth < 768
 
-    const gameContainer = document.getElementById("game-container")
-    if (gameContainer) {
-      gameContainer.appendChild(canvas)
-    }
+        // Setup overlay handlers
+        if (overlayOpponent) {
+          // Update opponent name when found
+          const status = onlineGameManager.getConnectionStatus()
+          if (status.opponent) {
+            overlayOpponent.textContent = `Opponent: ${status.opponent}`
+          }
+        }
 
-    // Start matchmaking
-    const isMobile = window.innerWidth < 768
-    onlineGameManager.startMatchmaking(gameMode as any, canvas, isMobile).catch((error) => {
-      console.error("Failed to start matchmaking:", error)
-      showCustomMessage("Failed to connect to game server. Please try again.")
-    })
+        // Override the current game with online game manager
+        onlineGameManager.startMatchmaking(gameMode as any, canvas, isMobile).then(() => {
+          // Hide overlay when game starts
+          overlay.style.display = "none"
+        }).catch((error) => {
+          console.error("Failed to start matchmaking:", error)
+          showCustomMessage("Failed to connect to game server. Please try again.")
+          overlay.style.display = "none"
+        })
 
-    // Handle cancel button
-    document.getElementById("cancel-matchmaking-button")?.addEventListener("click", () => {
-      onlineGameManager.cancelMatchmaking()
-      renderPlay() // Go back to game mode selection
-    })
+        // Handle cancel button
+        if (overlayCancel) {
+          overlayCancel.addEventListener("click", () => {
+            onlineGameManager.cancelMatchmaking()
+            overlay.style.display = "none"
+            renderPlay() // Go back to game mode selection
+          })
+        }
+
+        // Modify the back button to handle online game cleanup
+        const backButton = document.getElementById("back-to-play-button")
+        if (backButton) {
+          // Remove existing listeners
+          const newBackButton = backButton.cloneNode(true) as HTMLElement
+          backButton.parentNode?.replaceChild(newBackButton, backButton)
+          
+          newBackButton.addEventListener("click", () => {
+            onlineGameManager.endGame()
+            overlay.style.display = "none"
+            ;(window as any).isOnlineMode = false
+            renderPlay()
+          })
+        }
+      })
+    }, 100) // Small delay to ensure DOM is ready
   })
-
-  applyTranslations()
 }
 
 /**

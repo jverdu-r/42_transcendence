@@ -111,7 +111,23 @@ const translations: Translations = {
             okButton: "Entendido",
             matchesPlayed: "Partidas Jugadas",
             totalPoints: "Puntos Totales",
-            globalRanking: "Ranking Global"
+            globalRanking: "Ranking Global",
+            error: "Error",
+            errorMessage: "Error al cargar el perfil. Por favor, inténtalo de nuevo.",
+            loadingProfile: "Cargando perfil...",
+            profileLoadError: "No se pudo cargar la información del perfil",
+            memberSince: "Miembro desde",
+            gameStatsTitle: "Estadísticas de Juego",
+            noGamesPlayed: "No has jugado ninguna partida aún",
+            startPlaying: "¡Empieza a jugar!",
+            victory: "Victoria",
+            defeat: "Derrota",
+            "1dayAgo": "hace 1 día",
+            "daysAgo": "días atrás",
+            "1weekAgo": "hace 1 semana",
+            "weeksAgo": "semanas atrás",
+            loading: "Cargando...",
+            retry: "Reintentar"
         },
         play: {
             selectGameMode: "Selecciona un Modo de Juego",
@@ -312,7 +328,11 @@ const translations: Translations = {
             okButton: "Understood",
             matchesPlayed: "Matches Played",
             totalPoints: "Total Points",
-            globalRanking: "Global Ranking"
+            globalRanking: "Global Ranking",
+            error: "Error",
+            errorMessage: "Error loading profile. Please try again.",
+            loadingProfile: "Loading profile...",
+            profileLoadError: "Could not load profile information"
         },
         play: {
             selectGameMode: "Select Game Mode",
@@ -512,6 +532,10 @@ const translations: Translations = {
             matchesPlayed: "Partidas Xogadas",
             totalPoints: "Puntos Totais",
             globalRanking: "Clasificación Global",
+            error: "Erro",
+            errorMessage: "Erro ao cargar o perfil. Por favor, inténtao de novo.",
+            loadingProfile: "Cargando perfil...",
+            profileLoadError: "Non se puido cargar a información do perfil"
         },
         play: {
             selectGameMode: "Selecciona un Modo de Xogo",
@@ -712,6 +736,10 @@ const translations: Translations = {
             matchesPlayed: "已进行的比赛",
             totalPoints: "总分",
             globalRanking: "全球排名",
+            error: "错误",
+            errorMessage: "加载个人资料时出错。请重试。",
+            loadingProfile: "正在加载个人资料...",
+            profileLoadError: "无法加载个人资料信息"
         },
         play: {
             selectGameMode: "选择游戏模式",

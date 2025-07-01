@@ -172,10 +172,82 @@ export function renderRegister(): void {
 
         const registerButton = document.getElementById('register-button');
         if (registerButton) {
-            registerButton.addEventListener('click', (event) => {
+            registerButton.addEventListener('click', async (event) => {
                 event.preventDefault();
-                console.log('Intento de registro...');
-                navigateTo('/home');
+                
+                const usernameInput = document.getElementById('username') as HTMLInputElement;
+                const emailInput = document.getElementById('email') as HTMLInputElement;
+                const passwordInput = document.getElementById('password') as HTMLInputElement;
+                const confirmPasswordInput = document.getElementById('confirm-password') as HTMLInputElement;
+                
+                if (!usernameInput || !emailInput || !passwordInput || !confirmPasswordInput) {
+                    console.error('No se encontraron todos los campos necesarios');
+                    return;
+                }
+                
+                const username = usernameInput.value.trim();
+                const email = emailInput.value.trim();
+                const password = passwordInput.value;
+                const confirmPassword = confirmPasswordInput.value;
+                
+                // Validaciones
+                if (!username || !email || !password || !confirmPassword) {
+                    alert('Por favor, completa todos los campos');
+                    return;
+                }
+                
+                if (password !== confirmPassword) {
+                    alert('Las contraseñas no coinciden');
+                    return;
+                }
+                
+                if (password.length < 6) {
+                    alert('La contraseña debe tener al menos 6 caracteres');
+                    return;
+                }
+                
+                // Validación básica de email
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                    alert('Por favor, ingresa un email válido');
+                    return;
+                }
+                
+                try {
+                    // Deshabilitar botón durante la solicitud
+                    registerButton.setAttribute('disabled', 'true');
+                    registerButton.textContent = 'Registrando...';
+                    
+                    const response = await fetch('/api/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ username, email, password })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok && data.token) {
+                        // Guardar token y datos del usuario en localStorage
+                        localStorage.setItem('authToken', data.token);
+                        localStorage.setItem('userData', JSON.stringify(data.user));
+                        
+                        console.log('Registro exitoso:', data.user);
+                        alert('Registro exitoso! Bienvenido/a!');
+                        navigateTo('/home');
+                    } else {
+                        // Mostrar error
+                        alert(data.message || 'Error al registrarse');
+                        console.error('Error de registro:', data);
+                    }
+                } catch (error) {
+                    console.error('Error de red al hacer registro:', error);
+                    alert('Error de conexión. Por favor, intenta nuevamente.');
+                } finally {
+                    // Rehabilitar botón
+                    registerButton.removeAttribute('disabled');
+                    registerButton.textContent = getTranslation('register', 'registerButton');
+                }
             });
         }
 

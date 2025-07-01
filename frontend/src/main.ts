@@ -21,13 +21,13 @@ if (!appRoot) {
     console.error('Element with id "page-content" not found. Cannot render page content.');
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     // Initial render of the navbar and the current page
     renderNavbar(location.pathname);
-    navigateTo(location.pathname);
+    await navigateTo(location.pathname);
 
     // Escuchar clics en el cuerpo del documento para la navegación (delegación de eventos)
-    document.body.addEventListener('click', (e) => {
+    document.body.addEventListener('click', async (e) => {
       const target = e.target as HTMLElement;
 
       // Busca el elemento 'a' más cercano si el click fue dentro de uno
@@ -37,20 +37,20 @@ if (!appRoot) {
       if (anchor && anchor.matches('a') && anchor.getAttribute('href')?.startsWith('/')) {
         e.preventDefault(); // Evita la recarga completa de la página
         const path = anchor.getAttribute('href')!;
-        navigateTo(path);
+        await navigateTo(path);
       }
     });
 
     // Escuchar eventos 'popstate' para la navegación hacia atrás/adelante del navegador
-    window.addEventListener('popstate', () => {
+    window.addEventListener('popstate', async () => {
       renderNavbar(location.pathname); // Re-render navbar on popstate to update active link
-      navigateTo(location.pathname);
+      await navigateTo(location.pathname);
     });
 
     // Listen for custom languageChange event to re-render the whole UI
-    window.addEventListener('languageChange', () => {
+    window.addEventListener('languageChange', async () => {
       renderNavbar(location.pathname); // Re-render navbar
-      navigateTo(location.pathname); // Re-render current page
+      await navigateTo(location.pathname); // Re-render current page
     });
   });
 }
