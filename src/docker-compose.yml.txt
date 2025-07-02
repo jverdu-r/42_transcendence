@@ -1,0 +1,43 @@
+services:
+  nexus:
+    build: ./requirements/nexus/Dockerfile # Path to the Dockerfile for the nexus service
+    ports:
+      - "8080:8080" # Example API port
+    volumes:
+      - sqlite_data:/app/data # Mount SQLite data volume
+    networks:
+      - backend_net
+
+  backend_service_1:
+    build: ./requirements/backend/service_1/Dockerfile  # Path to the Dockerfile for this backend service
+    networks:
+      - backend_net
+    # No ports exposed to host
+
+  frontend:
+    build: ./requirements/frontend/Dockerfile  # Path to the Dockerfile for the frontend
+    networks:
+      - frontend_net
+    # Potentially volumes for development:
+    # volumes:
+    #   - ./frontend:/app
+
+  nginx:
+    build: ./requirements/nginx/Dockerfile  # Path to the Dockerfile for the Nginx service (if you customize it)
+    image: nginx:latest # You can still base it on the official nginx image
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./frontend/build:/usr/share/nginx/html # Assuming built frontend is in ./frontend/build
+    networks:
+      - frontend_net
+      - backend_net # If Nginx needs to talk to nexus
+
+networks:
+  backend_net:
+  frontend_net:
+
+volumes:
+  sqlite_data:
