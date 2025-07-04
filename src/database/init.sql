@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_login DATETIME,
@@ -62,10 +62,32 @@ CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(session_toke
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
 
 -- Datos de ejemplo (opcional, para testing)
-INSERT OR IGNORE INTO users (username, email, password_hash) VALUES 
-('admin', 'admin@transcendance.com', '$2b$10$example.hash.for.admin.user'),
-('player1', 'player1@example.com', '$2b$10$example.hash.for.player1'),
-('player2', 'player2@example.com', '$2b$10$example.hash.for.player2');
+INSERT OR IGNORE INTO users (username, email, password) VALUES 
+('admin', 'admin@transcendance.com', 'admin123'),
+('player1', 'player1@example.com', 'player123'),
+('player2', 'player2@example.com', 'player123');
+
+-- Tabla para estados de juego (game states)
+CREATE TABLE IF NOT EXISTS game_states (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id VARCHAR(100) UNIQUE NOT NULL,
+    state_data TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabla para historial de juegos (game history)
+CREATE TABLE IF NOT EXISTS game_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id VARCHAR(100) NOT NULL,
+    history_entry TEXT NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Índices para las nuevas tablas
+CREATE INDEX IF NOT EXISTS idx_game_states_game_id ON game_states(game_id);
+CREATE INDEX IF NOT EXISTS idx_game_history_game_id ON game_history(game_id);
+CREATE INDEX IF NOT EXISTS idx_game_history_timestamp ON game_history(timestamp);
 
 -- Inicializar estadísticas para usuarios de ejemplo
 INSERT OR IGNORE INTO user_stats (user_id) 

@@ -148,6 +148,49 @@ app.post('/login', async (request, reply) => {
   });
 });
 
+// --- Route: JWT verification endpoint ---
+app.get('/verify', async (request, reply) => {
+  const authHeader = request.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return reply.status(401).send({ error: 'No token provided' });
+  }
+  
+  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+  
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.userId;
+    
+    // Get user data from database
+    const correlationId = uuidv4();
+    sendDatabaseRequest('get_user', { user_id: userId }, correlationId);
+    
+    return new Promise((resolve, reject) => {
+      const consumerTag = uuidv4();
+      rabbitmqChannel.consume(
+        RESPONSE_QUEUE,
+        (msg) => {
+          if (msg.properties.correlationId === correlationId) {
+            const response = JSON.parse(msg.content.toString());
+            if (response.error) {
+              reply.status(401).send({ error: 'Invalid token' });
+            } else {
+              reply.status(200).send({ valid: true, user: response });
+            }
+            rabbitmqChannel.ack(msg);
+            rabbitmqChannel.cancel(consumerTag);
+            resolve();
+          }
+        },
+        { noAck: false, consumerTag: consumerTag }
+      );
+    });
+  } catch (error) {
+    return reply.status(401).send({ error: 'Invalid token' });
+  }
+});
+
 // --- Route: Get user by ID (example, protected with JWT) ---
 app.get('/users/:userId', async (request, reply) => {
   // In a real app, you'd have middleware to verify the JWT here.
@@ -183,6 +226,11 @@ app.get('/users/:userId', async (request, reply) => {
       { noAck: false, consumerTag: consumerTag }
     );
   });
+});
+
+// --- Health check endpoint ---
+app.get('/health', async (request, reply) => {
+  return reply.status(200).send({ status: 'ok', service: 'backend-auth' });
 });
 
 // --- Start the server ---

@@ -182,14 +182,24 @@ app.get('/game/:gameId/history', async (request, reply) => {
   });
 });
 
+// --- Health check endpoint ---
+app.get('/health', async (request, reply) => {
+  return reply.status(200).send({ status: 'ok', service: 'backend-game' });
+});
+
 // --- Start the server ---
 async function startServer() {
   try {
     await connectToRabbitMQ();
-    await app.listen({ port: 8082, host: '0.0.0.0' });  // Use a different port than auth and db
-    app.log.info('Game service is listening on port 8082'); // Use Fastify's logger
+    // Start the API server on port 8082
+    await app.listen({ port: 8082, host: '0.0.0.0' });
+    app.log.info('Game service API is listening on port 8082');
+    
+    // TODO: Also start WebSocket server on port 3000 for real-time game communication
+    // This would require a separate WebSocket implementation
+    app.log.info('WebSocket server should be implemented on port 3000 for real-time game');
   } catch (error) {
-    app.log.error('Failed to start server:', error); // Use Fastify's logger
+    app.log.error('Failed to start server:', error);
     process.exit(1);
   }
 }

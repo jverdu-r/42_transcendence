@@ -52,7 +52,7 @@ let rabbitmqConnection; //
 let rabbitmqChannel; //
 
 async function connectToRabbitMQ() {
-  const connectionString = `amqp://<span class="math-inline">\{RABBITMQ\_USER\}\:</span>{RABBITMQ_PASS}@${RABBITMQ_HOST}`; //
+  const connectionString = `amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@${RABBITMQ_HOST}`; //
   try {
     rabbitmqConnection = await amqp.connect(connectionString); //
     rabbitmqChannel = await rabbitmqConnection.createChannel(); //
@@ -88,8 +88,8 @@ async function processRequest(msg) {
     if (operation === 'create_user') { //
       try {
         const result = await db.run(
-          'INSERT INTO users (username, email) VALUES (?, ?) RETURNING id',
-          [data.username, data.email]
+          'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
+          [data.username, data.email, data.password]
         ); //
         const userId = result.lastID; //
         const newUser = await db.get('SELECT id, username, email FROM users WHERE id = ?', [userId]); //

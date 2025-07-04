@@ -117,11 +117,62 @@ restart: down start
 
 .PHONY: logs
 logs:
-		$(COMPOSE) -f $(SRC_DIR)/docker-compose.yml logs --tail=50
+		$(COMPOSE) -f $(SRC_DIR)/docker-compose.yml logs --tail=100 -f
+
+.PHONY: logs-all
+logs-all:
+		$(COMPOSE) -f $(SRC_DIR)/docker-compose.yml logs --tail=100
+
+.PHONY: logs-live
+logs-live:
+		$(COMPOSE) -f $(SRC_DIR)/docker-compose.yml logs -f
+
+.PHONY: logs-frontend
+logs-frontend:
+		$(COMPOSE) -f $(SRC_DIR)/docker-compose.yml logs frontend --tail=50
+
+.PHONY: logs-nginx
+logs-nginx:
+		$(COMPOSE) -f $(SRC_DIR)/docker-compose.yml logs nginx --tail=50
+
+.PHONY: logs-auth
+logs-auth:
+		$(COMPOSE) -f $(SRC_DIR)/docker-compose.yml logs backend-auth --tail=50
+
+.PHONY: logs-db
+logs-db:
+		$(COMPOSE) -f $(SRC_DIR)/docker-compose.yml logs backend-db-access --tail=50
+
+.PHONY: logs-game
+logs-game:
+		$(COMPOSE) -f $(SRC_DIR)/docker-compose.yml logs backend-game --tail=50
+
+.PHONY: logs-database
+logs-database:
+		$(COMPOSE) -f $(SRC_DIR)/docker-compose.yml logs database --tail=50
+
+.PHONY: logs-rabbitmq
+logs-rabbitmq:
+		$(COMPOSE) -f $(SRC_DIR)/docker-compose.yml logs rabbitmq --tail=50
 
 .PHONY: ps
 ps:
 		$(COMPOSE) -f $(SRC_DIR)/docker-compose.yml ps
+
+.PHONY: status
+status:
+		@echo "=== Container Status ==="
+		$(COMPOSE) -f $(SRC_DIR)/docker-compose.yml ps
+		@echo "\n=== Service Health ==="
+		@docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep transcendence || echo "No transcendence containers running"
+
+.PHONY: health
+health:
+		@echo "=== Health Check ==="
+		@echo "Frontend: " && curl -s -o /dev/null -w "%{http_code}" http://localhost/ || echo "Failed"
+		@echo "Auth API: " && curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/health || echo "Failed"
+		@echo "Game API: " && curl -s -o /dev/null -w "%{http_code}" http://localhost:8082/health || echo "Failed"
+		@echo "RabbitMQ: " && curl -s -o /dev/null -w "%{http_code}" http://localhost:15672/ || echo "Failed"
 
 .PHONY: help
 help:
