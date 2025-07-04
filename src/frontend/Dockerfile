@@ -36,35 +36,21 @@ COPY . .
 # y empaquetará todos los recursos en la carpeta 'dist'.
 RUN npm run build
 
-# --- FASE 2: Servir la aplicación con Nginx ---
-# Construimos nuestra propia imagen con Nginx desde Alpine
+# --- FASE 2: Contenedor ligero para copiar los artefactos de construcción ---
+# Este es un contenedor muy ligero que solo existirá para copiar los archivos
+# de 'dist' fuera de la fase de construcción.
+# No ejecutará un servidor web.
+
 FROM alpine:latest
 
-# Instalar Nginx y dependencias necesarias
-RUN apk add --no-cache \
-    nginx \
-    curl \
-    && mkdir -p /var/log/nginx \
-    && mkdir -p /var/lib/nginx/tmp \
-    && mkdir -p /run/nginx \
-    && chown -R nginx:nginx /var/log/nginx \
-    && chown -R nginx:nginx /var/lib/nginx \
-    && chown -R nginx:nginx /run/nginx
-
-# Crear directorio para archivos web
-RUN mkdir -p /usr/share/nginx/html \
-    && chown -R nginx:nginx /usr/share/nginx/html
-
-# Copia tu archivo de configuración de Nginx personalizado al contenedor
-COPY nginx.conf /etc/nginx/nginx.conf
+# Crear el directorio de trabajo donde se copiarán los archivos
+WORKDIR /app
 
 # Copia los archivos de la aplicación compilada (de la fase 'build_stage')
-# a la carpeta donde Nginx espera encontrar los archivos estáticos
-COPY --from=build_stage /app/dist /usr/share/nginx/html
+# a una ubicación dentro de este contenedor ligero.
+# Este contenedor no se ejecutará a largo plazo, solo sirve para extraer los archivos.
+COPY --from=build_stage /app/dist /app/dist
 
-# Expone el puerto 80 del contenedor, que es donde Nginx estará escuchando
-EXPOSE 80
-
-# Define el comando que se ejecuta cuando el contenedor se inicia.
-# Inicia Nginx en primer plano para que Docker pueda monitorearlo.
-CMD ["nginx", "-g", "daemon off;"]
+# Este CMD es solo un placeholder para que el contenedor no se detenga inmediatamente
+# después de la copia, aunque en la práctica, Docker Compose solo lo usará para el build.
+CMD ["tail", "-f", "/dev/null"]
