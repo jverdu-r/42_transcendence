@@ -1,0 +1,32 @@
+{
+  "name": "game-service",
+  "version": "1.0.0",
+  "description": "Microservicio para game-service con Pong 3D",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["pong", "game", "3d", "babylonjs", "fastify"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fastify": "^4.24.3",
+    "@fastify/websocket": "^8.3.1",
+    "@fastify/cors": "^8.4.0",
+    "@fastify/static": "^6.12.0",
+    "babylonjs": "^6.34.0",
+    "uuid": "^9.0.1",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.9.0",
+    "@types/ws": "^8.5.8",
+    "@types/uuid": "^9.0.7",
+    "ts-node": "^10.9.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.2.2"
+  }
+}

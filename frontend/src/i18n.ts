@@ -1,0 +1,648 @@
+// src/i18n.ts
+
+interface Translations {
+    [key: string]: { // This key will be the language code (e.g., 'es', 'en')
+        [component: string]: { // This key will be the component name (e.g., 'common', 'login', 'register', 'home', 'profile', 'play', 'ranking', 'settings', 'pong')
+            [textKey: string]: string; // This key will be the specific text identifier (e.g., 'welcomeBack')
+        };
+    };
+}
+
+const translations: Translations = {
+    es: {
+        common: {
+            language: 'Castellano',
+            english: 'English',
+            galician: 'Galego',
+            chinese: '中文 (Chino)',
+            castellano: 'Castellano',
+            infoTitle: "Información",
+            okButton: "Entendido",
+            backToHome: "Volver al Inicio"
+        },
+        navbar: {
+            home: 'Inicio',
+            profile: 'Perfil',
+            play: 'Jugar',
+            ranking: 'Ranking',
+            settings: 'Ajustes',
+            logout: 'Cerrar Sesión'
+        },
+        login: {
+            welcomeBack: 'Bienvenido de nuevo',
+            title: 'PONG',
+            subtitle: 'Conéctate para jugar al máximo nivel.',
+            usernameLabel: 'Nombre de usuario',
+            passwordLabel: 'Contraseña',
+            loginButton: 'Iniciar sesión',
+            createAccountButton: 'Crear una cuenta',
+            or: 'O',
+            continueWithGoogle: 'Continuar con Google',
+            noAccountYet: '¿Aún no tienes una cuenta?'
+        },
+        register: {
+            joinExperience: 'Únete a la experiencia',
+            title: 'Regístrate',
+            subtitle: 'Crea tu cuenta para empezar a jugar.',
+            usernameLabel: 'Nombre de usuario',
+            emailLabel: 'Correo electrónico',
+            passwordLabel: 'Contraseña',
+            confirmPasswordLabel: 'Confirmar contraseña',
+            registerButton: 'Registrarse',
+            alreadyHaveAccount: '¿Ya tienes una cuenta?',
+            loginHere: 'Iniciar sesión aquí',
+            registerWithGoogle: 'Registrarse con Google',
+            or: 'O'
+        },
+        home: {
+            welcomeTitle: "Bienvenido a",
+            welcomeSubtitle: "La plataforma definitiva para el Pong moderno. ¡Compite, conéctate y trasciende!",
+            playNowButton: "Jugar Ahora",
+            viewTournamentsButton: "Ver Torneos",
+            liveMatchesTitle: "Partidos en Vivo",
+            liveMatchesSubtitle: "Sigue la acción en tiempo real.",
+            playerA: "Jugador A",
+            playerB: "Jugador B",
+            teamX: "Equipo X",
+            teamY: "Equipo Y",
+            vs: "vs",
+            inProgressRound: "En progreso - Ronda ",
+            tournamentSemifinal: "Semifinal del Torneo",
+            quickMatch: "Partida Rápida",
+            preparingToStart: "Preparándose para empezar",
+            assassin: "Asesino",
+            master: "Maestro",
+            matchPoint: "Punto de partido",
+            yourProfileTitle: "Tu Perfil",
+            yourProfileSubtitle: "Accede a tus estadísticas, historial y personaliza tu experiencia.",
+            globalRankingTitle: "Ranking Global",
+            globalRankingSubtitle: "Descubre a los mejores jugadores de Transcendence."
+        },
+        profile: {
+            profileTitle: "Perfil de Usuario",
+            settingsTitle: "Ajustes",
+            editProfileButton: "Editar Perfil",
+            uploadAvatarButton: "Subir Avatar",
+            changePasswordButton: "Cambiar Contraseña",
+            matchHistoryTitle: "Historial de Partidas",
+            matchHistorySubtitle: "Tus últimas partidas",
+            matchWin: "Victoria",
+            matchLoss: "Derrota",
+            matchDraw: "Empate",
+            score: "Puntuación",
+            date: "Fecha",
+            time: "Hora",
+            opponent: "Oponente",
+            gameMode: "Modo de Juego",
+            noMatches: "No hay partidas en el historial.",
+            statsTitle: "Estadísticas",
+            totalWins: "Victorias Totales",
+            totalLosses: "Derrotas Totales",
+            winRate: "Tasa de Victorias",
+            totalGames: "Partidas Totales",
+            eloRating: "Puntuación ELO",
+            accuracy: "Precisión",
+            mostPlayedMode: "Modo más jugado",
+            languageSetting: "Idioma",
+            notificationsSetting: "Notificaciones",
+            twoFactorAuthSetting: "Autenticación de Dos Factores",
+            darkModeSetting: "Modo Oscuro",
+            enable: "Activar",
+            disable: "Desactivar",
+            change: "Cambiar",
+            logoutButton: "Cerrar Sesión",
+            saveChangesButton: "Guardar Cambios",
+            cancelButton: "Cancelar",
+            confirmLogoutTitle: "¿Cerrar Sesión?",
+            confirmLogoutMessage: "¿Estás seguro de que quieres cerrar tu sesión?",
+            yesLogout: "Sí, Cerrar Sesión",
+            noCancel: "No, Cancelar",
+            customMessageTitle: "Información",
+            okButton: "Entendido"
+        },
+        play: {
+            selectGameMode: "Selecciona un Modo de Juego",
+            oneVsOne: "1 vs 1 Clásico",
+            oneVsOneDescription: "Partida rápida contra otro jugador.",
+            tournament: "Torneo",
+            tournamentDescription: "Competición con múltiples jugadores. ¡Próximamente!",
+            comingSoon: "¡Próximamente!",
+            customGame: "Partida Personalizada",
+            customGameDescription: "Crea o únete a una partida con reglas específicas.",
+            vsAIButton: "Vs IA",
+            chooseModeTitle: "Elige un modo de juego",
+            chooseModeDescription: "Selecciona un modo de juego para empezar a jugar.",
+            backToGame: "Volver al juego",
+            vsAIDescription: "Juega contra la inteligencia artificial.",
+            selectDifficulty: "Selecciona la dificultad"
+        },
+        ranking: {
+            globalRankingTitle: "Ranking Global",
+            wins: "Victorias:",
+            losses: "Derrotas:",
+            pointsAbbreviation: "pts",
+            yourCurrentPosition: "Tu posición actual:",
+            viewMyPositionButton: "Ver mi posición"
+        },
+        settings: {
+            title: "Ajustes",
+            userAccountSectionTitle: "Cuenta de Usuario",
+            usernameLabel: "Nombre de Usuario",
+            emailLabel: "Correo Electrónico",
+            currentPasswordLabel: "Contraseña Actual",
+            currentPasswordPlaceholder: "Ingresa tu contraseña actual",
+            newPasswordLabel: "Nueva Contraseña",
+            newPasswordPlaceholder: "Ingresa tu nueva contraseña",
+            confirmNewPasswordLabel: "Confirmar Nueva Contraseña",
+            confirmNewPasswordPlaceholder: "Confirma tu nueva contraseña",
+            acceptChangesButton: "Aceptar Cambios",
+            deleteAccountButton: "Eliminar Cuenta"
+        }
+    },
+    en: {
+        common: {
+            language: 'English',
+            english: 'English',
+            galician: 'Galician',
+            chinese: '中文 (Chinese)',
+            castellano: 'Spanish',
+            infoTitle: "Information",
+            okButton: "Understood",
+            backToHome: "Back to Home"
+        },
+        navbar: {
+            home: 'Home',
+            profile: 'Profile',
+            play: 'Play',
+            ranking: 'Ranking',
+            settings: 'Settings',
+            logout: 'Logout'
+        },
+        login: {
+            welcomeBack: 'Welcome Back',
+            title: 'PONG',
+            subtitle: 'Connect to play at the highest level.',
+            usernameLabel: 'Username',
+            passwordLabel: 'Password',
+            loginButton: 'Login',
+            createAccountButton: 'Create an Account',
+            or: 'Or',
+            continueWithGoogle: 'Continue with Google',
+            noAccountYet: 'Don\'t have an account yet?'
+        },
+        register: {
+            joinExperience: 'Join the Experience',
+            title: 'Register',
+            subtitle: 'Create your account to start playing.',
+            usernameLabel: 'Username',
+            emailLabel: 'Email',
+            passwordLabel: 'Password',
+            confirmPasswordLabel: 'Confirm Password',
+            registerButton: 'Register',
+            alreadyHaveAccount: 'Already have an account?',
+            loginHere: 'Login here',
+            registerWithGoogle: 'Register with Google',
+            or: 'Or'
+        },
+        home: {
+            welcomeTitle: "Welcome to",
+            welcomeSubtitle: "The ultimate platform for modern Pong. Compete, connect, and transcend!",
+            playNowButton: "Play Now",
+            viewTournamentsButton: "View Tournaments",
+            liveMatchesTitle: "Live Matches",
+            liveMatchesSubtitle: "Follow the action in real-time.",
+            playerA: "Player A",
+            playerB: "Player B",
+            teamX: "Team X",
+            teamY: "Team Y",
+            vs: "vs",
+            inProgressRound: "In progress - Round ",
+            tournamentSemifinal: "Tournament Semifinal",
+            quickMatch: "Quick Match",
+            preparingToStart: "Preparing to start",
+            assassin: "Assassin",
+            master: "Master",
+            matchPoint: "Match Point",
+            yourProfileTitle: "Your Profile",
+            yourProfileSubtitle: "Access your stats, history, and customize your experience.",
+            globalRankingTitle: "Global Ranking",
+            globalRankingSubtitle: "Discover the best players in Transcendence."
+        },
+        profile: {
+            profileTitle: "User Profile",
+            settingsTitle: "Settings",
+            editProfileButton: "Edit Profile",
+            uploadAvatarButton: "Upload Avatar",
+            changePasswordButton: "Change Password",
+            matchHistoryTitle: "Match History",
+            matchHistorySubtitle: "Your recent games",
+            matchWin: "Win",
+            matchLoss: "Loss",
+            matchDraw: "Draw",
+            score: "Score",
+            date: "Date",
+            time: "Time",
+            opponent: "Opponent",
+            gameMode: "Game Mode",
+            noMatches: "No matches in history.",
+            statsTitle: "Statistics",
+            totalWins: "Total Wins",
+            totalLosses: "Total Losses",
+            winRate: "Win Rate",
+            totalGames: "Total Games",
+            eloRating: "ELO Rating",
+            accuracy: "Accuracy",
+            mostPlayedMode: "Most Played Mode",
+            languageSetting: "Language",
+            notificationsSetting: "Notifications",
+            twoFactorAuthSetting: "Two-Factor Authentication",
+            darkModeSetting: "Dark Mode",
+            enable: "Enable",
+            disable: "Disable",
+            change: "Change",
+            logoutButton: "Logout",
+            saveChangesButton: "Save Changes",
+            cancelButton: "Cancel",
+            confirmLogoutTitle: "Logout?",
+            confirmLogoutMessage: "Are you sure you want to log out?",
+            yesLogout: "Yes, Logout",
+            noCancel: "No, Cancel",
+            customMessageTitle: "Information",
+            okButton: "Understood"
+        },
+        play: {
+            selectGameMode: "Select Game Mode",
+            oneVsOne: "1 vs 1 Classic",
+            oneVsOneDescription: "Quick match against another player.",
+            tournament: "Tournament",
+            tournamentDescription: "Competition with multiple players. Coming soon!",
+            comingSoon: "Coming Soon!",
+            customGame: "Custom Game",
+            customGameDescription: "Create or join a game with specific rules.",
+            vsAIButton: "Vs AI",
+            chooseModeTitle: "Choose a Game Mode",
+            chooseModeDescription: "Select a game mode to start playing.",
+            backToGame: "Back to Game",
+            vsAIDescription: "Play against AI.",
+            selectDifficulty: "Select Difficulty"
+        },
+        ranking: {
+            globalRankingTitle: "Global Ranking",
+            wins: "Wins:",
+            losses: "Losses:",
+            pointsAbbreviation: "pts",
+            yourCurrentPosition: "Your current position:",
+            viewMyPositionButton: "View my position"
+        },
+        settings: {
+            title: "Settings",
+            userAccountSectionTitle: "User Account",
+            usernameLabel: "Username",
+            emailLabel: "Email",
+            currentPasswordLabel: "Current Password",
+            currentPasswordPlaceholder: "Enter your current password",
+            newPasswordLabel: "New Password",
+            newPasswordPlaceholder: "Enter your new password",
+            confirmNewPasswordLabel: "Confirm New Password",
+            confirmNewPasswordPlaceholder: "Confirm your new password",
+            acceptChangesButton: "Accept Changes",
+            deleteAccountButton: "Delete Account"
+        }
+    },
+    gl: {
+        common: {
+            language: 'Galego',
+            english: 'Inglés',
+            galician: 'Galego',
+            chinese: '中文 (Chinés)',
+            castellano: 'Castelán',
+            infoTitle: "Información",
+            okButton: "Entendido",
+            backToHome: "Volver ao Inicio"
+        },
+        navbar: {
+            home: 'Inicio',
+            profile: 'Perfil',
+            play: 'Xogar',
+            ranking: 'Clasificación',
+            settings: 'Configuración',
+            logout: 'Pechar Sesión'
+        },
+        login: {
+            welcomeBack: 'Benvido de volta',
+            title: 'PONG',
+            subtitle: 'Conéctate para xogar ao máximo nivel.',
+            usernameLabel: 'Nome de usuario',
+            passwordLabel: 'Contrasinal',
+            loginButton: 'Iniciar sesión',
+            createAccountButton: 'Crear unha conta',
+            or: 'Ou',
+            continueWithGoogle: 'Continuar con Google',
+            noAccountYet: 'Aínda non tes unha conta?'
+        },
+        register: {
+            joinExperience: 'Únete á experiencia',
+            title: 'Rexistrar',
+            subtitle: 'Crea a túa conta para comezar a xogar.',
+            usernameLabel: 'Nome de usuario',
+            emailLabel: 'Correo electrónico',
+            passwordLabel: 'Contrasinal',
+            confirmPasswordLabel: 'Confirmar contrasinal',
+            registerButton: 'Rexistrarse',
+            alreadyHaveAccount: 'Xa tes unha conta?',
+            loginHere: 'Iniciar sesión aquí',
+            registerWithGoogle: 'Rexistrarse con Google',
+            or: 'Ou'
+        },
+        home: {
+            welcomeTitle: "Benvido a",
+            welcomeSubtitle: "A plataforma definitiva para o Pong moderno. Compite, conéctate e trasciende!",
+            playNowButton: "Xogar Agora",
+            viewTournamentsButton: "Ver Torneos",
+            liveMatchesTitle: "Partidos en Vivo",
+            liveMatchesSubtitle: "Segue a acción en tempo real.",
+            playerA: "Xogador A",
+            playerB: "Xogador B",
+            teamX: "Equipo X",
+            teamY: "Equipo Y",
+            vs: "vs",
+            inProgressRound: "En progreso - Ronda ",
+            tournamentSemifinal: "Semifinal do Torneo",
+            quickMatch: "Partida Rápida",
+            preparingToStart: "Preparándose para empezar",
+            assassin: "Asasino",
+            master: "Mestre",
+            matchPoint: "Punto de partido",
+            yourProfileTitle: "O teu Perfil",
+            yourProfileSubtitle: "Accede ás túas estadísticas, historial e personaliza a túa experiencia.",
+            globalRankingTitle: "Clasificación Global",
+            globalRankingSubtitle: "Descobre os mellores xogadores de Transcendence."
+        },
+        profile: {
+            profileTitle: "Perfil de Usuario",
+            settingsTitle: "Configuración",
+            editProfileButton: "Editar Perfil",
+            uploadAvatarButton: "Subir Avatar",
+            changePasswordButton: "Cambiar Contrasinal",
+            matchHistoryTitle: "Historial de Partidas",
+            matchHistorySubtitle: "As túas últimas partidas",
+            matchWin: "Victoria",
+            matchLoss: "Derrota",
+            matchDraw: "Empate",
+            score: "Puntuación",
+            date: "Data",
+            time: "Hora",
+            opponent: "Opoñente",
+            gameMode: "Modo de Xogo",
+            noMatches: "Non hai partidas no historial.",
+            statsTitle: "Estadísticas",
+            totalWins: "Victorias Totais",
+            totalLosses: "Derrotas Totais",
+            winRate: "Taxa de Victorias",
+            totalGames: "Partidas Totais",
+            eloRating: "Puntuación ELO",
+            accuracy: "Precisión",
+            mostPlayedMode: "Modo máis xogado",
+            languageSetting: "Idioma",
+            notificationsSetting: "Notificacións",
+            twoFactorAuthSetting: "Autenticación de Dous Factores",
+            darkModeSetting: "Modo Escuro",
+            enable: "Activar",
+            disable: "Desactivar",
+            change: "Cambiar",
+            logoutButton: "Pechar Sesión",
+            saveChangesButton: "Gardar Cambios",
+            cancelButton: "Cancelar",
+            confirmLogoutTitle: "Pechar Sesión?",
+            confirmLogoutMessage: "Estás seguro de que queres pechar a túa sesión?",
+            yesLogout: "Si, Pechar Sesión",
+            noCancel: "Non, Cancelar",
+            customMessageTitle: "Información",
+            okButton: "Entendido"
+        },
+        play: {
+            selectGameMode: "Selecciona un Modo de Xogo",
+            oneVsOne: "1 vs 1 Clásico",
+            oneVsOneDescription: "Partida rápida contra outro xogador.",
+            tournament: "Torneo",
+            tournamentDescription: "Competición con múltiples xogadores. Proximamente!",
+            comingSoon: "Proximamente!",
+            customGame: "Partida Personalizada",
+            customGameDescription: "Crea ou únete a unha partida con regras específicas.",
+            vsAIButton: "Vs IA",
+            chooseModeTitle: "Elixe un modo de xogo",
+            chooseModeDescription: "Selecciona un modo de xogo para empezar a xogar.",
+            backToGame: "Volver ao xogo",
+            vsAIDescription: "Xoga contra a intelixencia artificial.",
+            selectDifficulty: "Selecciona a dificultade"
+        },
+        ranking: {
+            globalRankingTitle: "Clasificación Global",
+            wins: "Victorias:",
+            losses: "Derrotas:",
+            pointsAbbreviation: "pts",
+            yourCurrentPosition: "A túa posición actual:",
+            viewMyPositionButton: "Ver a miña posición"
+        },
+        settings: {
+            title: "Configuración",
+            userAccountSectionTitle: "Conta de Usuario",
+            usernameLabel: "Nome de Usuario",
+            emailLabel: "Correo Electrónico",
+            currentPasswordLabel: "Contrasinal Actual",
+            currentPasswordPlaceholder: "Introduce o teu contrasinal actual",
+            newPasswordLabel: "Novo Contrasinal",
+            newPasswordPlaceholder: "Introduce o teu novo contrasinal",
+            confirmNewPasswordLabel: "Confirmar Novo Contrasinal",
+            confirmNewPasswordPlaceholder: "Confirma o teu novo contrasinal",
+            acceptChangesButton: "Aceptar Cambios",
+            deleteAccountButton: "Eliminar Conta"
+        }
+    },
+    zh: {
+        common: {
+            language: '中文',
+            english: 'English (英语)',
+            galician: 'Galician (加利西亚语)',
+            chinese: '中文',
+            castellano: 'Spanish (西班牙语)',
+            infoTitle: "信息",
+            okButton: "明白了",
+            backToHome: "返回主页"
+        },
+        navbar: {
+            home: '主页',
+            profile: '个人资料',
+            play: '游戏',
+            ranking: '排行榜',
+            settings: '设置',
+            logout: '登出'
+        },
+        login: {
+            welcomeBack: '欢迎回来',
+            title: 'PONG',
+            subtitle: '连接以在最高水平上游戏。',
+            usernameLabel: '用户名',
+            passwordLabel: '密码',
+            loginButton: '登录',
+            createAccountButton: '创建账户',
+            or: '或',
+            continueWithGoogle: '使用Google继续',
+            noAccountYet: '还没有账户？'
+        },
+        register: {
+            joinExperience: '加入体验',
+            title: '注册',
+            subtitle: '创建您的账户开始游戏。',
+            usernameLabel: '用户名',
+            emailLabel: '邮箱',
+            passwordLabel: '密码',
+            confirmPasswordLabel: '确认密码',
+            registerButton: '注册',
+            alreadyHaveAccount: '已经有账户了？',
+            loginHere: '在这里登录',
+            registerWithGoogle: '使用Google注册',
+            or: '或'
+        },
+        home: {
+            welcomeTitle: "欢迎来到",
+            welcomeSubtitle: "现代乒乓球的终极平台。竞争、连接、超越！",
+            playNowButton: "立即游戏",
+            viewTournamentsButton: "查看锦标赛",
+            liveMatchesTitle: "实时比赛",
+            liveMatchesSubtitle: "实时关注比赛动态。",
+            playerA: "玩家 A",
+            playerB: "玩家 B",
+            teamX: "队伍 X",
+            teamY: "队伍 Y",
+            vs: "对战",
+            inProgressRound: "进行中 - 第 ",
+            tournamentSemifinal: "锦标赛半决赛",
+            quickMatch: "快速比赛",
+            preparingToStart: "准备开始",
+            assassin: "刺客",
+            master: "大师",
+            matchPoint: "赛点",
+            yourProfileTitle: "你的个人资料",
+            yourProfileSubtitle: "访问您的统计数据、历史记录并自定义您的体验。",
+            globalRankingTitle: "全球排行榜",
+            globalRankingSubtitle: "发现Transcendence中最好的玩家。"
+        },
+        profile: {
+            profileTitle: "用户资料",
+            settingsTitle: "设置",
+            editProfileButton: "编辑资料",
+            uploadAvatarButton: "上传头像",
+            changePasswordButton: "更改密码",
+            matchHistoryTitle: "比赛历史",
+            matchHistorySubtitle: "你最近的游戏",
+            matchWin: "胜利",
+            matchLoss: "失败",
+            matchDraw: "平局",
+            score: "分数",
+            date: "日期",
+            time: "时间",
+            opponent: "对手",
+            gameMode: "游戏模式",
+            noMatches: "历史记录中没有比赛。",
+            statsTitle: "统计数据",
+            totalWins: "总胜利",
+            totalLosses: "总失败",
+            winRate: "胜率",
+            totalGames: "总游戏数",
+            eloRating: "ELO评级",
+            accuracy: "准确性",
+            mostPlayedMode: "最常玩的模式",
+            languageSetting: "语言",
+            notificationsSetting: "通知",
+            twoFactorAuthSetting: "双因素认证",
+            darkModeSetting: "深色模式",
+            enable: "启用",
+            disable: "禁用",
+            change: "更改",
+            logoutButton: "登出",
+            saveChangesButton: "保存更改",
+            cancelButton: "取消",
+            confirmLogoutTitle: "登出？",
+            confirmLogoutMessage: "您确定要登出吗？",
+            yesLogout: "是，登出",
+            noCancel: "否，取消",
+            customMessageTitle: "信息",
+            okButton: "明白了"
+        },
+        play: {
+            selectGameMode: "选择游戏模式",
+            oneVsOne: "1对1经典",
+            oneVsOneDescription: "与另一个玩家的快速比赛。",
+            tournament: "锦标赛",
+            tournamentDescription: "多玩家竞赛。即将推出！",
+            comingSoon: "即将推出！",
+            customGame: "自定义游戏",
+            customGameDescription: "创建或加入具有特定规则的游戏。",
+            vsAIButton: "对战AI",
+            chooseModeTitle: "选择游戏模式",
+            chooseModeDescription: "选择游戏模式开始游戏。",
+            backToGame: "返回游戏",
+            vsAIDescription: "与人工智能对战。",
+            selectDifficulty: "选择难度"
+        },
+        ranking: {
+            globalRankingTitle: "全球排行榜",
+            wins: "胜利：",
+            losses: "失败：",
+            pointsAbbreviation: "分",
+            yourCurrentPosition: "您当前的位置：",
+            viewMyPositionButton: "查看我的位置"
+        },
+        settings: {
+            title: "设置",
+            userAccountSectionTitle: "用户账户",
+            usernameLabel: "用户名",
+            emailLabel: "邮箱",
+            currentPasswordLabel: "当前密码",
+            currentPasswordPlaceholder: "输入您当前的密码",
+            newPasswordLabel: "新密码",
+            newPasswordPlaceholder: "输入您的新密码",
+            confirmNewPasswordLabel: "确认新密码",
+            confirmNewPasswordPlaceholder: "确认您的新密码",
+            acceptChangesButton: "接受更改",
+            deleteAccountButton: "删除账户"
+        }
+    }
+};
+
+// Variable para almacenar el idioma actual, inicializada desde localStorage o 'es' por defecto
+let currentLang = localStorage.getItem('lang') || 'es';
+
+/**
+ * Obtiene la traducción para una clave de texto específica.
+ * @param component El componente al que pertenece el texto (ej. 'login', 'common').
+ * @param key La clave del texto a traducir (ej. 'welcomeBack', 'usernameLabel').
+ * @returns El texto traducido o la clave original si no se encuentra la traducción.
+ */
+export function getTranslation(component: string, key: string): string {
+    return translations[currentLang]?.[component]?.[key] || key;
+}
+
+/**
+ * Establece el idioma de la aplicación.
+ * @param lang El código del idioma (ej. 'es', 'en').
+ */
+export function setLanguage(lang: string): void {
+    if (translations[lang]) {
+        currentLang = lang;
+        localStorage.setItem('lang', lang);
+        // Dispara un evento personalizado para notificar a los componentes que deben actualizarse
+        window.dispatchEvent(new CustomEvent('languageChange', { detail: lang }));
+    } else {
+        console.warn(`Language ${lang} not found in translations.`);
+    }
+}
+
+/**
+ * Obtiene el idioma actual de la aplicación.
+ * @returns El código del idioma actual.
+ */
+export function getCurrentLanguage(): string {
+    return currentLang;
+}
