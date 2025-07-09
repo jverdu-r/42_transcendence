@@ -1,0 +1,29 @@
+{
+	"name": "transcendance-frontend",
+	"version": "1.0.0",
+	"description": "Frontend-only de Transcendance Pong con datos hardcodeados",
+	"scripts": {
+	  "start": "webpack serve --config webpack.config.js --mode development",
+	  "build": "webpack --config webpack.config.js --mode production",
+	  "dev": "webpack serve --config webpack.config.js --mode development",
+	  "test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": ["pong", "frontend", "typescript", "tailwind"],
+	"author": "transcendance",
+	"license": "MIT",
+	"devDependencies": {
+	  "autoprefixer": "^10.4.19",
+	  "clean-webpack-plugin": "^4.0.0",
+	  "css-loader": "^7.1.2",
+	  "html-webpack-plugin": "^5.6.0",
+	  "postcss": "^8.4.38",
+	  "postcss-loader": "^8.1.1",
+	  "style-loader": "^4.0.0",
+	  "tailwindcss": "^3.4.4",
+	  "ts-loader": "^9.5.1",
+	  "typescript": "^5.4.5",
+	  "webpack": "^5.91.0",
+	  "webpack-cli": "^5.1.4",
+	  "webpack-dev-server": "^5.0.4"
+	}
+}
