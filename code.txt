@@ -1,0 +1,4270 @@
+[1;32m=== ESTRUCTURA DE DIRECTORIOS ===[0m
+.
+├── api-gateway
+│   ├── src
+│   │   └── server.ts
+│   ├── Dockerfile
+│   ├── package.json
+│   └── tsconfig.json
+├── auth-service
+│   ├── src
+│   │   ├── database.ts
+│   │   ├── redis-client.ts
+│   │   └── server.ts
+│   ├── Dockerfile
+│   ├── package.json
+│   └── tsconfig.json
+├── chat-service
+│   ├── src
+│   │   └── server.ts
+│   ├── Dockerfile
+│   ├── package.json
+│   └── tsconfig.json
+├── db-service
+│   ├── redis
+│   │   ├── Dockerfile
+│   │   ├── healthcheck.sh
+│   │   └── redis.conf
+│   ├── sqlite-writer
+│   │   ├── Dockerfile
+│   │   ├── package.json
+│   │   ├── tsconfig.json
+│   │   └── writer.ts
+│   ├── src
+│   │   ├── database.ts
+│   │   ├── redis-client.ts
+│   │   └── server.ts
+│   ├── Dockerfile
+│   ├── package.json
+│   └── tsconfig.json
+├── frontend
+│   ├── src
+│   │   ├── components
+│   │   │   └── navbar.ts
+│   │   ├── pages
+│   │   │   ├── home.ts
+│   │   │   ├── login.ts
+│   │   │   ├── play.ts
+│   │   │   ├── profile.ts
+│   │   │   ├── ranking.ts
+│   │   │   ├── register.ts
+│   │   │   └── settings.ts
+│   │   ├── utils
+│   │   │   └── safariPolyfills.ts
+│   │   ├── auth.ts
+│   │   ├── i18n.ts
+│   │   ├── input.css
+│   │   ├── main.ts
+│   │   └── router.ts
+│   ├── Dockerfile
+│   ├── index.html
+│   ├── nginx.conf
+│   ├── package.json
+│   ├── tailwind.config.js
+│   ├── tsconfig.json
+│   └── webpack.config.js
+├── game-service
+│   ├── src
+│   │   └── server.ts
+│   ├── Dockerfile
+│   ├── package.json
+│   └── tsconfig.json
+├── nginx-waf
+│   ├── modsecurity.conf
+│   └── nginx.conf
+├── secrets
+│   └── redis
+│       └── password.txt
+├── .env
+├── Makefile
+├── README.md
+├── code.txt
+├── docker-compose.yml
+└── print_tree.sh
+
+21 directories, 61 files
+
+[1;32m=== CONTENIDO DE ARCHIVOS DE TEXTO ===[0m
+
+[1;34m=== ./secrets/redis/password.txt ===[0m
+o-meu-contrasinal.42[1;30m----------------------------------------[0m
+
+[1;34m=== ./game-service/tsconfig.json ===[0m
+{
+  "compilerOptions": {
+    "target": "es2021",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./game-service/src/server.ts ===[0m
+import Fastify from 'fastify';
+
+const fastify = Fastify({
+    logger: true
+});
+
+fastify.get('/', async (request, reply) => {
+    return { service: 'game-service', message: 'Hello from game-service!' };
+});
+
+const start = async () => {
+    try {
+        await fastify.listen({ port: 8000, host: '0.0.0.0' }); // Escucha en el puerto 8000
+        console.log(`game-service escuchando en el puerto 8000`);
+    } catch (err) {
+        fastify.log.error(err);
+        process.exit(1);
+    }
+};
+
+start();
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./game-service/package.json ===[0m
+{
+  "name": "game-service",
+  "version": "1.0.0",
+  "description": "Microservicio para game-service con Pong 3D",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["pong", "game", "3d", "babylonjs", "fastify"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fastify": "^4.24.3",
+    "@fastify/websocket": "^8.3.1",
+    "@fastify/cors": "^8.4.0",
+    "@fastify/static": "^6.12.0",
+    "babylonjs": "^6.34.0",
+    "uuid": "^9.0.1",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.9.0",
+    "@types/ws": "^8.5.8",
+    "@types/uuid": "^9.0.7",
+    "ts-node": "^10.9.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.2.2"
+  }
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./game-service/Dockerfile ===[0m
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+EXPOSE 8000
+CMD ["npm", "start"]
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./Makefile ===[0m
+COMPOSE = /usr/bin/docker compose -f docker-compose.yml --env-file .env
+
+PROJECT_NAME := transcendence
+DATA_PATH ?= $(HOME)/data/$(PROJECT_NAME)
+export DATA_PATH
+MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
+
+# CONSTRUCCION__________________________________________________________________
+all: prepare build up
+
+check-secrets:
+	@if [ ! -f "secrets/redis/password.txt" ]; then \
+		echo "Error: secrets/redis/password.txt no encontrado"; \
+		exit 1; \
+	fi
+	@echo "Todos los secrets existen"
+
+prepare:
+	@mkdir -p "$(DATA_PATH)/sqlite"
+	@chmod -R 777 "$(DATA_PATH)/sqlite"
+	@echo "SQLite data directory prepared at: $(DATA_PATH)/sqlite"
+
+	@mkdir -p "$(DATA_PATH)/redis" secrets/redis
+	@chmod 600 secrets/redis/password.txt 2>/dev/null || true
+	@chown -R 1000:1000 "$(DATA_PATH)/redis"
+	@chmod -R 750 "$(DATA_PATH)/redis"
+	@echo "Redis data directory prepared at: $(DATA_PATH)/redis"
+
+	@mkdir -p "$(DATA_PATH)/frontend"
+	@if [ ! -f "$(DATA_PATH)/sqlite/transcendance.db" ]; then \
+		chmod -R 777 "$(DATA_PATH)/sqlite"; \
+	fi
+	@echo "Frontend data directory prepared at: $(DATA_PATH)/frontend"
+
+
+build:
+	@$(COMPOSE) build
+
+up:
+	@$(COMPOSE) up -d
+
+down:
+	@$(COMPOSE) down
+
+start:
+	@$(COMPOSE) start
+
+stop:
+	@$(COMPOSE) stop
+
+shell:
+	@bash -c '\
+		read -p "=> Enter service [sqlite/redis]: " service; \
+		$(COMPOSE) exec -it $$service /bin/bash || $(COMPOSE) exec -it $$service /bin/sh'
+
+# LIMPIEZA______________________________________________________________________
+clean: down
+
+fclean: clean
+	@$(COMPOSE) down --volumes --rmi all --remove-orphans 2>/dev/null || true
+	@docker network inspect inception_network >/dev/null 2>&1 && \
+	docker network rm inception_network || true
+	@docker volume prune -f 2>/dev/null || true
+	@sudo rm -rf "$(DATA_PATH)"
+
+# REBUILD_______________________________________________________________________
+quick-re: clean
+	@$(COMPOSE) up -d --force-recreate
+
+re: fclean all
+
+.PHONY: all build up down start stop shell clean fclean re quick-re prepare check-secrets
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./db-service/redis/Dockerfile ===[0m
+FROM redis:7.2-alpine
+
+LABEL maintainer="jolopez- <jolopez-@student.42madrid.com>"
+
+RUN mkdir -p /usr/local/etc/redis
+COPY redis.conf healthcheck.sh /usr/local/etc/redis/
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/Europe/Madrid /etc/localtime && \
+    echo "Europe/Madrid" > /etc/timezone && \
+    apk del tzdata
+RUN chmod +x /usr/local/etc/redis/healthcheck.sh
+
+RUN mkdir -p /data && \
+    chown redis:redis /data && \
+    chmod 750 /data
+
+EXPOSE 6379
+
+RUN chmod 755 /usr/local/etc/redis/healthcheck.sh
+
+RUN chown -R redis:redis /usr/local/etc/redis && \
+    chmod 600 /usr/local/etc/redis/redis.conf
+
+USER redis
+CMD ["sh", "-c", "export REDIS_PASSWORD=$(cat ${REDIS_PASSWORD_FILE}) && exec redis-server /usr/local/etc/redis/redis.conf"][1;30m----------------------------------------[0m
+
+[1;34m=== ./db-service/redis/healthcheck.sh ===[0m
+#!/bin/sh
+set -eo pipefail
+
+REDIS_PASSWORD=$(cat ${REDIS_PASSWORD_FILE})
+
+# Verificar conexión básica
+if ! redis-cli -a "$REDIS_PASSWORD" ping | grep -q "PONG"; then
+  echo "Error: No se pudo conectar a Redis"
+  exit 1
+fi
+
+# Verificar estado completo
+STATUS=$(redis-cli -a "$REDIS_PASSWORD" info all)
+if [ -z "$STATUS" ]; then
+  echo "Error: No se pudo obtener el estado de Redis"
+  exit 1
+fi
+
+# Verificar memoria
+MEM_USAGE=$(echo "$STATUS" | grep -E "used_memory_human:" | cut -d: -f2)
+echo "Memoria usada: $MEM_USAGE"
+
+exit 0[1;30m----------------------------------------[0m
+
+[1;34m=== ./db-service/redis/redis.conf ===[0m
+# Configuración de seguridad
+requirepass ${REDIS_PASSWORD_FILE}
+rename-command FLUSHDB ""
+rename-command FLUSHALL ""
+rename-command CONFIG ""
+protected-mode yes
+
+# Configuración de persistencia
+appendonly yes
+appendfilename "appendonly.aof"
+appendfsync everysec
+aof-rewrite-incremental-fsync yes
+
+# Configuración de memoria
+maxmemory ${REDIS_MAXMEMORY}
+maxmemory-policy allkeys-lru
+
+# Configuración de rendimiento
+hash-max-ziplist-entries 512
+hash-max-ziplist-value 64
+activerehashing yes
+hz 10
+
+# Configuración de red
+bind 0.0.0.0
+port 6379
+tcp-keepalive 60
+timeout 300
+
+# Configuración de conexiones
+maxclients 50[1;30m----------------------------------------[0m
+
+[1;34m=== ./db-service/tsconfig.json ===[0m
+{
+  "compilerOptions": {
+    "target": "es2021",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./db-service/src/database.ts ===[0m
+import sqlite3 from 'sqlite3';
+import { open, Database } from 'sqlite'; // Importar Database de sqlite
+import path from 'path';
+
+// Asegúrate de que el directorio 'data' exista en la raíz del proyecto para la persistencia.
+// Docker montará un volumen aquí.
+const DB_PATH = path.join(__dirname, '../data/app.db');
+
+export async function openDb(): Promise<Database> { // Especificar tipo de retorno
+    return open({
+        filename: DB_PATH,
+        driver: sqlite3.Database
+    });
+}
+
+export async function initializeDb() {
+    const db = await openDb();
+    try {
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS games (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player1_id INTEGER,
+                player2_id INTEGER,
+                score1 INTEGER DEFAULT 0,
+                score2 INTEGER DEFAULT 0,
+                status TEXT NOT NULL,
+                start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                end_time DATETIME
+            );
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                game_id INTEGER,
+                message TEXT NOT NULL,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('Base de datos inicializada y tablas creadas (si no existían).');
+    } finally {
+        await db.close();
+    }
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./db-service/src/server.ts ===[0m
+import Fastify from 'fastify';
+import { initializeDb, openDb } from './database';
+
+const fastify = Fastify({
+    logger: true
+});
+
+// Usar fastify.ready() en lugar de fastify.onReady()
+fastify.ready(async (err) => {
+    if (err) {
+        fastify.log.error('Error durante la inicialización de Fastify:', err);
+        process.exit(1);
+    }
+    await initializeDb();
+});
+
+fastify.get('/users', async (request, reply) => {
+    const db = await openDb();
+    try {
+        const users = await db.all('SELECT id, username, email FROM users');
+        return users;
+    } finally {
+        await db.close();
+    }
+});
+
+fastify.post('/users', async (request, reply) => {
+    const { username, password_hash, email } = request.body as any;
+    if (!username || !password_hash || !email) {
+        reply.code(400).send({ message: 'Missing required fields' });
+        return;
+    }
+    const db = await openDb();
+    try {
+        const result = await db.run('INSERT INTO users (username, password_hash, email) VALUES (?, ?, ?)', username, password_hash, email);
+        reply.code(201).send({ id: result.lastID, message: 'User created' });
+    } catch (error: any) {
+        if (error.code === 'SQLITE_CONSTRAINT') {
+            reply.code(409).send({ message: 'Username or email already exists' });
+        } else {
+            fastify.log.error(error);
+            reply.code(500).send({ message: 'Internal Server Error' });
+        }
+    } finally {
+        await db.close();
+    }
+});
+
+const start = async () => {
+    try {
+        await fastify.listen({ port: 8000, host: '0.0.0.0' }); // Escucha en el puerto 8000
+        console.log('db-service escuchando en el puerto 8000');
+    } catch (err) {
+        fastify.log.error(err);
+        process.exit(1);
+    }
+};
+
+start();
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./db-service/src/redis-client.ts ===[0m
+// auth-service/src/redis-client.ts
+
+import { createClient } from 'redis';
+
+const redis = createClient({
+  url: process.env.REDIS_URL || 'redis://default@redis:6379'
+});
+
+redis.on('error', (err) => {
+  console.error('Redis client error:', err);
+});
+
+(async () => {
+  try {
+    await redis.connect();
+    console.log('Redis client connected');
+  } catch (err) {
+    console.error('Redis connection failed:', err);
+  }
+})();
+
+export default redis;
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./db-service/sqlite-writer/tsconfig.json ===[0m
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "outDir": "dist",
+    "types": ["node"]
+  },
+  "include": ["writer.ts"]
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./db-service/sqlite-writer/package.json ===[0m
+{
+  "name": "sqlite-writer",
+  "version": "1.0.0",
+  "main": "dist/writer.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/writer.js"
+  },
+  "dependencies": {
+    "typescript": "^5.4.5",
+    "ioredis": "^5.3.2",
+    "sqlite3": "^5.1.6",
+    "@types/node": "^20.0.0"
+  }
+}
+
+
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./db-service/sqlite-writer/Dockerfile ===[0m
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package.json tsconfig.json writer.ts ./
+
+RUN npm install && npm run build
+
+CMD ["node", "dist/writer.js"]
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./db-service/sqlite-writer/writer.ts ===[0m
+import Redis from 'ioredis';
+import sqlite3 from 'sqlite3';
+
+// Conexión Redis
+const redis = new Redis({
+  host: 'redis',
+  port: 6379,
+  password: process.env.REDIS_PASSWORD || undefined,
+});
+
+// Conexión SQLite
+const db = new sqlite3.Database('/app/data/app.db', (err) => {
+  if (err) {
+    console.error('❌ Error abriendo SQLite:', err.message);
+    process.exit(1);
+  }
+  console.log('✅ Conectado a SQLite');
+});
+
+// Procesar mensajes de Redis
+const queueName = 'sqlite_write_queue';
+
+async function listenForWrites() {
+  console.log(`📥 Escuchando en la cola Redis: ${queueName}...`);
+
+  while (true) {
+    try {
+      const result = await redis.blpop(queueName, 0); // [key, value]
+      if (!result) continue; // seguridad
+      const payload = JSON.parse(result[1]);
+
+      
+      console.log('📄 Recibido:', payload);
+
+      db.run(payload.sql, payload.params || [], function (err) {
+        if (err) {
+          console.error('❌ Error al ejecutar SQL:', err.message);
+        } else {
+          console.log(`✅ SQL ejecutado. Filas afectadas: ${this.changes}`);
+        }
+      });
+
+    } catch (err) {
+      console.error('⚠️ Error en bucle principal:', err);
+    }
+  }
+}
+
+listenForWrites();
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./db-service/package.json ===[0m
+{
+  "name": "db-service",
+  "version": "1.0.0",
+  "description": "Microservicio para db-service",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev src/server.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fastify": "^4.x.x",
+    "sqlite3": "^5.x.x",
+    "sqlite": "^5.x.x",
+    "redis": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x.x",
+    "ts-node": "^10.x.x",
+    "ts-node-dev": "^2.x.x",
+    "typescript": "^5.x.x"
+  }
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./db-service/Dockerfile ===[0m
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Instala Python y herramientas necesarias para sqlite3
+RUN apk add --no-cache python3 build-base
+
+# Instala dependencias de Node.js
+COPY package*.json ./
+RUN npm install
+
+# Copia el resto del código y compila TypeScript
+COPY . .
+RUN npm run build
+
+# Instala 'concurrently' para ejecutar server + redis-writer
+RUN npm install --save concurrently
+
+EXPOSE 8000
+
+# Ejecuta servidor y consumidor de cola Redis simultáneamente
+CMD ["node", "dist/server.js"]
+
+
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./.env ===[0m
+DATA_PATH=/home/jolopez-/data/transcendence
+
+JWT_SECRET=supersecreto123
+
+REDIS_PORT=6379
+REDIS_MAXMEMORY=256mb[1;30m----------------------------------------[0m
+
+[1;34m=== ./chat-service/tsconfig.json ===[0m
+{
+  "compilerOptions": {
+    "target": "es2021",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./chat-service/src/server.ts ===[0m
+import Fastify from 'fastify';
+
+const fastify = Fastify({
+    logger: true
+});
+
+fastify.get('/', async (request, reply) => {
+    return { service: 'chat-service', message: 'Hello from chat-service!' };
+});
+
+const start = async () => {
+    try {
+        await fastify.listen({ port: 8000, host: '0.0.0.0' }); // Escucha en el puerto 8000
+        console.log(`chat-service escuchando en el puerto 8000`);
+    } catch (err) {
+        fastify.log.error(err);
+        process.exit(1);
+    }
+};
+
+start();
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./chat-service/package.json ===[0m
+{
+  "name": "chat-service",
+  "version": "1.0.0",
+  "description": "Microservicio para chat-service",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev src/server.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fastify": "^4.x.x"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x.x",
+    "ts-node": "^10.x.x",
+    "ts-node-dev": "^2.x.x",
+    "typescript": "^5.x.x"
+  }
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./chat-service/Dockerfile ===[0m
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+EXPOSE 8000
+CMD ["npm", "start"]
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./auth-service/tsconfig.json ===[0m
+{
+  "compilerOptions": {
+    "target": "es2021",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./auth-service/src/database.ts ===[0m
+import sqlite3 from 'sqlite3';
+import { open, Database } from 'sqlite'; // Importar Database de sqlite
+import path from 'path';
+
+// Asegúrate de que el directorio 'data' exista en la raíz del proyecto para la persistencia.
+// Docker montará un volumen aquí.
+const DB_PATH = path.join(__dirname, '../data/app.db');
+
+export async function openDb(): Promise<Database> { // Especificar tipo de retorno
+    return open({
+        filename: DB_PATH,
+        driver: sqlite3.Database
+    });
+}
+
+export async function initializeDb() {
+    const db = await openDb();
+    try {
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS games (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player1_id INTEGER,
+                player2_id INTEGER,
+                score1 INTEGER DEFAULT 0,
+                score2 INTEGER DEFAULT 0,
+                status TEXT NOT NULL,
+                start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                end_time DATETIME
+            );
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                game_id INTEGER,
+                message TEXT NOT NULL,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('Base de datos inicializada y tablas creadas (si no existían).');
+    } finally {
+        await db.close();
+    }
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./auth-service/src/server.ts ===[0m
+import Fastify from 'fastify';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import fetch from 'node-fetch';
+import dotenv from 'dotenv';
+import { openDb } from './database';
+import redis from './redis-client';
+
+
+dotenv.config();
+const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
+
+const fastify = Fastify({ logger: true });
+
+fastify.post('/auth/register', async (request, reply) => {
+  const { username, email, password } = request.body as any;
+  if (!username || !email || !password) {
+    return reply.code(400).send({ message: 'Faltan campos requeridos' });
+  }
+  const db = await openDb();
+  try {
+    const hash = await bcrypt.hash(password, 10);
+    await redis.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+      params: [username, email, hash]
+    }));
+    return reply.code(201).send({ message: 'Usuario registrado' });
+  } catch (err: any) {
+    if (err.code === 'SQLITE_CONSTRAINT') {
+      return reply.code(409).send({ message: 'Usuario o email ya existe' });
+    }
+    return reply.code(500).send({ message: 'Error interno' });
+  } finally {
+    await db.close();
+  }
+});
+
+fastify.post('/auth/login', async (request, reply) => {
+  const { email, password } = request.body as any;
+  const db = await openDb();
+  try {
+    const user = await db.get('SELECT * FROM users WHERE email = ?', email);
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      return reply.code(401).send({ message: 'Credenciales inválidas' });
+    }
+    const token = jwt.sign({ user_id: user.id }, JWT_SECRET, { expiresIn: '1h' });
+    return reply.send({ token });
+  } finally {
+    await db.close();
+  }
+});
+
+type GooglePayload = {
+  email: string;
+  name: string;
+  [key: string]: any;
+};
+
+fastify.post('/auth/google', async (request, reply) => {
+  const { token } = request.body as any;
+  if (!token) return reply.code(400).send({ message: 'Falta token de Google' });
+
+  try {
+    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+    if (!res.ok) return reply.code(401).send({ message: 'Token inválido' });
+    const payload = (await res.json()) as GooglePayload;
+
+    const db = await openDb();
+    let user = await db.get('SELECT * FROM users WHERE email = ?', payload.email);
+    if (!user) {
+      await redis.rPush('sqlite_write_queue', JSON.stringify({
+        sql: 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+        params: [payload.name, payload.email, '']
+      }));
+      // Volver a consultar tras insertar en cola
+      user = await db.get('SELECT * FROM users WHERE email = ?', payload.email);
+    }
+    const jwtToken = jwt.sign({ user_id: user.id }, JWT_SECRET, { expiresIn: '1h' });
+    return reply.send({ token: jwtToken });
+  } catch (err) {
+    return reply.code(500).send({ message: 'Error con Google Sign-In' });
+  }
+});
+
+fastify.listen({ port: 8000, host: '0.0.0.0' }, err => {
+  if (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+});
+
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./auth-service/src/redis-client.ts ===[0m
+// auth-service/src/redis-client.ts
+
+import { createClient } from 'redis';
+
+const redis = createClient({
+  url: process.env.REDIS_URL || 'redis://default@redis:6379'
+});
+
+redis.on('error', (err) => {
+  console.error('Redis client error:', err);
+});
+
+(async () => {
+  try {
+    await redis.connect();
+    console.log('Redis client connected');
+  } catch (err) {
+    console.error('Redis connection failed:', err);
+  }
+})();
+
+export default redis;
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./auth-service/package.json ===[0m
+{
+  "name": "auth-service",
+  "version": "1.0.0",
+  "description": "Microservicio para auth-service",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev src/server.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fastify": "^4.x.x",
+    "sqlite3": "^5.x.x",
+    "sqlite": "^5.x.x",
+    "jsonwebtoken": "^9.x.x",
+    "bcryptjs": "^2.x.x",
+    "node-fetch": "^3.x.x",
+    "dotenv": "^16.x.x",
+    "redis": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x.x",
+    "ts-node": "^10.x.x",
+    "ts-node-dev": "^2.x.x",
+    "typescript": "^5.x.x",
+    "@types/jsonwebtoken": "^9.0.0",
+    "@types/bcryptjs": "^2.4.2"
+
+  }
+}
+
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./auth-service/Dockerfile ===[0m
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+EXPOSE 8000
+CMD ["npm", "start"]
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./print_tree.sh ===[0m
+#!/bin/bash
+
+# Función para detectar si un archivo es de texto
+is_text_file() {
+  file -b --mime-encoding "$1" | grep -q -v 'binary'
+}
+
+# Mostrar estructura de directorios (excluyendo .git, node_modules, styles y pages)
+echo -e "\033[1;32m=== ESTRUCTURA DE DIRECTORIOS ===\033[0m"
+tree -a -I '.git|node_modules' --dirsfirst
+
+# Mostrar contenido de archivos de texto, ignorando .git, node_modules, styles y pages
+echo -e "\n\033[1;32m=== CONTENIDO DE ARCHIVOS DE TEXTO ===\033[0m"
+find . -type f \
+  ! -path '*/.git/*' \
+  ! -path '*/print-tree.sh' \
+  ! -path '*/README.md' \
+  | while read -r file; do
+    if is_text_file "$file"; then
+      echo -e "\n\033[1;34m=== $file ===\033[0m"
+      cat "$file"
+      echo -e "\033[1;30m----------------------------------------\033[0m"
+    else
+      echo -e "\n\033[1;31m=== $file (archivo binario, omitido) ===\033[0m"
+    fi
+done
+
+
+
+  # ! -path '*/.api-gateway/src/*' \
+  # ! -path '*/.api-gateway/package.json' \
+  # ! -path '*/.api-gateway/tsconfig.json' \
+  # ! -path '*/.chat-service/src/*' \
+  # ! -path '*/.chat-service/package.json' \
+  # ! -path '*/.chat-service/tsconfig.json' \
+  # ! -path '*/frontend/src/*' \
+  # ! -path '*/frontend/package.json' \
+  # ! -path '*/frontend/tailwind.config.js' \
+  # ! -path '*/frontend/tsconfig.json' \
+  # ! -path '*/frontend/webpack.config.js' \
+  # ! -path '*/game-service/tsconfig.json' \
+  # ! -path '*/game-service/package.json' \
+  # ! -path '*/game-service/src/*' \[1;30m----------------------------------------[0m
+
+[1;34m=== ./code.txt ===[0m
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./nginx-waf/modsecurity.conf ===[0m
+Include /usr/local/modsecurity-crs/modsecurity_crs_10_setup.conf
+Include /usr/local/modsecurity-crs/rules/*.conf
+
+SecRuleEngine On
+SecRequestBodyAccess On
+SecResponseBodyAccess On
+SecDebugLog /var/log/modsec_debug.log
+SecAuditLog /var/log/modsec_audit.log
+SecAuditLogParts ABIFHZ
+SecAuditLogRelevantStatus "^(?:5|4(?![04]))"
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./nginx-waf/nginx.conf ===[0m
+server {
+    listen 80; # Nginx dentro del contenedor WAF seguirá escuchando en 80
+    server_name localhost;
+
+    modsecurity on;
+    modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;
+
+    location / {
+        proxy_pass http://frontend:8080; # Apunta al puerto interno del frontend
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/ {
+        proxy_pass http://api-gateway:8000/; # Apunta al puerto interno del API Gateway
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/tailwind.config.js ===[0m
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/tsconfig.json ===[0m
+{
+  "compilerOptions": {
+    "target": "es2021",
+    "module": "esnext",
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node",
+    "lib": ["dom", "dom.iterable", "esnext"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/src/auth.ts ===[0m
+// src/auth.ts
+
+// Datos de usuario hardcodeados
+export interface User {
+    id: number;
+    username: string;
+    email: string;
+}
+
+// Ejemplo de datos de usuario
+const dummyUser: User = {
+    id: 1,
+    username: "testuser",
+    email: "testuser@example.com"
+};
+
+// Estado de autenticación (inicialmente deslogueado)
+let authenticated = false;
+
+// Simula que el usuario está autenticado
+export function isAuthenticated(): boolean {
+    return authenticated;
+}
+
+// Obtiene el usuario actual hardcoded
+export function getCurrentUser(): User | null {
+    return authenticated ? dummyUser : null;
+}
+
+// Simula login
+export function login(username: string, password: string): boolean {
+    // Simula autenticación exitosa
+    if (username && password) {
+        authenticated = true;
+        console.log("Usuario logueado exitosamente");
+        return true;
+    }
+    return false;
+}
+
+// Simula logout
+export function logout(): void {
+    authenticated = false;
+    console.log("Usuario deslogueado");
+    // Redirigir al login
+    window.location.href = '/login';
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/src/components/navbar.ts ===[0m
+// src/components/navbar.ts
+
+import { navigateTo } from '../router';
+import { getTranslation, setLanguage, getCurrentLanguage } from '../i18n';
+import { logout } from '../auth';
+
+/**
+ * Renders the navigation bar and attaches its event listeners.
+ * This function handles both desktop and mobile views,
+ * including active link highlighting and language selection.
+ * @param currentPath The current active path to highlight the correct link.
+ */
+export function renderNavbar(currentPath: string): void {
+    const navbarHtml = `
+        <header class="w-full p-6 bg-[#000814] border-b border-[#003566] shadow-xl flex justify-between items-center fixed top-0 z-20 transition-all duration-300 ease-in-out">
+            <h1 class="text-2xl sm:text-3xl font-display font-extrabold text-[#ffc300] drop-shadow-md tracking-tight">PONG</h1>
+
+            <nav class="hidden md:flex items-center space-x-8">
+                <ul class="flex space-x-8">
+                    <li>
+                        <a class="${currentPath === '/home' || currentPath === '/' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}" href="/home">${getTranslation('home', 'home')}</a>
+                    </li>
+                    <li>
+                        <a href="/profile" class="${currentPath === '/profile' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('home', 'profile')}</a>
+                    </li>
+                    <li>
+                        <a href="/play" class="${currentPath === '/play' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('home', 'play')}</a>
+                    </li>
+                    <li>
+                        <a href="/ranking" class="${currentPath === '/ranking' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('home', 'ranking')}</a>
+                    </li>
+                    <li>
+                        <a href="/settings" class="${currentPath === '/settings' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('home', 'settings')}</a>
+                    </li>
+                    <li>
+                        <button id="logout-btn-desktop" class="text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200 bg-transparent border-none cursor-pointer">${getTranslation('home', 'logout')}</button>
+                    </li>
+                </ul>
+                <div class="relative z-50">
+                    <button
+                        type="button"
+                        id="language-dropdown-button-desktop"
+                        class="inline-flex justify-center items-center gap-x-1.5 rounded-full bg-[#001d3d] px-4 py-2 text-sm font-semibold text-gray-100 shadow-sm ring-1 ring-inset ring-[#003566] hover:bg-[#003566] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#ffc300]"
+                        aria-expanded="false"
+                        aria-haspopup="true"
+                    >
+                        <span id="current-language-name-desktop">${getTranslation('common', 'language')}</span>
+                        <svg class="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.29a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+
+                    <div
+                        id="language-dropdown-menu-desktop"
+                        class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-[#001d3d] shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none hidden"
+                        role="menu"
+                        aria-orientation="vertical"
+                        aria-labelledby="language-dropdown-button-desktop"
+                        tabindex="-1"
+                    >
+                        <div class="py-1" role="none">
+                            <a href="#" class="flex items-center gap-x-3 px-4 py-2 text-sm text-gray-100 hover:bg-[#003566]" role="menuitem" tabindex="-1" data-lang="es">
+                                ${getTranslation('common', 'castellano')}
+                            </a>
+                            <a href="#" class="flex items-center gap-x-3 px-4 py-2 text-sm text-gray-100 hover:bg-[#003566]" role="menuitem" tabindex="-1" data-lang="en">
+                                ${getTranslation('common', 'english')}
+                            </a>
+                            <a href="#" class="flex items-center gap-x-3 px-4 py-2 text-sm text-gray-100 hover:bg-[#003566]" role="menuitem" tabindex="-1" data-lang="gl">
+                                ${getTranslation('common', 'galician')}
+                            </a>
+                            <a href="#" class="flex items-center gap-x-3 px-4 py-2 text-sm text-gray-100 hover:bg-[#003566]" role="menuitem" tabindex="-1" data-lang="zh">
+                                ${getTranslation('common', 'chinese')}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="md:hidden flex items-center">
+                <input type="checkbox" id="menu-toggle" class="peer hidden" />
+                <label for="menu-toggle" class="block cursor-pointer text-[#ffc300] hover:text-[#ffd60a] focus:outline-none">
+                    <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
+                    </svg>
+                </label>
+
+                <div class="fixed top-[80px] left-0 w-full bg-[#000814] border-b border-[#003566] shadow-xl z-10
+                            max-h-0 overflow-hidden transition-all duration-300 ease-in-out
+                            peer-checked:max-h-screen">
+                    <ul class="flex flex-col items-center py-4 space-y-4">
+                        <li>
+                            <a class="${currentPath === '/home' || currentPath === '/' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}" href="/home">${getTranslation('home', 'home')}</a>
+                        </li>
+                        <li>
+                            <a href="/profile" class="${currentPath === '/profile' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}">${getTranslation('home', 'profile')}</a>
+                        </li>
+                        <li>
+                            <a href="/play" class="${currentPath === '/play' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}">${getTranslation('home', 'play')}</a>
+                        </li>
+                        <li>
+                            <a href="/ranking" class="${currentPath === '/ranking' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}">${getTranslation('home', 'ranking')}</a>
+                        </li>
+                        <li>
+                            <a href="/settings" class="${currentPath === '/settings' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}">${getTranslation('home', 'settings')}</a>
+                        </li>
+                        <li>
+                            <button id="logout-btn-mobile" class="block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2 bg-transparent border-none cursor-pointer w-full text-center">${getTranslation('home', 'logout')}</button>
+                        </li>
+                        <li class="mt-4 pt-4 border-t border-[#003566] w-full text-center">
+                            <div class="inline-block">
+                                <button
+                                    type="button"
+                                    id="language-accordion-button-mobile"
+                                    class="inline-flex justify-center items-center gap-x-1.5 rounded-full bg-[#001d3d] px-4 py-2 text-sm font-semibold text-gray-100 shadow-sm ring-1 ring-inset ring-[#003566] hover:bg-[#003566] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#ffc300]"
+                                >
+                                    <span id="current-language-name-mobile-inner">${getTranslation('common', 'language')}</span>
+                                    <svg id="language-accordion-arrow-mobile" class="-mr-1 h-5 w-5 text-gray-400 transform transition-transform duration-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.29a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div
+                                id="language-accordion-content-mobile"
+                                class="max-h-0 overflow-hidden transition-all duration-300 ease-in-out mt-2 w-full"
+                            >
+                                <ul class="py-1 text-center space-y-2">
+                                    <li><a href="#" class="block px-4 py-2 text-sm text-gray-100 hover:bg-[#003566]" data-lang="es">${getTranslation('common', 'castellano')}</a></li>
+                                    <li><a href="#" class="block px-4 py-2 text-sm text-gray-100 hover:bg-[#003566]" data-lang="en">${getTranslation('common', 'english')}</a></li>
+                                    <li><a href="#" class="block px-4 py-2 text-sm text-gray-100 hover:bg-[#003566]" data-lang="gl">${getTranslation('common', 'galician')}</a></li>
+                                    <li><a href="#" class="block px-4 py-2 text-sm text-gray-100 hover:bg-[#003566]" data-lang="zh">${getTranslation('common', 'chinese')}</a></li>
+                                </ul>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+    `;
+
+    const navbarContainer = document.getElementById('navbar-container');
+    if (navbarContainer) {
+        navbarContainer.innerHTML = navbarHtml;
+
+        // Function to update the language dropdown button's UI
+        const updateLanguageButtonUI = (nameSpanId: string) => {
+            const nameSpan = document.getElementById(nameSpanId);
+            const currentLang = getCurrentLanguage();
+
+            let languageDisplayName = '';
+            switch (currentLang) {
+                case 'es':
+                    languageDisplayName = getTranslation('common', 'castellano');
+                    break;
+                case 'en':
+                    languageDisplayName = getTranslation('common', 'english');
+                    break;
+                case 'gl':
+                    languageDisplayName = getTranslation('common', 'galician');
+                    break;
+                case 'zh':
+                    languageDisplayName = getTranslation('common', 'chinese');
+                    break;
+                default:
+                    languageDisplayName = getTranslation('common', 'language'); // Fallback
+            }
+
+            if (nameSpan) {
+                nameSpan.textContent = languageDisplayName;
+            }
+        };
+
+        // Initialize desktop button UI
+        updateLanguageButtonUI('current-language-name-desktop');
+        // Initialize mobile inner button UI
+        updateLanguageButtonUI('current-language-name-mobile-inner');
+
+
+        // Desktop Language Dropdown Logic
+        const languageDropdownButtonDesktop = document.getElementById('language-dropdown-button-desktop');
+        const languageDropdownMenuDesktop = document.getElementById('language-dropdown-menu-desktop');
+
+        if (languageDropdownButtonDesktop && languageDropdownMenuDesktop) {
+            languageDropdownButtonDesktop.addEventListener('click', (event) => {
+                event.stopPropagation();
+                languageDropdownMenuDesktop.classList.toggle('hidden');
+                languageDropdownButtonDesktop.setAttribute('aria-expanded', languageDropdownMenuDesktop.classList.contains('hidden') ? 'false' : 'true');
+            });
+
+            languageDropdownMenuDesktop.querySelectorAll('a').forEach(item => {
+                item.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    const langId = item.dataset.lang;
+                    if (langId) {
+                        setLanguage(langId);
+                        languageDropdownMenuDesktop.classList.add('hidden');
+                        languageDropdownButtonDesktop.setAttribute('aria-expanded', 'false');
+                    }
+                });
+            });
+        }
+
+        // Mobile Language Accordion Logic
+        const languageAccordionButtonMobile = document.getElementById('language-accordion-button-mobile');
+        const languageAccordionContentMobile = document.getElementById('language-accordion-content-mobile');
+        const languageAccordionArrowMobile = document.getElementById('language-accordion-arrow-mobile');
+
+        if (languageAccordionButtonMobile && languageAccordionContentMobile && languageAccordionArrowMobile) {
+            languageAccordionButtonMobile.addEventListener('click', (event) => {
+                event.stopPropagation();
+                languageAccordionContentMobile.classList.toggle('max-h-0');
+                languageAccordionContentMobile.classList.toggle('max-h-screen'); // Para que se expanda
+                languageAccordionArrowMobile.classList.toggle('rotate-180'); // Gira la flecha
+            });
+
+            languageAccordionContentMobile.querySelectorAll('a').forEach(item => {
+                item.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    const langId = item.dataset.lang;
+                    if (langId) {
+                        setLanguage(langId);
+                        // Cierra el acordeón de idioma
+                        languageAccordionContentMobile.classList.add('max-h-0');
+                        languageAccordionContentMobile.classList.remove('max-h-screen');
+                        languageAccordionArrowMobile.classList.remove('rotate-180');
+                        // Cierra el menú móvil principal (si está abierto)
+                        const menuToggle = document.getElementById('menu-toggle') as HTMLInputElement;
+                        if (menuToggle) menuToggle.checked = false;
+                    }
+                });
+            });
+        }
+
+        // Common click-outside listener for desktop dropdown only (mobile accordion doesn't need it)
+        document.addEventListener('click', (event) => {
+            if (languageDropdownMenuDesktop && languageDropdownButtonDesktop && !languageDropdownButtonDesktop.contains(event.target as Node) && !languageDropdownMenuDesktop.contains(event.target as Node)) {
+                languageDropdownMenuDesktop.classList.add('hidden');
+                languageDropdownButtonDesktop.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        // Mobile menu toggle logic
+        const menuToggle = document.getElementById('menu-toggle') as HTMLInputElement;
+        const mobileMenuDropdown = document.querySelector('header .md\\:hidden .peer:checked~div');
+
+        if (menuToggle && mobileMenuDropdown) {
+            mobileMenuDropdown.querySelectorAll('a').forEach(link => {
+                link.addEventListener('click', (event) => {
+                    // Cierra el menú principal al hacer clic en un enlace de navegación
+                    menuToggle.checked = false;
+                });
+            });
+        }
+
+        // Logout button event listeners
+        const logoutBtnDesktop = document.getElementById('logout-btn-desktop');
+        const logoutBtnMobile = document.getElementById('logout-btn-mobile');
+
+        if (logoutBtnDesktop) {
+            logoutBtnDesktop.addEventListener('click', (event) => {
+                event.preventDefault();
+                logout();
+            });
+        }
+
+        if (logoutBtnMobile) {
+            logoutBtnMobile.addEventListener('click', (event) => {
+                event.preventDefault();
+                // Close mobile menu first
+                if (menuToggle) menuToggle.checked = false;
+                logout();
+            });
+        }
+    } else {
+        console.error('Navbar container element not found.');
+    }
+}
+
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/src/router.ts ===[0m
+// src/router.ts
+
+import { renderHomePage } from './pages/home';
+import { renderPlay } from './pages/play';
+import { renderProfilePage } from './pages/profile';
+import { renderRankingPage } from './pages/ranking';
+import { renderSettingsPage } from './pages/settings';
+import { renderLoginPage } from './pages/login';
+import { renderRegister } from './pages/register';
+import { renderNavbar } from './components/navbar';
+import { isAuthenticated } from './auth';
+
+// Define tus rutas
+const routes: { [key: string]: () => void } = {
+  '/home': renderHomePage,
+  '/': () => {
+    // Redirigir al login si no está autenticado, al home si lo está
+    if (isAuthenticated()) {
+      navigateTo('/home');
+    } else {
+      navigateTo('/login');
+    }
+  },
+  '/profile': renderProfilePage,
+  '/play': renderPlay,
+  '/ranking': renderRankingPage,
+  '/settings': renderSettingsPage,
+  '/login': renderLoginPage,
+  '/register': renderRegister
+};
+
+/**
+ * Función auxiliar para establecer la estructura principal de la aplicación (navbar + contenido de página).
+ * Solo la recrea si no existe.
+ */
+function setupMainAppLayout(): void {
+  const appRoot = document.getElementById('app-root');
+  if (!appRoot) {
+    console.error('Elemento con id "app-root" no encontrado para configurar el layout principal.');
+    return;
+  }
+
+  // Si no existen los contenedores principales (navbar-container o page-content), los crea
+  if (!document.getElementById('navbar-container') || !document.getElementById('page-content')) {
+    appRoot.innerHTML = `
+      <div id="navbar-container"></div>
+      <main id="page-content" class="flex-grow flex flex-col justify-center items-center p-4 sm:p-8 mt-24 sm:mt-32 w-full text-gray-100"></main>
+    `;
+  }
+}
+
+/**
+ * Navega a una nueva ruta, renderiza la página correspondiente y actualiza el historial del navegador.
+ * También asegura que el navbar se vuelva a renderizar para reflejar el enlace activo, si aplica.
+ * @param path La ruta a la que navegar.
+ */
+export async function navigateTo(path: string): Promise<void> {
+  const appRoot = document.getElementById('app-root') as HTMLElement;
+  if (!appRoot) {
+    console.error('Elemento con id "app-root" no encontrado. No se puede navegar.');
+    return;
+  }
+
+  const isAuthPage = path === '/login' || path === '/register';
+  const currentPagePath = window.location.pathname;
+  const wasAuthPage = currentPagePath === '/login' || currentPagePath === '/register';
+  
+  // Verifica si el usuario está autenticado
+  const userIsAuthenticated = isAuthenticated();
+
+  // Protección de rutas
+  if (isAuthPage && userIsAuthenticated) {
+    // Si el usuario está autenticado y trata de acceder a login/register, redirigir a home
+    console.log('Usuario autenticado intentando acceder a página de auth, redirigiendo a home');
+    navigateTo('/home');
+    return;
+  }
+
+  if (!isAuthPage && !userIsAuthenticated) {
+    // Si el usuario no está autenticado y trata de acceder a páginas protegidas, redirigir a login
+    console.log('Usuario no autenticado intentando acceder a página protegida, redirigiendo a login');
+    navigateTo('/login');
+    return;
+  }
+
+  if (isAuthPage) {
+    // Si vamos a una página de autenticación, limpiamos todo el appRoot
+    // y dejamos que renderLoginPage/renderRegister sobrescriba appRoot.innerHTML
+    if (!wasAuthPage) { // Solo si venimos de una página que no era de autenticación
+        appRoot.innerHTML = ''; // Limpia la estructura principal (navbar + main)
+    }
+    const renderFunction = routes[path];
+    if (renderFunction) {
+      renderFunction(); // Llama a la función de renderizado de login/register
+    } else {
+        console.warn(`Ruta no encontrada para página de autenticación: ${path}`);
+    }
+  } else {
+    // Si vamos a una página de la aplicación principal, nos aseguramos de que la estructura exista
+    if (wasAuthPage) { // Si venimos de una página de autenticación
+        setupMainAppLayout(); // Reestablece la estructura principal (navbar + main)
+    } else if (!document.getElementById('navbar-container') || !document.getElementById('page-content')) {
+        // Si no es una página de autenticación, pero la estructura no está (ej. primera carga de /home)
+        setupMainAppLayout();
+    }
+
+    const pageContentContainer = document.getElementById('page-content');
+    if (!pageContentContainer) {
+      console.error('Contenedor de contenido de página (#page-content) no encontrado después de configurar el layout.');
+      return;
+    }
+
+    // Limpia solo el contenido de la página para las rutas no de autenticación
+    pageContentContainer.innerHTML = '';
+
+    const renderFunction = routes[path];
+    if (renderFunction) {
+      renderFunction(); // Renderiza el contenido de la página dentro de #page-content
+    } else {
+      // Manejar 404 o redirigir a una página predeterminada
+      pageContentContainer.innerHTML = '<h1>404 - Página No Encontrada</h1><p>Lo sentimos, la página que buscas no existe.</p>';
+      console.warn(`Ruta no encontrada para la ruta: ${path}`);
+    }
+
+    // Siempre vuelve a renderizar el navbar para actualizar el enlace activo en las páginas de la aplicación
+    renderNavbar(path);
+  }
+
+  // Actualiza el historial del navegador (a menos que sea la carga inicial y la ruta sea la misma)
+  if (window.location.pathname !== path) {
+    window.history.pushState({}, path, path);
+  }
+}
+
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/src/i18n.ts ===[0m
+// src/i18n.ts
+
+interface Translations {
+    [key: string]: { // This key will be the language code (e.g., 'es', 'en')
+        [component: string]: { // This key will be the component name (e.g., 'common', 'login', 'register', 'home', 'profile', 'play', 'ranking', 'settings', 'pong')
+            [textKey: string]: string; // This key will be the specific text identifier (e.g., 'welcomeBack')
+        };
+    };
+}
+
+const translations: Translations = {
+    es: {
+        common: {
+            language: 'Castellano',
+            english: 'English',
+            galician: 'Galego',
+            chinese: '中文 (Chino)',
+            castellano: 'Castellano',
+            infoTitle: "Información",
+            okButton: "Entendido",
+            backToHome: "Volver al Inicio"
+        },
+        navbar: {
+            home: 'Inicio',
+            profile: 'Perfil',
+            play: 'Jugar',
+            ranking: 'Ranking',
+            settings: 'Ajustes',
+            logout: 'Cerrar Sesión'
+        },
+        login: {
+            welcomeBack: 'Bienvenido de nuevo',
+            title: 'PONG',
+            subtitle: 'Conéctate para jugar al máximo nivel.',
+            usernameLabel: 'Nombre de usuario',
+            passwordLabel: 'Contraseña',
+            loginButton: 'Iniciar sesión',
+            createAccountButton: 'Crear una cuenta',
+            or: 'O',
+            continueWithGoogle: 'Continuar con Google',
+            noAccountYet: '¿Aún no tienes una cuenta?'
+        },
+        register: {
+            joinExperience: 'Únete a la experiencia',
+            title: 'Regístrate',
+            subtitle: 'Crea tu cuenta para empezar a jugar.',
+            usernameLabel: 'Nombre de usuario',
+            emailLabel: 'Correo electrónico',
+            passwordLabel: 'Contraseña',
+            confirmPasswordLabel: 'Confirmar contraseña',
+            registerButton: 'Registrarse',
+            alreadyHaveAccount: '¿Ya tienes una cuenta?',
+            loginHere: 'Iniciar sesión aquí',
+            registerWithGoogle: 'Registrarse con Google',
+            or: 'O'
+        },
+        home: {
+            welcomeTitle: "Bienvenido a",
+            welcomeSubtitle: "La plataforma definitiva para el Pong moderno. ¡Compite, conéctate y trasciende!",
+            playNowButton: "Jugar Ahora",
+            viewTournamentsButton: "Ver Torneos",
+            liveMatchesTitle: "Partidos en Vivo",
+            liveMatchesSubtitle: "Sigue la acción en tiempo real.",
+            playerA: "Jugador A",
+            playerB: "Jugador B",
+            teamX: "Equipo X",
+            teamY: "Equipo Y",
+            vs: "vs",
+            inProgressRound: "En progreso - Ronda ",
+            tournamentSemifinal: "Semifinal del Torneo",
+            quickMatch: "Partida Rápida",
+            preparingToStart: "Preparándose para empezar",
+            assassin: "Asesino",
+            master: "Maestro",
+            matchPoint: "Punto de partido",
+            yourProfileTitle: "Tu Perfil",
+            yourProfileSubtitle: "Accede a tus estadísticas, historial y personaliza tu experiencia.",
+            globalRankingTitle: "Ranking Global",
+            globalRankingSubtitle: "Descubre a los mejores jugadores de Transcendence."
+        },
+        profile: {
+            profileTitle: "Perfil de Usuario",
+            settingsTitle: "Ajustes",
+            editProfileButton: "Editar Perfil",
+            uploadAvatarButton: "Subir Avatar",
+            changePasswordButton: "Cambiar Contraseña",
+            matchHistoryTitle: "Historial de Partidas",
+            matchHistorySubtitle: "Tus últimas partidas",
+            matchWin: "Victoria",
+            matchLoss: "Derrota",
+            matchDraw: "Empate",
+            score: "Puntuación",
+            date: "Fecha",
+            time: "Hora",
+            opponent: "Oponente",
+            gameMode: "Modo de Juego",
+            noMatches: "No hay partidas en el historial.",
+            statsTitle: "Estadísticas",
+            totalWins: "Victorias Totales",
+            totalLosses: "Derrotas Totales",
+            winRate: "Tasa de Victorias",
+            totalGames: "Partidas Totales",
+            eloRating: "Puntuación ELO",
+            accuracy: "Precisión",
+            mostPlayedMode: "Modo más jugado",
+            languageSetting: "Idioma",
+            notificationsSetting: "Notificaciones",
+            twoFactorAuthSetting: "Autenticación de Dos Factores",
+            darkModeSetting: "Modo Oscuro",
+            enable: "Activar",
+            disable: "Desactivar",
+            change: "Cambiar",
+            logoutButton: "Cerrar Sesión",
+            saveChangesButton: "Guardar Cambios",
+            cancelButton: "Cancelar",
+            confirmLogoutTitle: "¿Cerrar Sesión?",
+            confirmLogoutMessage: "¿Estás seguro de que quieres cerrar tu sesión?",
+            yesLogout: "Sí, Cerrar Sesión",
+            noCancel: "No, Cancelar",
+            customMessageTitle: "Información",
+            okButton: "Entendido"
+        },
+        play: {
+            selectGameMode: "Selecciona un Modo de Juego",
+            oneVsOne: "1 vs 1 Clásico",
+            oneVsOneDescription: "Partida rápida contra otro jugador.",
+            tournament: "Torneo",
+            tournamentDescription: "Competición con múltiples jugadores. ¡Próximamente!",
+            comingSoon: "¡Próximamente!",
+            customGame: "Partida Personalizada",
+            customGameDescription: "Crea o únete a una partida con reglas específicas.",
+            vsAIButton: "Vs IA",
+            chooseModeTitle: "Elige un modo de juego",
+            chooseModeDescription: "Selecciona un modo de juego para empezar a jugar.",
+            backToGame: "Volver al juego",
+            vsAIDescription: "Juega contra la inteligencia artificial.",
+            selectDifficulty: "Selecciona la dificultad"
+        },
+        ranking: {
+            globalRankingTitle: "Ranking Global",
+            wins: "Victorias:",
+            losses: "Derrotas:",
+            pointsAbbreviation: "pts",
+            yourCurrentPosition: "Tu posición actual:",
+            viewMyPositionButton: "Ver mi posición"
+        },
+        settings: {
+            title: "Ajustes",
+            userAccountSectionTitle: "Cuenta de Usuario",
+            usernameLabel: "Nombre de Usuario",
+            emailLabel: "Correo Electrónico",
+            currentPasswordLabel: "Contraseña Actual",
+            currentPasswordPlaceholder: "Ingresa tu contraseña actual",
+            newPasswordLabel: "Nueva Contraseña",
+            newPasswordPlaceholder: "Ingresa tu nueva contraseña",
+            confirmNewPasswordLabel: "Confirmar Nueva Contraseña",
+            confirmNewPasswordPlaceholder: "Confirma tu nueva contraseña",
+            acceptChangesButton: "Aceptar Cambios",
+            deleteAccountButton: "Eliminar Cuenta"
+        }
+    },
+    en: {
+        common: {
+            language: 'English',
+            english: 'English',
+            galician: 'Galician',
+            chinese: '中文 (Chinese)',
+            castellano: 'Spanish',
+            infoTitle: "Information",
+            okButton: "Understood",
+            backToHome: "Back to Home"
+        },
+        navbar: {
+            home: 'Home',
+            profile: 'Profile',
+            play: 'Play',
+            ranking: 'Ranking',
+            settings: 'Settings',
+            logout: 'Logout'
+        },
+        login: {
+            welcomeBack: 'Welcome Back',
+            title: 'PONG',
+            subtitle: 'Connect to play at the highest level.',
+            usernameLabel: 'Username',
+            passwordLabel: 'Password',
+            loginButton: 'Login',
+            createAccountButton: 'Create an Account',
+            or: 'Or',
+            continueWithGoogle: 'Continue with Google',
+            noAccountYet: 'Don\'t have an account yet?'
+        },
+        register: {
+            joinExperience: 'Join the Experience',
+            title: 'Register',
+            subtitle: 'Create your account to start playing.',
+            usernameLabel: 'Username',
+            emailLabel: 'Email',
+            passwordLabel: 'Password',
+            confirmPasswordLabel: 'Confirm Password',
+            registerButton: 'Register',
+            alreadyHaveAccount: 'Already have an account?',
+            loginHere: 'Login here',
+            registerWithGoogle: 'Register with Google',
+            or: 'Or'
+        },
+        home: {
+            welcomeTitle: "Welcome to",
+            welcomeSubtitle: "The ultimate platform for modern Pong. Compete, connect, and transcend!",
+            playNowButton: "Play Now",
+            viewTournamentsButton: "View Tournaments",
+            liveMatchesTitle: "Live Matches",
+            liveMatchesSubtitle: "Follow the action in real-time.",
+            playerA: "Player A",
+            playerB: "Player B",
+            teamX: "Team X",
+            teamY: "Team Y",
+            vs: "vs",
+            inProgressRound: "In progress - Round ",
+            tournamentSemifinal: "Tournament Semifinal",
+            quickMatch: "Quick Match",
+            preparingToStart: "Preparing to start",
+            assassin: "Assassin",
+            master: "Master",
+            matchPoint: "Match Point",
+            yourProfileTitle: "Your Profile",
+            yourProfileSubtitle: "Access your stats, history, and customize your experience.",
+            globalRankingTitle: "Global Ranking",
+            globalRankingSubtitle: "Discover the best players in Transcendence."
+        },
+        profile: {
+            profileTitle: "User Profile",
+            settingsTitle: "Settings",
+            editProfileButton: "Edit Profile",
+            uploadAvatarButton: "Upload Avatar",
+            changePasswordButton: "Change Password",
+            matchHistoryTitle: "Match History",
+            matchHistorySubtitle: "Your recent games",
+            matchWin: "Win",
+            matchLoss: "Loss",
+            matchDraw: "Draw",
+            score: "Score",
+            date: "Date",
+            time: "Time",
+            opponent: "Opponent",
+            gameMode: "Game Mode",
+            noMatches: "No matches in history.",
+            statsTitle: "Statistics",
+            totalWins: "Total Wins",
+            totalLosses: "Total Losses",
+            winRate: "Win Rate",
+            totalGames: "Total Games",
+            eloRating: "ELO Rating",
+            accuracy: "Accuracy",
+            mostPlayedMode: "Most Played Mode",
+            languageSetting: "Language",
+            notificationsSetting: "Notifications",
+            twoFactorAuthSetting: "Two-Factor Authentication",
+            darkModeSetting: "Dark Mode",
+            enable: "Enable",
+            disable: "Disable",
+            change: "Change",
+            logoutButton: "Logout",
+            saveChangesButton: "Save Changes",
+            cancelButton: "Cancel",
+            confirmLogoutTitle: "Logout?",
+            confirmLogoutMessage: "Are you sure you want to log out?",
+            yesLogout: "Yes, Logout",
+            noCancel: "No, Cancel",
+            customMessageTitle: "Information",
+            okButton: "Understood"
+        },
+        play: {
+            selectGameMode: "Select Game Mode",
+            oneVsOne: "1 vs 1 Classic",
+            oneVsOneDescription: "Quick match against another player.",
+            tournament: "Tournament",
+            tournamentDescription: "Competition with multiple players. Coming soon!",
+            comingSoon: "Coming Soon!",
+            customGame: "Custom Game",
+            customGameDescription: "Create or join a game with specific rules.",
+            vsAIButton: "Vs AI",
+            chooseModeTitle: "Choose a Game Mode",
+            chooseModeDescription: "Select a game mode to start playing.",
+            backToGame: "Back to Game",
+            vsAIDescription: "Play against AI.",
+            selectDifficulty: "Select Difficulty"
+        },
+        ranking: {
+            globalRankingTitle: "Global Ranking",
+            wins: "Wins:",
+            losses: "Losses:",
+            pointsAbbreviation: "pts",
+            yourCurrentPosition: "Your current position:",
+            viewMyPositionButton: "View my position"
+        },
+        settings: {
+            title: "Settings",
+            userAccountSectionTitle: "User Account",
+            usernameLabel: "Username",
+            emailLabel: "Email",
+            currentPasswordLabel: "Current Password",
+            currentPasswordPlaceholder: "Enter your current password",
+            newPasswordLabel: "New Password",
+            newPasswordPlaceholder: "Enter your new password",
+            confirmNewPasswordLabel: "Confirm New Password",
+            confirmNewPasswordPlaceholder: "Confirm your new password",
+            acceptChangesButton: "Accept Changes",
+            deleteAccountButton: "Delete Account"
+        }
+    },
+    gl: {
+        common: {
+            language: 'Galego',
+            english: 'Inglés',
+            galician: 'Galego',
+            chinese: '中文 (Chinés)',
+            castellano: 'Castelán',
+            infoTitle: "Información",
+            okButton: "Entendido",
+            backToHome: "Volver ao Inicio"
+        },
+        navbar: {
+            home: 'Inicio',
+            profile: 'Perfil',
+            play: 'Xogar',
+            ranking: 'Clasificación',
+            settings: 'Configuración',
+            logout: 'Pechar Sesión'
+        },
+        login: {
+            welcomeBack: 'Benvido de volta',
+            title: 'PONG',
+            subtitle: 'Conéctate para xogar ao máximo nivel.',
+            usernameLabel: 'Nome de usuario',
+            passwordLabel: 'Contrasinal',
+            loginButton: 'Iniciar sesión',
+            createAccountButton: 'Crear unha conta',
+            or: 'Ou',
+            continueWithGoogle: 'Continuar con Google',
+            noAccountYet: 'Aínda non tes unha conta?'
+        },
+        register: {
+            joinExperience: 'Únete á experiencia',
+            title: 'Rexistrar',
+            subtitle: 'Crea a túa conta para comezar a xogar.',
+            usernameLabel: 'Nome de usuario',
+            emailLabel: 'Correo electrónico',
+            passwordLabel: 'Contrasinal',
+            confirmPasswordLabel: 'Confirmar contrasinal',
+            registerButton: 'Rexistrarse',
+            alreadyHaveAccount: 'Xa tes unha conta?',
+            loginHere: 'Iniciar sesión aquí',
+            registerWithGoogle: 'Rexistrarse con Google',
+            or: 'Ou'
+        },
+        home: {
+            welcomeTitle: "Benvido a",
+            welcomeSubtitle: "A plataforma definitiva para o Pong moderno. Compite, conéctate e trasciende!",
+            playNowButton: "Xogar Agora",
+            viewTournamentsButton: "Ver Torneos",
+            liveMatchesTitle: "Partidos en Vivo",
+            liveMatchesSubtitle: "Segue a acción en tempo real.",
+            playerA: "Xogador A",
+            playerB: "Xogador B",
+            teamX: "Equipo X",
+            teamY: "Equipo Y",
+            vs: "vs",
+            inProgressRound: "En progreso - Ronda ",
+            tournamentSemifinal: "Semifinal do Torneo",
+            quickMatch: "Partida Rápida",
+            preparingToStart: "Preparándose para empezar",
+            assassin: "Asasino",
+            master: "Mestre",
+            matchPoint: "Punto de partido",
+            yourProfileTitle: "O teu Perfil",
+            yourProfileSubtitle: "Accede ás túas estadísticas, historial e personaliza a túa experiencia.",
+            globalRankingTitle: "Clasificación Global",
+            globalRankingSubtitle: "Descobre os mellores xogadores de Transcendence."
+        },
+        profile: {
+            profileTitle: "Perfil de Usuario",
+            settingsTitle: "Configuración",
+            editProfileButton: "Editar Perfil",
+            uploadAvatarButton: "Subir Avatar",
+            changePasswordButton: "Cambiar Contrasinal",
+            matchHistoryTitle: "Historial de Partidas",
+            matchHistorySubtitle: "As túas últimas partidas",
+            matchWin: "Victoria",
+            matchLoss: "Derrota",
+            matchDraw: "Empate",
+            score: "Puntuación",
+            date: "Data",
+            time: "Hora",
+            opponent: "Opoñente",
+            gameMode: "Modo de Xogo",
+            noMatches: "Non hai partidas no historial.",
+            statsTitle: "Estadísticas",
+            totalWins: "Victorias Totais",
+            totalLosses: "Derrotas Totais",
+            winRate: "Taxa de Victorias",
+            totalGames: "Partidas Totais",
+            eloRating: "Puntuación ELO",
+            accuracy: "Precisión",
+            mostPlayedMode: "Modo máis xogado",
+            languageSetting: "Idioma",
+            notificationsSetting: "Notificacións",
+            twoFactorAuthSetting: "Autenticación de Dous Factores",
+            darkModeSetting: "Modo Escuro",
+            enable: "Activar",
+            disable: "Desactivar",
+            change: "Cambiar",
+            logoutButton: "Pechar Sesión",
+            saveChangesButton: "Gardar Cambios",
+            cancelButton: "Cancelar",
+            confirmLogoutTitle: "Pechar Sesión?",
+            confirmLogoutMessage: "Estás seguro de que queres pechar a túa sesión?",
+            yesLogout: "Si, Pechar Sesión",
+            noCancel: "Non, Cancelar",
+            customMessageTitle: "Información",
+            okButton: "Entendido"
+        },
+        play: {
+            selectGameMode: "Selecciona un Modo de Xogo",
+            oneVsOne: "1 vs 1 Clásico",
+            oneVsOneDescription: "Partida rápida contra outro xogador.",
+            tournament: "Torneo",
+            tournamentDescription: "Competición con múltiples xogadores. Proximamente!",
+            comingSoon: "Proximamente!",
+            customGame: "Partida Personalizada",
+            customGameDescription: "Crea ou únete a unha partida con regras específicas.",
+            vsAIButton: "Vs IA",
+            chooseModeTitle: "Elixe un modo de xogo",
+            chooseModeDescription: "Selecciona un modo de xogo para empezar a xogar.",
+            backToGame: "Volver ao xogo",
+            vsAIDescription: "Xoga contra a intelixencia artificial.",
+            selectDifficulty: "Selecciona a dificultade"
+        },
+        ranking: {
+            globalRankingTitle: "Clasificación Global",
+            wins: "Victorias:",
+            losses: "Derrotas:",
+            pointsAbbreviation: "pts",
+            yourCurrentPosition: "A túa posición actual:",
+            viewMyPositionButton: "Ver a miña posición"
+        },
+        settings: {
+            title: "Configuración",
+            userAccountSectionTitle: "Conta de Usuario",
+            usernameLabel: "Nome de Usuario",
+            emailLabel: "Correo Electrónico",
+            currentPasswordLabel: "Contrasinal Actual",
+            currentPasswordPlaceholder: "Introduce o teu contrasinal actual",
+            newPasswordLabel: "Novo Contrasinal",
+            newPasswordPlaceholder: "Introduce o teu novo contrasinal",
+            confirmNewPasswordLabel: "Confirmar Novo Contrasinal",
+            confirmNewPasswordPlaceholder: "Confirma o teu novo contrasinal",
+            acceptChangesButton: "Aceptar Cambios",
+            deleteAccountButton: "Eliminar Conta"
+        }
+    },
+    zh: {
+        common: {
+            language: '中文',
+            english: 'English (英语)',
+            galician: 'Galician (加利西亚语)',
+            chinese: '中文',
+            castellano: 'Spanish (西班牙语)',
+            infoTitle: "信息",
+            okButton: "明白了",
+            backToHome: "返回主页"
+        },
+        navbar: {
+            home: '主页',
+            profile: '个人资料',
+            play: '游戏',
+            ranking: '排行榜',
+            settings: '设置',
+            logout: '登出'
+        },
+        login: {
+            welcomeBack: '欢迎回来',
+            title: 'PONG',
+            subtitle: '连接以在最高水平上游戏。',
+            usernameLabel: '用户名',
+            passwordLabel: '密码',
+            loginButton: '登录',
+            createAccountButton: '创建账户',
+            or: '或',
+            continueWithGoogle: '使用Google继续',
+            noAccountYet: '还没有账户？'
+        },
+        register: {
+            joinExperience: '加入体验',
+            title: '注册',
+            subtitle: '创建您的账户开始游戏。',
+            usernameLabel: '用户名',
+            emailLabel: '邮箱',
+            passwordLabel: '密码',
+            confirmPasswordLabel: '确认密码',
+            registerButton: '注册',
+            alreadyHaveAccount: '已经有账户了？',
+            loginHere: '在这里登录',
+            registerWithGoogle: '使用Google注册',
+            or: '或'
+        },
+        home: {
+            welcomeTitle: "欢迎来到",
+            welcomeSubtitle: "现代乒乓球的终极平台。竞争、连接、超越！",
+            playNowButton: "立即游戏",
+            viewTournamentsButton: "查看锦标赛",
+            liveMatchesTitle: "实时比赛",
+            liveMatchesSubtitle: "实时关注比赛动态。",
+            playerA: "玩家 A",
+            playerB: "玩家 B",
+            teamX: "队伍 X",
+            teamY: "队伍 Y",
+            vs: "对战",
+            inProgressRound: "进行中 - 第 ",
+            tournamentSemifinal: "锦标赛半决赛",
+            quickMatch: "快速比赛",
+            preparingToStart: "准备开始",
+            assassin: "刺客",
+            master: "大师",
+            matchPoint: "赛点",
+            yourProfileTitle: "你的个人资料",
+            yourProfileSubtitle: "访问您的统计数据、历史记录并自定义您的体验。",
+            globalRankingTitle: "全球排行榜",
+            globalRankingSubtitle: "发现Transcendence中最好的玩家。"
+        },
+        profile: {
+            profileTitle: "用户资料",
+            settingsTitle: "设置",
+            editProfileButton: "编辑资料",
+            uploadAvatarButton: "上传头像",
+            changePasswordButton: "更改密码",
+            matchHistoryTitle: "比赛历史",
+            matchHistorySubtitle: "你最近的游戏",
+            matchWin: "胜利",
+            matchLoss: "失败",
+            matchDraw: "平局",
+            score: "分数",
+            date: "日期",
+            time: "时间",
+            opponent: "对手",
+            gameMode: "游戏模式",
+            noMatches: "历史记录中没有比赛。",
+            statsTitle: "统计数据",
+            totalWins: "总胜利",
+            totalLosses: "总失败",
+            winRate: "胜率",
+            totalGames: "总游戏数",
+            eloRating: "ELO评级",
+            accuracy: "准确性",
+            mostPlayedMode: "最常玩的模式",
+            languageSetting: "语言",
+            notificationsSetting: "通知",
+            twoFactorAuthSetting: "双因素认证",
+            darkModeSetting: "深色模式",
+            enable: "启用",
+            disable: "禁用",
+            change: "更改",
+            logoutButton: "登出",
+            saveChangesButton: "保存更改",
+            cancelButton: "取消",
+            confirmLogoutTitle: "登出？",
+            confirmLogoutMessage: "您确定要登出吗？",
+            yesLogout: "是，登出",
+            noCancel: "否，取消",
+            customMessageTitle: "信息",
+            okButton: "明白了"
+        },
+        play: {
+            selectGameMode: "选择游戏模式",
+            oneVsOne: "1对1经典",
+            oneVsOneDescription: "与另一个玩家的快速比赛。",
+            tournament: "锦标赛",
+            tournamentDescription: "多玩家竞赛。即将推出！",
+            comingSoon: "即将推出！",
+            customGame: "自定义游戏",
+            customGameDescription: "创建或加入具有特定规则的游戏。",
+            vsAIButton: "对战AI",
+            chooseModeTitle: "选择游戏模式",
+            chooseModeDescription: "选择游戏模式开始游戏。",
+            backToGame: "返回游戏",
+            vsAIDescription: "与人工智能对战。",
+            selectDifficulty: "选择难度"
+        },
+        ranking: {
+            globalRankingTitle: "全球排行榜",
+            wins: "胜利：",
+            losses: "失败：",
+            pointsAbbreviation: "分",
+            yourCurrentPosition: "您当前的位置：",
+            viewMyPositionButton: "查看我的位置"
+        },
+        settings: {
+            title: "设置",
+            userAccountSectionTitle: "用户账户",
+            usernameLabel: "用户名",
+            emailLabel: "邮箱",
+            currentPasswordLabel: "当前密码",
+            currentPasswordPlaceholder: "输入您当前的密码",
+            newPasswordLabel: "新密码",
+            newPasswordPlaceholder: "输入您的新密码",
+            confirmNewPasswordLabel: "确认新密码",
+            confirmNewPasswordPlaceholder: "确认您的新密码",
+            acceptChangesButton: "接受更改",
+            deleteAccountButton: "删除账户"
+        }
+    }
+};
+
+// Variable para almacenar el idioma actual, inicializada desde localStorage o 'es' por defecto
+let currentLang = localStorage.getItem('lang') || 'es';
+
+/**
+ * Obtiene la traducción para una clave de texto específica.
+ * @param component El componente al que pertenece el texto (ej. 'login', 'common').
+ * @param key La clave del texto a traducir (ej. 'welcomeBack', 'usernameLabel').
+ * @returns El texto traducido o la clave original si no se encuentra la traducción.
+ */
+export function getTranslation(component: string, key: string): string {
+    return translations[currentLang]?.[component]?.[key] || key;
+}
+
+/**
+ * Establece el idioma de la aplicación.
+ * @param lang El código del idioma (ej. 'es', 'en').
+ */
+export function setLanguage(lang: string): void {
+    if (translations[lang]) {
+        currentLang = lang;
+        localStorage.setItem('lang', lang);
+        // Dispara un evento personalizado para notificar a los componentes que deben actualizarse
+        window.dispatchEvent(new CustomEvent('languageChange', { detail: lang }));
+    } else {
+        console.warn(`Language ${lang} not found in translations.`);
+    }
+}
+
+/**
+ * Obtiene el idioma actual de la aplicación.
+ * @returns El código del idioma actual.
+ */
+export function getCurrentLanguage(): string {
+    return currentLang;
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/src/utils/safariPolyfills.ts ===[0m
+// src/utils/safariPolyfills.ts
+
+/**
+ * Detecta si el navegador es Safari
+ */
+export function isSafari(): boolean {
+    return /constructor/i.test(window.HTMLElement.toString()) || 
+           (function (p) { return p.toString() === "[object SafariRemoteNotification]"; })(!((window as any).safari) || (typeof (window as any).safari !== 'undefined' && (window as any).safari.pushNotification));
+}
+
+/**
+ * Detecta si es Safari en iOS
+ */
+export function isIOSSafari(): boolean {
+    const ua = window.navigator.userAgent;
+    const iOS = !!ua.match(/iPad/i) || !!ua.match(/iPhone/i);
+    const webkit = !!ua.match(/WebKit/i);
+    const iOSSafari = iOS && webkit && !ua.match(/CriOS/i);
+    return iOSSafari;
+}
+
+/**
+ * Inicializa correcciones de compatibilidad para Safari
+ */
+export function initSafariCompatibility(): void {
+    if (isSafari() || isIOSSafari()) {
+        // Evitar zoom en inputs en iOS Safari
+        const inputs = document.querySelectorAll('input, textarea, select');
+        inputs.forEach(input => {
+            input.addEventListener('focus', () => {
+                // Temporal para evitar el zoom
+                const viewport = document.querySelector('meta[name=viewport]') as HTMLMetaElement;
+                if (viewport) {
+                    viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+                }
+            });
+            
+            input.addEventListener('blur', () => {
+                // Restaurar zoom después del focus
+                const viewport = document.querySelector('meta[name=viewport]') as HTMLMetaElement;
+                if (viewport) {
+                    viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+                }
+            });
+        });
+
+        // Fix para la altura del viewport en Safari móvil
+        const setVH = () => {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        };
+
+        setVH();
+        window.addEventListener('resize', setVH);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(setVH, 100);
+        });
+
+        console.log('🍎 Safari compatibility fixes applied');
+    }
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/src/pages/ranking.ts ===[0m
+// src/pages/ranking.ts
+
+import { navigateTo } from '../router';
+import { getTranslation } from '../i18n';
+
+export function renderRankingPage(): void {
+    const rankingData = [
+        { rank: 1, username: "PongMaster", wins: 156, losses: 23, points: 2847 },
+        { rank: 2, username: "SpeedBall", wins: 134, losses: 31, points: 2653 },
+        { rank: 3, username: "ArcadeKing", wins: 128, losses: 36, points: 2489 },
+        { rank: 4, username: "PixelPaddle", wins: 119, losses: 42, points: 2341 },
+        { rank: 5, username: "RetroGamer", wins: 107, losses: 48, points: 2198 },
+        { rank: 6, username: "GameMaster", wins: 98, losses: 52, points: 2076 },
+        { rank: 7, username: "ClassicPlayer", wins: 89, losses: 58, points: 1954 },
+        { rank: 8, username: "testuser", wins: 89, losses: 38, points: 1847 }, // Usuario actual
+        { rank: 9, username: "NeonBounce", wins: 84, losses: 63, points: 1723 },
+        { rank: 10, username: "DigitalPong", wins: 78, losses: 67, points: 1612 }
+    ];
+
+    const rankingHtml = `
+        <main class="flex-grow w-full p-4 sm:p-8 flex flex-col items-center gap-8 text-gray-100">
+            <div class="max-w-4xl w-full">
+                <div class="text-center mb-12">
+                    <h1 class="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold mb-6 text-[#ffc300] drop-shadow-md leading-tight">
+                        ${getTranslation('ranking', 'globalRankingTitle')}
+                    </h1>
+                    <p class="text-base sm:text-lg md:text-xl text-gray-300 mb-8">
+                        Los mejores jugadores de Transcendence
+                    </p>
+                </div>
+
+                <!-- User's Position Highlight -->
+                <div class="bg-gradient-to-r from-[#ffc300] to-[#ffd60a] rounded-3xl p-1 mb-8">
+                    <div class="bg-[#000814] rounded-3xl p-6">
+                        <h2 class="text-xl font-bold text-[#ffc300] mb-4 text-center">
+                            ${getTranslation('ranking', 'yourCurrentPosition')}
+                        </h2>
+                        <div class="flex items-center justify-between bg-[#001d3d] rounded-xl p-4 border border-[#003566]">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 bg-gradient-to-r from-[#ffc300] to-[#ffd60a] rounded-full flex items-center justify-center text-[#000814] font-bold text-lg">
+                                    #8
+                                </div>
+                                <div>
+                                    <div class="font-bold text-lg">testuser</div>
+                                    <div class="text-sm text-gray-300">${getTranslation('ranking', 'wins')} 89 | ${getTranslation('ranking', 'losses')} 38</div>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-bold text-[#ffc300]">1,847</div>
+                                <div class="text-sm text-gray-300">${getTranslation('ranking', 'pointsAbbreviation')}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Global Ranking Table -->
+                <div class="bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl p-6 border border-[#003566] shadow-2xl">
+                    <div class="space-y-3">
+                        ${rankingData.map(player => {
+                            const isCurrentUser = player.username === 'testuser';
+                            const bgColor = isCurrentUser ? 'bg-gradient-to-r from-[#ffc300]/20 to-[#ffd60a]/20 border-[#ffc300]' : 'bg-[#001d3d] border-[#003566]';
+                            const textColor = isCurrentUser ? 'text-[#ffc300]' : 'text-gray-100';
+                            
+                            return `
+                                <div class="flex items-center justify-between p-4 ${bgColor} rounded-xl border hover:bg-opacity-70 transition-all duration-200">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-10 h-10 ${player.rank <= 3 ? getRankBadgeColor(player.rank) : 'bg-[#003566]'} rounded-full flex items-center justify-center font-bold text-sm">
+                                            ${player.rank <= 3 ? getRankIcon(player.rank) : `#${player.rank}`}
+                                        </div>
+                                        <div>
+                                            <div class="font-bold ${textColor}">${player.username}</div>
+                                            <div class="text-sm text-gray-300">${getTranslation('ranking', 'wins')} ${player.wins} | ${getTranslation('ranking', 'losses')} ${player.losses}</div>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-xl font-bold ${isCurrentUser ? 'text-[#ffc300]' : 'text-[#ffd60a]'}">${player.points.toLocaleString()}</div>
+                                        <div class="text-sm text-gray-300">${getTranslation('ranking', 'pointsAbbreviation')}</div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            </div>
+        </main>
+        <style>
+            .hover\\:bg-opacity-70:hover {
+                background-opacity: 0.7;
+            }
+        </style>
+    `;
+
+    function getRankBadgeColor(rank: number): string {
+        switch (rank) {
+            case 1: return 'bg-gradient-to-r from-yellow-400 to-yellow-600';
+            case 2: return 'bg-gradient-to-r from-gray-300 to-gray-500';
+            case 3: return 'bg-gradient-to-r from-orange-400 to-orange-600';
+            default: return 'bg-[#003566]';
+        }
+    }
+
+    function getRankIcon(rank: number): string {
+        switch (rank) {
+            case 1: return '👑';
+            case 2: return '🥈';
+            case 3: return '🥉';
+            default: return `#${rank}`;
+        }
+    }
+
+    const pageContent = document.getElementById('page-content') as HTMLElement;
+    if (pageContent) {
+        pageContent.innerHTML = rankingHtml;
+    } else {
+        console.error('Elemento con id "page-content" no encontrado para renderizar la página de ranking.');
+    }
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/src/pages/settings.ts ===[0m
+// src/pages/settings.ts
+
+import { navigateTo } from '../router';
+import { getTranslation } from '../i18n';
+import { getCurrentUser } from '../auth';
+
+export function renderSettingsPage(): void {
+    const user = getCurrentUser();
+    
+    if (!user) {
+        navigateTo('/login');
+        return;
+    }
+    
+    const settingsHtml = `
+        <main class="flex-grow w-full p-4 sm:p-8 flex flex-col items-center gap-8 text-gray-100">
+            <div class="max-w-4xl w-full">
+                <div class="text-center mb-12">
+                    <h1 class="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold mb-6 text-[#ffc300] drop-shadow-md leading-tight">
+                        ${getTranslation('settings', 'title')}
+                    </h1>
+                    <p class="text-base sm:text-lg md:text-xl text-gray-300 mb-8">
+                        Personaliza tu experiencia de juego
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Account Settings -->
+                    <div class="bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl p-6 border border-[#003566] shadow-2xl">
+                        <h2 class="text-2xl font-display font-bold text-[#ffc300] mb-6">
+                            ${getTranslation('settings', 'userAccountSectionTitle')}
+                        </h2>
+                        
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">
+                                    ${getTranslation('settings', 'usernameLabel')}
+                                </label>
+                                <input type="text" value="${user.username}" 
+                                       class="w-full px-4 py-3 bg-[#001d3d] border border-[#003566] rounded-xl text-gray-100 focus:outline-none focus:border-[#ffc300] transition-colors duration-200">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">
+                                    ${getTranslation('settings', 'emailLabel')}
+                                </label>
+                                <input type="email" value="${user.email}" 
+                                       class="w-full px-4 py-3 bg-[#001d3d] border border-[#003566] rounded-xl text-gray-100 focus:outline-none focus:border-[#ffc300] transition-colors duration-200">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">
+                                    ${getTranslation('settings', 'currentPasswordLabel')}
+                                </label>
+                                <input type="password" placeholder="${getTranslation('settings', 'currentPasswordPlaceholder')}" 
+                                       class="w-full px-4 py-3 bg-[#001d3d] border border-[#003566] rounded-xl text-gray-100 focus:outline-none focus:border-[#ffc300] transition-colors duration-200">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">
+                                    ${getTranslation('settings', 'newPasswordLabel')}
+                                </label>
+                                <input type="password" placeholder="${getTranslation('settings', 'newPasswordPlaceholder')}" 
+                                       class="w-full px-4 py-3 bg-[#001d3d] border border-[#003566] rounded-xl text-gray-100 focus:outline-none focus:border-[#ffc300] transition-colors duration-200">
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-4 mt-8">
+                            <button class="flex-1 py-3 bg-gradient-to-r from-[#ffc300] to-[#ffd60a] text-[#000814] font-bold rounded-xl hover:from-[#ffd60a] hover:to-[#ffc300] transition-all duration-300 transform hover:scale-105">
+                                ${getTranslation('settings', 'acceptChangesButton')}
+                            </button>
+                            <button class="px-6 py-3 border-2 border-red-500 text-red-400 font-semibold rounded-xl hover:bg-red-500 hover:text-white transition-all duration-300">
+                                ${getTranslation('settings', 'deleteAccountButton')}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Game Settings -->
+                    <div class="bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl p-6 border border-[#003566] shadow-2xl">
+                        <h2 class="text-2xl font-display font-bold text-[#ffc300] mb-6">
+                            Configuración del Juego
+                        </h2>
+                        
+                        <div class="space-y-6">
+                            <!-- Language Setting -->
+                            <div class="flex items-center justify-between p-4 bg-[#001d3d] rounded-xl border border-[#003566]">
+                                <div>
+                                    <div class="font-semibold text-gray-100">${getTranslation('profile', 'languageSetting')}</div>
+                                    <div class="text-sm text-gray-400">Cambiar idioma de la interfaz</div>
+                                </div>
+                                <select class="bg-[#003566] text-gray-100 px-4 py-2 rounded-lg border border-[#ffc300] focus:outline-none">
+                                    <option value="es">Español</option>
+                                    <option value="en">English</option>
+                                    <option value="gl">Galego</option>
+                                    <option value="zh">中文</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Notifications -->
+                            <div class="flex items-center justify-between p-4 bg-[#001d3d] rounded-xl border border-[#003566]">
+                                <div>
+                                    <div class="font-semibold text-gray-100">${getTranslation('profile', 'notificationsSetting')}</div>
+                                    <div class="text-sm text-gray-400">Recibir notificaciones de partidas</div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" checked class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#ffc300]"></div>
+                                </label>
+                            </div>
+                            
+                            <!-- Sound Effects -->
+                            <div class="flex items-center justify-between p-4 bg-[#001d3d] rounded-xl border border-[#003566]">
+                                <div>
+                                    <div class="font-semibold text-gray-100">Efectos de Sonido</div>
+                                    <div class="text-sm text-gray-400">Activar sonidos del juego</div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" checked class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#ffc300]"></div>
+                                </label>
+                            </div>
+                            
+                            <!-- Theme -->
+                            <div class="flex items-center justify-between p-4 bg-[#001d3d] rounded-xl border border-[#003566]">
+                                <div>
+                                    <div class="font-semibold text-gray-100">Tema de Color</div>
+                                    <div class="text-sm text-gray-400">Personalizar esquema de colores</div>
+                                </div>
+                                <select class="bg-[#003566] text-gray-100 px-4 py-2 rounded-lg border border-[#ffc300] focus:outline-none">
+                                    <option value="default">Clásico</option>
+                                    <option value="neon">Neón</option>
+                                    <option value="retro">Retro</option>
+                                    <option value="minimal">Minimalista</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Game Difficulty -->
+                            <div class="flex items-center justify-between p-4 bg-[#001d3d] rounded-xl border border-[#003566]">
+                                <div>
+                                    <div class="font-semibold text-gray-100">Dificultad por Defecto</div>
+                                    <div class="text-sm text-gray-400">Nivel predeterminado contra IA</div>
+                                </div>
+                                <select class="bg-[#003566] text-gray-100 px-4 py-2 rounded-lg border border-[#ffc300] focus:outline-none">
+                                    <option value="easy">Fácil</option>
+                                    <option value="normal" selected>Normal</option>
+                                    <option value="hard">Difícil</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <button class="w-full mt-8 py-3 bg-gradient-to-r from-[#003566] to-[#001d3d] text-[#ffc300] font-bold rounded-xl border border-[#ffc300] hover:bg-[#ffc300] hover:text-[#000814] transition-all duration-300 transform hover:scale-105">
+                            Guardar Configuración del Juego
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    `;
+
+    const pageContent = document.getElementById('page-content') as HTMLElement;
+    if (pageContent) {
+        pageContent.innerHTML = settingsHtml;
+
+        // Add event listeners for form interactions
+        const saveButtons = document.querySelectorAll('button');
+        saveButtons.forEach(button => {
+            if (button.textContent?.includes('Guardar') || button.textContent?.includes(getTranslation('settings', 'acceptChangesButton'))) {
+                button.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    alert('Configuración guardada (funcionalidad de demostración)');
+                });
+            }
+            
+            if (button.textContent?.includes('Eliminar') || button.textContent?.includes(getTranslation('settings', 'deleteAccountButton'))) {
+                button.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    if (confirm('¿Estás seguro de que quieres eliminar tu cuenta? Esta acción no se puede deshacer.')) {
+                        alert('Cuenta eliminada (funcionalidad de demostración)');
+                    }
+                });
+            }
+        });
+
+    } else {
+        console.error('Elemento con id "page-content" no encontrado para renderizar la página de configuración.');
+    }
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/src/pages/profile.ts ===[0m
+// src/pages/profile.ts
+
+import { navigateTo } from '../router';
+import { getTranslation } from '../i18n';
+import { getCurrentUser } from '../auth';
+
+export function renderProfilePage(): void {
+    const user = getCurrentUser();
+    
+    if (!user) {
+        // Si no hay usuario autenticado, redirigir al login
+        navigateTo('/login');
+        return;
+    }
+    
+    const profileHtml = `
+        <main class="flex-grow w-full p-4 sm:p-8 flex flex-col items-center gap-8 text-gray-100">
+            <div class="max-w-6xl w-full">
+                <!-- Profile Header -->
+                <div class="bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl p-6 sm:p-8 border border-[#003566] shadow-2xl mb-8">
+                    <div class="flex flex-col lg:flex-row items-center gap-8">
+                        <div class="w-32 h-32 rounded-full bg-gradient-to-r from-[#ffc300] to-[#ffd60a] flex items-center justify-center text-[#000814] text-4xl font-bold">
+                            ${user.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="text-center lg:text-left flex-grow">
+                            <h1 class="text-3xl sm:text-4xl font-display font-extrabold text-[#ffc300] mb-2">
+                                ${user.username}
+                            </h1>
+                            <p class="text-gray-300 mb-4">${user.email}</p>
+                            <div class="flex flex-wrap gap-4 justify-center lg:justify-start">
+                                <span class="px-4 py-2 bg-[#001d3d] rounded-full text-sm border border-[#003566]">
+                                    Ranking: #42
+                                </span>
+                                <span class="px-4 py-2 bg-[#001d3d] rounded-full text-sm border border-[#003566]">
+                                    ELO: 1,847
+                                </span>
+                                <span class="px-4 py-2 bg-[#001d3d] rounded-full text-sm border border-[#003566]">
+                                    Partidas: 127
+                                </span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-3">
+                            <button class="px-6 py-3 bg-gradient-to-r from-[#ffc300] to-[#ffd60a] text-[#000814] font-bold rounded-xl hover:from-[#ffd60a] hover:to-[#ffc300] transition-all duration-300">
+                                ${getTranslation('profile', 'editProfileButton')}
+                            </button>
+                            <button class="px-6 py-3 border-2 border-[#003566] text-[#ffc300] font-semibold rounded-xl hover:bg-[#001d3d] hover:text-white transition-all duration-300">
+                                ${getTranslation('profile', 'uploadAvatarButton')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Statistics -->
+                    <div class="bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl p-6 border border-[#003566] shadow-2xl">
+                        <h2 class="text-2xl font-display font-bold text-[#ffc300] mb-6">
+                            ${getTranslation('profile', 'statsTitle')}
+                        </h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="text-center p-4 bg-[#001d3d] rounded-xl border border-[#003566]">
+                                <div class="text-2xl font-bold text-[#ffc300]">89</div>
+                                <div class="text-sm text-gray-300">${getTranslation('profile', 'totalWins')}</div>
+                            </div>
+                            <div class="text-center p-4 bg-[#001d3d] rounded-xl border border-[#003566]">
+                                <div class="text-2xl font-bold text-red-400">38</div>
+                                <div class="text-sm text-gray-300">${getTranslation('profile', 'totalLosses')}</div>
+                            </div>
+                            <div class="text-center p-4 bg-[#001d3d] rounded-xl border border-[#003566]">
+                                <div class="text-2xl font-bold text-green-400">70%</div>
+                                <div class="text-sm text-gray-300">${getTranslation('profile', 'winRate')}</div>
+                            </div>
+                            <div class="text-center p-4 bg-[#001d3d] rounded-xl border border-[#003566]">
+                                <div class="text-2xl font-bold text-[#ffd60a]">1,847</div>
+                                <div class="text-sm text-gray-300">${getTranslation('profile', 'eloRating')}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Match History -->
+                    <div class="bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl p-6 border border-[#003566] shadow-2xl">
+                        <h2 class="text-2xl font-display font-bold text-[#ffc300] mb-6">
+                            ${getTranslation('profile', 'matchHistoryTitle')}
+                        </h2>
+                        <div class="space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
+                            <div class="flex items-center justify-between p-3 bg-[#001d3d] rounded-xl border border-[#003566]">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                                    <span class="text-green-400 font-semibold">${getTranslation('profile', 'matchWin')}</span>
+                                    <span class="text-gray-300">vs JugadorX</span>
+                                </div>
+                                <span class="text-[#ffc300] font-bold">3-1</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-[#001d3d] rounded-xl border border-[#003566]">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-2 h-2 bg-red-400 rounded-full"></div>
+                                    <span class="text-red-400 font-semibold">${getTranslation('profile', 'matchLoss')}</span>
+                                    <span class="text-gray-300">vs ProGamer</span>
+                                </div>
+                                <span class="text-[#ffc300] font-bold">1-3</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-[#001d3d] rounded-xl border border-[#003566]">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                                    <span class="text-green-400 font-semibold">${getTranslation('profile', 'matchWin')}</span>
+                                    <span class="text-gray-300">vs Novato22</span>
+                                </div>
+                                <span class="text-[#ffc300] font-bold">3-0</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-[#001d3d] rounded-xl border border-[#003566]">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                                    <span class="text-green-400 font-semibold">${getTranslation('profile', 'matchWin')}</span>
+                                    <span class="text-gray-300">vs AIMaster</span>
+                                </div>
+                                <span class="text-[#ffc300] font-bold">3-2</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        <style>
+            /* Custom Scrollbar */
+            .custom-scrollbar::-webkit-scrollbar {
+                width: 8px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+                background: #001d3d;
+                border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                background: #003566;
+                border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                background: #004b80;
+            }
+        </style>
+    `;
+
+    const pageContent = document.getElementById('page-content') as HTMLElement;
+    if (pageContent) {
+        pageContent.innerHTML = profileHtml;
+    } else {
+        console.error('Elemento con id "page-content" no encontrado para renderizar la página de perfil.');
+    }
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/src/pages/login.ts ===[0m
+// src/pages/login.ts
+
+import { navigateTo } from '../router';
+import { getTranslation, setLanguage, getCurrentLanguage } from '../i18n';
+import { login } from '../auth';
+
+export function renderLoginPage(): void {
+    const loginHtml = `
+       <div
+        class="min-h-screen flex justify-center items-center p-4 sm:p-8 bg-[#000814] font-inter text-gray-100 antialiased relative overflow-hidden"
+       >
+        <div class="absolute inset-0 z-0 opacity-20 login-bg-pattern"></div>
+        <div class="absolute inset-0 z-0 bg-gradient-to-br from-[#000814] via-[#001d3d] to-[#000814] opacity-30 animate-pulse-subtle"></div>
+
+        <div class="absolute top-4 right-4 sm:top-8 sm:right-8 z-50">
+            <div class="relative inline-block text-left">
+                <button
+                    type="button"
+                    id="language-dropdown-button"
+                    class="inline-flex justify-center items-center gap-x-1.5 rounded-full bg-white bg-opacity-10 px-4 py-2 text-sm font-semibold text-gray-100 shadow-sm ring-1 ring-inset ring-[#003566] hover:bg-opacity-20 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-75"
+                >
+                    <span data-i18n="common.language">${getTranslation('common', 'language')}</span>
+                    <svg class="-mr-1 h-5 w-5 text-gray-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+
+                <div id="language-dropdown-menu" class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-[#001d3d] shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none hidden" role="menu" aria-orientation="vertical" aria-labelledby="language-dropdown-button" tabindex="-1">
+                    <div class="py-1" role="none">
+                        <a href="#" class="text-gray-300 block px-4 py-2 text-sm hover:bg-[#002c53]" role="menuitem" tabindex="-1" id="lang-es" data-lang="es" data-i18n="common.castellano">${getTranslation('common', 'castellano')}</a>
+                        <a href="#" class="text-gray-300 block px-4 py-2 text-sm hover:bg-[#002c53]" role="menuitem" tabindex="-1" id="lang-en" data-lang="en" data-i18n="common.english">${getTranslation('common', 'english')}</a>
+                        <a href="#" class="text-gray-300 block px-4 py-2 text-sm hover:bg-[#002c53]" role="menuitem" tabindex="-1" id="lang-gl" data-lang="gl" data-i18n="common.galego">${getTranslation('common', 'galego')}</a>
+                        <a href="#" class="text-gray-300 block px-4 py-2 text-sm hover:bg-[#002c53]" role="menuitem" tabindex="-1" id="lang-zh" data-lang="zh" data-i18n="common.chinese">${getTranslation('common', 'chinese')}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div
+          class="relative bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl shadow-2xl p-6 sm:p-8 md:p-10 lg:p-12 w-full max-w-md mx-auto border border-[#003566] transform transition-all duration-500 ease-in-out z-10"
+        >
+          <div class="text-center mb-8">
+            <h1 class="text-4xl sm:text-5xl font-display font-extrabold text-[#ffc300] mb-2 drop-shadow-md" data-i18n="login.title">${getTranslation('login', 'title')}</h1>
+            <h2 class="text-2xl sm:text-3xl font-display font-extrabold text-gray-100 mb-4 drop-shadow-md" data-i18n="login.welcomeBack">${getTranslation('login', 'welcomeBack')}</h2>
+            <p class="text-base sm:text-lg text-gray-300" data-i18n="login.subtitle">${getTranslation('login', 'subtitle')}</p>
+          </div>
+
+          <form class="space-y-6">
+            <div class="relative z-0 group">
+              <input
+                type="text"
+                id="username"
+                name="username"
+                class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
+                placeholder=" "
+                required
+              />
+              <label
+                for="username"
+                class="peer-focus:font-medium absolute text-lg text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:start-0 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto peer-focus:text-[#ffc300] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
+                data-i18n="login.usernameLabel"
+              >${getTranslation('login', 'usernameLabel')}</label>
+            </div>
+
+            <div class="relative z-0 group">
+              <input
+                type="password"
+                id="password"
+                name="password"
+                class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
+                placeholder=" "
+                required
+              />
+              <label
+                for="password"
+                class="peer-focus:font-medium absolute text-lg text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:start-0 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto peer-focus:text-[#ffc300] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
+                data-i18n="login.passwordLabel"
+              >${getTranslation('login', 'passwordLabel')}</label>
+            </div>
+
+            <button
+              type="submit"
+              id="login-button"
+              class="w-full py-3 mt-6 rounded-xl bg-gradient-to-r from-[#ffc300] to-[#ffd60a] text-[#000814] font-bold text-xl shadow-lg hover:from-[#ffd60a] hover:to-[#ffc300] transition-all duration-300 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-75"
+              data-i18n="login.loginButton"
+            >${getTranslation('login', 'loginButton')}</button>
+          </form>
+
+          <p class="text-center text-gray-400 text-sm mt-6" data-i18n="login.or">${getTranslation('login', 'or')}</p>
+
+          <button id="google-login-button" 
+                  class="w-full mt-4 rounded-xl shadow 
+                         bg-[#001d3d] border border-[#003566] text-[#e0e0e0] text-sm font-semibold h-10 px-3 relative overflow-hidden 
+                         flex items-center justify-center space-x-3 transition-colors duration-200 
+                         hover:bg-[#002c53] hover:shadow-lg 
+                         focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-75 
+                         disabled:opacity-50 disabled:cursor-not-allowed">
+              <div class="flex items-center">
+                  <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" xmlns:xlink="http://www.w3.org/1999/xlink" class="h-5 w-5 mr-3 flex-shrink-0">
+                      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                      <path fill="none" d="M0 0h48v48H0z"></path>
+                  </svg>
+                  <span class="flex-grow text-left" data-i18n="login.continueWithGoogle">${getTranslation('login', 'continueWithGoogle')}</span>
+              </div>
+          </button>
+
+          <p class="text-center text-gray-300 text-base mt-6">
+            <span data-i18n-html="login.createAccountSentence">${getTranslation('login', 'noAccountYet')} <a href="/register" id="create-account-link" class="text-[#ffc300] hover:underline font-semibold transition-colors duration-200 hover:text-[#ffd60a]" data-i18n="login.createAccountButton">${getTranslation('register', 'registerButton')}</a></span>
+          </p>
+        </div>
+        <style>
+            /* Custom styling for login page - patterns and animations can stay as they are not button-specific */
+            .login-bg-pattern {
+                background: radial-gradient(circle at center, rgba(0, 53, 102, 0.2) 1px, transparent 1px),
+                            radial-gradient(circle at center, rgba(0, 29, 61, 0.2) 1px, transparent 1px);
+                background-size: 30px 30px;
+            }
+            .animate-pulse-subtle {
+                animation: pulse-subtle 10s infinite ease-in-out;
+            }
+            @keyframes pulse-subtle {
+                0% { opacity: 0.3; }
+                50% { opacity: 0.45; }
+                100% { opacity: 0.3; }
+            }
+            .peer:focus ~ label,
+            .peer:not(:placeholder-shown) ~ label {
+                color: #ffc300;
+                transform: translateY(-24px) scale(0.75);
+            }
+        </style>
+       </div>
+    `;
+
+    const appRoot = document.getElementById('app-root') as HTMLElement;
+    if (appRoot) {
+        appRoot.innerHTML = loginHtml;
+
+        const loginButton = document.getElementById('login-button');
+        if (loginButton) {
+            loginButton.addEventListener('click', async (event) => {
+                event.preventDefault();
+                
+                const usernameInput = document.getElementById('username') as HTMLInputElement;
+                const passwordInput = document.getElementById('password') as HTMLInputElement;
+                
+                const username = usernameInput?.value || '';
+                const password = passwordInput?.value || '';
+                
+                console.log('Intentando login...');
+                
+                if (login(username, password)) {
+                    console.log('Login exitoso, redirigiendo a home...');
+                    navigateTo('/home');
+                } else {
+                    console.log('Login fallido');
+                    alert('Usuario o contraseña incorrectos');
+                }
+            });
+        }
+
+        const googleLoginButton = document.getElementById('google-login-button');
+        if (googleLoginButton) {
+            googleLoginButton.addEventListener('click', async (event) => {
+                event.preventDefault();
+                
+                console.log('Simulando login con Google...');
+                // Simula login exitoso
+                if (login('google_user', 'google_password')) {
+                    console.log('Login con Google exitoso, redirigiendo a home...');
+                    navigateTo('/home');
+                }
+            });
+        }
+
+        const createAccountLink = document.getElementById('create-account-link');
+        if (createAccountLink) {
+            createAccountLink.addEventListener('click', (event) => {
+                event.preventDefault();
+                navigateTo('/register');
+            });
+        }
+
+        const languageDropdownButton = document.getElementById('language-dropdown-button');
+        const languageDropdownMenu = document.getElementById('language-dropdown-menu');
+        if (languageDropdownButton && languageDropdownMenu) {
+            languageDropdownButton.addEventListener('click', () => {
+                languageDropdownMenu.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', (event) => {
+                if (!languageDropdownButton.contains(event.target as Node) && !languageDropdownMenu.contains(event.target as Node)) {
+                    languageDropdownMenu.classList.add('hidden');
+                }
+            });
+
+            languageDropdownMenu.querySelectorAll('[data-lang]').forEach(item => {
+                item.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    const newLang = (event.target as HTMLElement).getAttribute('data-lang');
+                    if (newLang) {
+                        setLanguage(newLang);
+                        renderLoginPage();
+                        languageDropdownMenu.classList.add('hidden');
+                    }
+                });
+            });
+        }
+
+    } else {
+        console.error('Elemento con id "app-root" no encontrado para renderizar la página de login.');
+    }
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/src/pages/register.ts ===[0m
+// src/pages/register.ts
+
+import { navigateTo } from '../router';
+import { getTranslation, setLanguage, getCurrentLanguage } from '../i18n';
+
+export function renderRegister(): void {
+    const registerHtml = `
+        <div
+            class="min-h-screen flex justify-center items-center p-4 sm:p-8 bg-[#000814] font-inter text-gray-100 antialiased relative overflow-hidden"
+        >
+            <div class="absolute inset-0 z-0 opacity-20 register-bg-pattern"></div>
+            <div class="absolute inset-0 z-0 bg-gradient-to-br from-[#000814] via-[#001d3d] to-[#000814] opacity-30 animate-pulse-subtle"></div>
+
+            <div class="absolute top-4 right-4 sm:top-8 sm:right-8 z-50">
+                <div class="relative inline-block text-left">
+                    <button
+                        type="button"
+                        id="language-dropdown-button"
+                        class="inline-flex justify-center items-center gap-x-1.5 rounded-full bg-white bg-opacity-10 px-4 py-2 text-sm font-semibold text-gray-100 shadow-sm ring-1 ring-inset ring-[#003566] hover:bg-opacity-20 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-75"
+                    >
+                        <span data-i18n="common.language">${getTranslation('common', 'language')}</span>
+                        <svg class="-mr-1 h-5 w-5 text-gray-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+
+                    <div id="language-dropdown-menu" class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-[#001d3d] shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none hidden" role="menu" aria-orientation="vertical" aria-labelledby="language-dropdown-button" tabindex="-1">
+                    <div class="py-1" role="none">
+                        <a href="#" class="text-gray-300 block px-4 py-2 text-sm hover:bg-[#002c53]" role="menuitem" tabindex="-1" id="lang-es" data-lang="es" data-i18n="common.castellano">${getTranslation('common', 'castellano')}</a>
+                        <a href="#" class="text-gray-300 block px-4 py-2 text-sm hover:bg-[#002c53]" role="menuitem" tabindex="-1" id="lang-en" data-lang="en" data-i18n="common.english">${getTranslation('common', 'english')}</a>
+                        <a href="#" class="text-gray-300 block px-4 py-2 text-sm hover:bg-[#002c53]" role="menuitem" tabindex="-1" id="lang-gl" data-lang="gl" data-i18n="common.galego">${getTranslation('common', 'galego')}</a>
+                        <a href="#" class="text-gray-300 block px-4 py-2 text-sm hover:bg-[#002c53]" role="menuitem" tabindex="-1" id="lang-zh" data-lang="zh" data-i18n="common.chinese">${getTranslation('common', 'chinese')}</a>
+                    </div>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                class="relative bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl shadow-2xl p-6 sm:p-8 md:p-10 lg:p-12 w-full max-w-md mx-auto border border-[#003566] transform transition-all duration-500 ease-in-out z-10"
+            >
+                <div class="text-center mb-8">
+                    <h1 class="text-4xl sm:text-5xl font-display font-extrabold text-[#ffc300] mb-2 drop-shadow-md" data-i18n="register.title">${getTranslation('register', 'title')}</h1>
+                    <h2 class="text-2xl sm:text-3xl font-display font-extrabold text-gray-100 mb-4 drop-shadow-md" data-i18n="register.joinExperience">${getTranslation('register', 'joinExperience')}</h2>
+                    <p class="text-base sm:text-lg text-gray-300" data-i18n="register.subtitle">${getTranslation('register', 'subtitle')}</p>
+                </div>
+
+                <form class="space-y-6">
+                    <div class="relative z-0 group">
+                        <input
+                            type="text"
+                            id="username"
+                            name="username"
+                            class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
+                            placeholder=" "
+                            required
+                        />
+                        <label
+                            for="username"
+                            class="peer-focus:font-medium absolute text-lg text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:start-0 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto peer-focus:text-[#ffc300] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
+                            data-i18n="register.usernameLabel"
+                        >${getTranslation('register', 'usernameLabel')}</label>
+                    </div>
+
+                    <div class="relative z-0 group">
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
+                            placeholder=" "
+                            required
+                        />
+                        <label
+                            for="email"
+                            class="peer-focus:font-medium absolute text-lg text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:start-0 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto peer-focus:text-[#ffc300] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
+                            data-i18n="register.emailLabel"
+                        >${getTranslation('register', 'emailLabel')}</label>
+                    </div>
+
+                    <div class="relative z-0 group">
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
+                            placeholder=" "
+                            required
+                        />
+                        <label
+                            for="password"
+                            class="peer-focus:font-medium absolute text-lg text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:start-0 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto peer-focus:text-[#ffc300] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
+                            data-i18n="register.passwordLabel"
+                        >${getTranslation('register', 'passwordLabel')}</label>
+                    </div>
+
+                    <div class="relative z-0 group">
+                        <input
+                            type="password"
+                            id="confirm-password"
+                            name="confirm-password"
+                            class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
+                            placeholder=" "
+                            required
+                        />
+                        <label
+                            for="confirm-password"
+                            class="peer-focus:font-medium absolute text-lg text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:start-0 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto peer-focus:text-[#ffc300] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
+                            data-i18n="register.confirmPasswordLabel"
+                        >${getTranslation('register', 'confirmPasswordLabel')}</label>
+                    </div>
+
+                    <button
+                        type="submit"
+                        id="register-button"
+                        class="w-full py-3 mt-6 rounded-xl bg-gradient-to-r from-[#ffc300] to-[#ffd60a] text-[#000814] font-bold text-xl shadow-lg hover:from-[#ffd60a] hover:to-[#ffc300] transition-all duration-300 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-75"
+                        data-i18n="register.registerButton"
+                    >${getTranslation('register', 'registerButton')}</button>
+                </form>
+
+                <p class="text-center text-gray-400 text-sm mt-6" data-i18n="register.or">${getTranslation('register', 'or')}</p>
+
+                <button id="google-register-button" 
+                        class="w-full mt-4 rounded-xl shadow 
+                               bg-[#001d3d] border border-[#003566] text-[#e0e0e0] text-sm font-semibold h-10 px-3 relative overflow-hidden 
+                               flex items-center justify-center space-x-3 transition-colors duration-200 
+                               hover:bg-[#002c53] hover:shadow-lg 
+                               focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-75 
+                               disabled:opacity-50 disabled:cursor-not-allowed">
+                    <div class="flex items-center">
+                        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" xmlns:xlink="http://www.w3.org/1999/xlink" class="h-5 w-5 mr-3 flex-shrink-0">
+                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                            <path fill="none" d="M0 0h48v48H0z"></path>
+                        </svg>
+                        <span class="flex-grow text-left" data-i18n="register.registerWithGoogle">${getTranslation('register', 'registerWithGoogle')}</span>
+                    </div>
+                </button>
+
+                <p class="text-center text-gray-300 text-base mt-6" data-i18n-html="register.alreadyHaveAccountSentence">
+                    ${getTranslation('register', 'alreadyHaveAccount')} <a href="/login" id="login-link" class="text-[#ffc300] hover:underline font-semibold transition-colors duration-200 hover:text-[#ffd60a]" data-i18n="register.loginHere">${getTranslation('register', 'loginHere')}</a>
+                </p>
+            </div>
+            <style>
+                /* Custom styling for register page - patterns and animations can stay as they are not button-specific */
+                .register-bg-pattern {
+                    background: radial-gradient(circle at center, rgba(0, 53, 102, 0.2) 1px, transparent 1px),
+                                radial-gradient(circle at center, rgba(0, 29, 61, 0.2) 1px, transparent 1px);
+                    background-size: 30px 30px;
+                }
+                .animate-pulse-subtle {
+                    animation: pulse-subtle 10s infinite ease-in-out;
+                }
+                @keyframes pulse-subtle {
+                    0% { opacity: 0.3; }
+                    50% { opacity: 0.45; }
+                    100% { opacity: 0.3; }
+                }
+                .peer:focus ~ label,
+                .peer:not(:placeholder-shown) ~ label {
+                    color: #ffc300;
+                    transform: translateY(-24px) scale(0.75);
+                }
+            </style>
+        </div>
+    `;
+
+    const appRoot = document.getElementById('app-root') as HTMLElement;
+    if (appRoot) {
+        appRoot.innerHTML = registerHtml;
+
+        const registerButton = document.getElementById('register-button');
+        if (registerButton) {
+            registerButton.addEventListener('click', async (event) => {
+                event.preventDefault();
+                
+                console.log('Simulando registro...');
+                // Simula registro exitoso y redirige al home
+                navigateTo('/home');
+            });
+        }
+
+        const googleRegisterButton = document.getElementById('google-register-button');
+        if (googleRegisterButton) {
+            googleRegisterButton.addEventListener('click', async (event) => {
+                event.preventDefault();
+                
+                console.log('Simulando registro con Google...');
+                // Simula registro exitoso y redirige al home
+                navigateTo('/home');
+            });
+        }
+
+        const loginLink = document.getElementById('login-link');
+        if (loginLink) {
+            loginLink.addEventListener('click', (event) => {
+                event.preventDefault();
+                navigateTo('/login');
+            });
+        }
+
+        const languageDropdownButton = document.getElementById('language-dropdown-button');
+        const languageDropdownMenu = document.getElementById('language-dropdown-menu');
+        if (languageDropdownButton && languageDropdownMenu) {
+            languageDropdownButton.addEventListener('click', () => {
+                languageDropdownMenu.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', (event) => {
+                if (!languageDropdownButton.contains(event.target as Node) && !languageDropdownMenu.contains(event.target as Node)) {
+                    languageDropdownMenu.classList.add('hidden');
+                }
+            });
+
+            languageDropdownMenu.querySelectorAll('[data-lang]').forEach(item => {
+                item.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    const newLang = (event.target as HTMLElement).getAttribute('data-lang');
+                    if (newLang) {
+                        setLanguage(newLang);
+                        renderRegister();
+                        languageDropdownMenu.classList.add('hidden');
+                    }
+                });
+            });
+        }
+
+    } else {
+        console.error('Elemento con id "app-root" no encontrado para renderizar la página de registro.');
+    }
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/src/pages/play.ts ===[0m
+// src/pages/play.ts
+
+import { navigateTo } from '../router';
+import { getTranslation } from '../i18n';
+
+export function renderPlay(): void {
+    const playHtml = `
+        <main class="flex-grow w-full p-4 sm:p-8 flex flex-col items-center gap-8 text-gray-100">
+            <div class="max-w-4xl w-full">
+                <div class="text-center mb-12">
+                    <h1 class="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold mb-6 text-[#ffc300] drop-shadow-md leading-tight">
+                        ${getTranslation('play', 'selectGameMode')}
+                    </h1>
+                    <p class="text-base sm:text-lg md:text-xl text-gray-300 mb-8">
+                        ${getTranslation('play', 'chooseModeDescription')}
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- 1v1 Classic -->
+                    <div class="bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl p-6 border border-[#003566] shadow-2xl hover:shadow-custom-deep hover:scale-[1.02] transition-all duration-500 cursor-pointer game-mode-card" data-mode="1v1">
+                        <div class="text-center">
+                            <div class="w-16 h-16 mx-auto mb-4 bg-[#ffc300] rounded-full flex items-center justify-center">
+                                <span class="text-[#000814] font-bold text-2xl">1v1</span>
+                            </div>
+                            <h3 class="text-2xl font-display font-bold text-[#ffc300] mb-3">
+                                ${getTranslation('play', 'oneVsOne')}
+                            </h3>
+                            <p class="text-gray-300 mb-6">
+                                ${getTranslation('play', 'oneVsOneDescription')}
+                            </p>
+                            <button class="w-full py-3 rounded-xl bg-gradient-to-r from-[#ffc300] to-[#ffd60a] text-[#000814] font-bold text-lg hover:from-[#ffd60a] hover:to-[#ffc300] transition-all duration-300 transform hover:scale-105">
+                                ${getTranslation('play', 'vsAIButton')}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tournament -->
+                    <div class="bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl p-6 border border-[#003566] shadow-2xl hover:shadow-custom-deep hover:scale-[1.02] transition-all duration-500 cursor-not-allowed game-mode-card opacity-60" data-mode="tournament">
+                        <div class="text-center">
+                            <div class="w-16 h-16 mx-auto mb-4 bg-gray-500 rounded-full flex items-center justify-center">
+                                <span class="text-white font-bold text-xl">🏆</span>
+                            </div>
+                            <h3 class="text-2xl font-display font-bold text-gray-400 mb-3">
+                                ${getTranslation('play', 'tournament')}
+                            </h3>
+                            <p class="text-gray-400 mb-6">
+                                ${getTranslation('play', 'tournamentDescription')}
+                            </p>
+                            <button disabled class="w-full py-3 rounded-xl bg-gray-600 text-gray-300 font-bold text-lg cursor-not-allowed">
+                                ${getTranslation('play', 'comingSoon')}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Custom Game -->
+                    <div class="bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl p-6 border border-[#003566] shadow-2xl hover:shadow-custom-deep hover:scale-[1.02] transition-all duration-500 cursor-pointer game-mode-card" data-mode="custom">
+                        <div class="text-center">
+                            <div class="w-16 h-16 mx-auto mb-4 bg-[#003566] rounded-full flex items-center justify-center">
+                                <span class="text-[#ffc300] font-bold text-xl">⚙️</span>
+                            </div>
+                            <h3 class="text-2xl font-display font-bold text-[#ffc300] mb-3">
+                                ${getTranslation('play', 'customGame')}
+                            </h3>
+                            <p class="text-gray-300 mb-6">
+                                ${getTranslation('play', 'customGameDescription')}
+                            </p>
+                            <button class="w-full py-3 rounded-xl border-2 border-[#ffc300] text-[#ffc300] font-bold text-lg hover:bg-[#ffc300] hover:text-[#000814] transition-all duration-300 transform hover:scale-105">
+                                ${getTranslation('play', 'comingSoon')}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- AI Modes -->
+                    <div class="bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl p-6 border border-[#003566] shadow-2xl hover:shadow-custom-deep hover:scale-[1.02] transition-all duration-500 cursor-pointer game-mode-card" data-mode="ai">
+                        <div class="text-center">
+                            <div class="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                                <span class="text-white font-bold text-xl">🤖</span>
+                            </div>
+                            <h3 class="text-2xl font-display font-bold text-[#ffc300] mb-3">
+                                ${getTranslation('play', 'vsAIButton')}
+                            </h3>
+                            <p class="text-gray-300 mb-6">
+                                ${getTranslation('play', 'vsAIDescription')}
+                            </p>
+                            <button class="w-full py-3 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 text-white font-bold text-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300 transform hover:scale-105">
+                                ${getTranslation('play', 'selectDifficulty')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Back to Home Button -->
+                <div class="text-center mt-12">
+                    <button id="back-to-home" class="px-8 py-3 rounded-xl border-2 border-[#003566] text-[#ffc300] font-semibold text-lg hover:bg-[#001d3d] hover:text-white transition-all duration-300 transform hover:scale-105">
+                        ${getTranslation('common', 'backToHome')}
+                    </button>
+                </div>
+            </div>
+        </main>
+        <style>
+            /* Custom Shadow for Hover Effect */
+            .hover\\:shadow-custom-deep:hover {
+                box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3), 0 0 50px rgba(255, 195, 0, 0.2);
+            }
+        </style>
+    `;
+
+    const pageContent = document.getElementById('page-content') as HTMLElement;
+    if (pageContent) {
+        pageContent.innerHTML = playHtml;
+
+        // Event listeners para las tarjetas de modo de juego
+        const gameModeCards = document.querySelectorAll('.game-mode-card');
+        gameModeCards.forEach(card => {
+            card.addEventListener('click', (event) => {
+                const mode = card.getAttribute('data-mode');
+                if (mode && !card.classList.contains('cursor-not-allowed')) {
+                    console.log(`Game mode selected: ${mode}`);
+                    
+                    switch (mode) {
+                        case '1v1':
+                            alert(getTranslation('play', 'demoFunctionality1v1'));
+                            break;
+                        case 'custom':
+                            alert(getTranslation('play', 'demoFunctionalityCustom'));
+                            break;
+                        case 'ai':
+                            alert(getTranslation('play', 'demoFunctionalityAI'));
+                            break;
+                        default:
+                            console.log('Mode not implemented');
+                    }
+                }
+            });
+        });
+
+        // Botón para volver al inicio
+        const backToHomeButton = document.getElementById('back-to-home');
+        if (backToHomeButton) {
+            backToHomeButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                navigateTo('/home');
+            });
+        }
+
+    } else {
+        console.error('Element with id "page-content" not found to render play page.');
+    }
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/src/pages/home.ts ===[0m
+// src/pages/home.ts
+
+import { navigateTo } from '../router';
+import { getTranslation } from '../i18n';
+
+export function renderHomePage(): void {
+    const homeHtml = `
+        <main class="flex-grow w-full p-4 sm:p-8 flex flex-col items-center gap-8 text-gray-100 animate__animated animate__fadeIn">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl w-full animate__animated animate__fadeInUp">
+              <div
+                  id="welcome-card"
+                  class="rounded-3xl p-6 sm:p-8 lg:p-10 bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl border border-[#003566] shadow-2xl text-center transition-all duration-500 ease-in-out transform hover:scale-[1.01] hover:shadow-custom-deep flex flex-col justify-between"
+              >
+                  <div>
+                      <h2 class="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold mb-6 text-[#ffc300] drop-shadow-md leading-tight">
+                          ${getTranslation('home', 'welcomeTitle')} <span class="text-[#ffd60a]">Transcendence</span>!
+                      </h2>
+                      <p class="text-base sm:text-lg md:text-xl text-gray-300 mb-8">
+                          ${getTranslation('home', 'welcomeSubtitle')}
+                      </p>
+                  </div>
+                  <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-6 pt-6 pb-6 mt-auto">
+                      <button id="play-button"
+                          class="bg-gradient-to-r from-[#ffc300] to-[#ffd60a] text-[#000814] py-4 px-10 rounded-xl font-bold text-xl sm:text-2xl hover:from-[#ffd60a] hover:to-[#ffc300] transition-all duration-300 shadow-lg transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-75"
+                      >
+                          ${getTranslation('home', 'playNowButton')}
+                      </button>
+                      <button id="tournaments-button"
+                          type="button"
+                          class="border-2 border-[#003566] text-[#ffc300] py-4 px-10 rounded-xl font-semibold text-xl sm:text-2xl hover:bg-[#001d3d] hover:text-white transition-all duration-300 shadow transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#003566] focus:ring-opacity-75"
+                      >
+                          ${getTranslation('home', 'viewTournamentsButton')}
+                      </button>
+                  </div>
+              </div>
+
+              <div
+                  id="live-matches-box"
+                  class="rounded-3xl p-4 sm:p-6 bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl border border-[#003566] shadow-2xl flex flex-col transition-all duration-500 ease-in-out hover:scale-[1.01] hover:shadow-custom-deep"
+              >
+                  <h3 class="text-2xl sm:text-3xl font-display font-extrabold text-[#ffc300] drop-shadow-md mb-6 text-center">
+                      ${getTranslation('home', 'liveMatchesTitle')}
+                  </h3>
+                  <p class="text-base sm:text-lg text-gray-300 mb-6 text-center">
+                      ${getTranslation('home', 'liveMatchesSubtitle')}
+                  </p>
+                  <div class="flex-grow space-y-4 overflow-y-auto max-h-96 pr-2 custom-scrollbar">
+                      <a href="/match/1" class="block p-4 rounded-xl bg-[#001d3d] bg-opacity-50 text-gray-100 hover:bg-opacity-70 transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer group border border-[#003566]">
+                          <div class="flex justify-between items-center">
+                              <span class="font-semibold text-base sm:text-lg">
+                                  DragonSlayer <span class="text-[#ffc300]">${getTranslation('home', 'vs')}</span> PongMaster
+                              </span>
+                              <span class="text-xl sm:text-2xl font-bold text-[#ffd60a]">2 - 1</span>
+                          </div>
+                          <p class="text-sm text-gray-400 mt-1">${getTranslation('home', 'inProgressRound')} 3</p>
+                      </a>
+
+                      <a href="/match/2" class="block p-4 rounded-xl bg-[#001d3d] bg-opacity-50 text-gray-100 hover:bg-opacity-70 transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer group border border-[#003566]">
+                          <div class="flex justify-between items-center">
+                              <span class="font-semibold text-base sm:text-lg">
+                                  FirePhoenix <span class="text-[#ffc300]">${getTranslation('home', 'vs')}</span> IceWarrior
+                              </span>
+                              <span class="text-xl sm:text-2xl font-bold text-[#ffd60a]">5 - 3</span>
+                          </div>
+                          <p class="text-sm text-gray-400 mt-1">${getTranslation('home', 'tournamentSemifinal')}</p>
+                      </a>
+
+                      <a href="/match/3" class="block p-4 rounded-xl bg-[#001d3d] bg-opacity-50 text-gray-100 hover:bg-opacity-70 transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer group border border-[#003566]">
+                          <div class="flex justify-between items-center">
+                              <span class="font-semibold text-base sm:text-lg">
+                                  CodeNinja <span class="text-[#ffc300]">${getTranslation('home', 'vs')}</span> ByteHunter
+                              </span>
+                              <span class="text-xl sm:text-2xl font-bold text-[#ffd60a]">1 - 0</span>
+                          </div>
+                          <p class="text-sm text-gray-400 mt-1">${getTranslation('home', 'quickMatch')}</p>
+                      </a>
+
+                      <a href="/match/4" class="block p-4 rounded-xl bg-[#001d3d] bg-opacity-50 text-gray-100 hover:bg-opacity-70 transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer group border border-[#003566]">
+                          <div class="flex justify-between items-center">
+                              <span class="font-semibold text-base sm:text-lg">
+                                  ThunderStrike <span class="text-[#ffc300]">${getTranslation('home', 'vs')}</span> LightningBolt
+                              </span>
+                              <span class="text-xl sm:text-2xl font-bold text-[#ffd60a]">0 - 0</span>
+                          </div>
+                          <p class="text-sm text-gray-400 mt-1">${getTranslation('home', 'preparingToStart')}</p>
+                      </a>
+                      
+                      <a href="/match/5" class="block p-4 rounded-xl bg-[#001d3d] bg-opacity-50 text-gray-100 hover:bg-opacity-70 transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer group border border-[#003566]">
+                          <div class="flex justify-between items-center">
+                              <span class="font-semibold text-base sm:text-lg">
+                                  ShadowAssassin <span class="text-[#ffc300]">${getTranslation('home', 'vs')}</span> BladeMaster
+                              </span>
+                              <span class="text-xl sm:text-2xl font-bold text-[#ffd60a]">4 - 4</span>
+                          </div>
+                          <p class="text-sm text-gray-400 mt-1">${getTranslation('home', 'matchPoint')}</p>
+                      </a>
+                      
+                      <a href="/match/6" class="block p-4 rounded-xl bg-[#001d3d] bg-opacity-50 text-gray-100 hover:bg-opacity-70 transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer group border border-[#003566]">
+                          <div class="flex justify-between items-center">
+                              <span class="font-semibold text-base sm:text-lg">
+                                  PixelHero <span class="text-[#ffc300]">${getTranslation('home', 'vs')}</span> RetroGamer
+                              </span>
+                              <span class="text-xl sm:text-2xl font-bold text-[#ffd60a]">3 - 2</span>
+                          </div>
+                          <p class="text-sm text-gray-400 mt-1">${getTranslation('home', 'quickMatch')}</p>
+                      </a>
+                  </div>
+              </div>
+          </div>
+
+          <section class="w-full max-w-7xl mt-16 grid grid-cols-1 md:grid-cols-2 gap-8 mx-auto animate__animated animate__fadeInUp animate__delay-1s">
+              <a href="/profile" class="block rounded-3xl p-4 sm:p-6 bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl border border-[#003566] shadow-2xl hover:shadow-custom-deep hover:scale-[1.01] transition-all duration-500">
+                  <h3 class="text-xl sm:text-2xl font-display font-bold text-[#ffc300] mb-3">
+                      ${getTranslation('home', 'yourProfileTitle')}
+                  </h3>
+                  <p class="text-sm sm:text-base text-gray-300">
+                      ${getTranslation('home', 'yourProfileSubtitle')}
+                  </p>
+              </a>
+              <a href="/ranking" class="block rounded-3xl p-4 sm:p-6 bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl border border-[#003566] shadow-2xl hover:shadow-custom-deep hover:scale-[1.01] transition-all duration-500">
+                  <h3 class="text-xl sm:text-2xl font-display font-bold text-[#ffc300] mb-3">
+                      ${getTranslation('home', 'globalRankingTitle')}
+                  </h3>
+                  <p class="text-sm sm:text-base text-gray-300">
+                      ${getTranslation('home', 'globalRankingSubtitle')}
+                  </p>
+              </a>
+          </section>
+        </main>
+        <style>
+            /* Custom Scrollbar for Match History */
+            .custom-scrollbar::-webkit-scrollbar {
+                width: 8px;
+            }
+
+            .custom-scrollbar::-webkit-scrollbar-track {
+                background: #001d3d; /* Darker track */
+                border-radius: 10px;
+            }
+
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                background: #003566; /* Match border color */
+                border-radius: 10px;
+            }
+
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                background: #004b80; /* Slightly lighter on hover */
+            }
+
+            .animate__animated.animate__fadeIn {
+                animation-duration: 0.5s;
+            }
+
+            .animate__animated.animate__fadeInUp {
+                animation-duration: 0.8s;
+            }
+
+            .animate__animated.animate__delay-1s {
+                animation-delay: 0.5s; /* Adjusted delay for better flow */
+            }
+
+            /* Custom Shadow for Hover Effect (deeper glow) */
+            .hover\\:shadow-custom-deep:hover {
+                box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3), 0 0 50px rgba(255, 195, 0, 0.3); /* Deeper, yellowish glow */
+            }
+        </style>
+    `;
+
+    const pageContent = document.getElementById('page-content') as HTMLElement;
+    if (pageContent) {
+        pageContent.innerHTML = homeHtml;
+
+        // Listener para el botón "Jugar Ahora"
+        const playButton = document.getElementById('play-button');
+        if (playButton) {
+            playButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                navigateTo('/play');
+            });
+        }
+
+        // Listener para el botón "Ver Torneos"
+        const tournamentsButton = document.getElementById('tournaments-button');
+        if (tournamentsButton) {
+            tournamentsButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                navigateTo('/play'); // Asumiendo que Ver Torneos también navega a la página de juego
+            });
+        }
+
+        // Listeners para las tarjetas de "Tu Perfil" y "Ranking Global"
+        const profileCardLink = document.querySelector('section a[href="/profile"]');
+        if (profileCardLink) {
+            profileCardLink.addEventListener('click', (event) => {
+                event.preventDefault();
+                navigateTo('/profile');
+            });
+        }
+
+        const rankingsCardLink = document.querySelector('section a[href="/ranking"]');
+        if (rankingsCardLink) {
+            rankingsCardLink.addEventListener('click', (event) => {
+                event.preventDefault();
+                navigateTo('/ranking');
+            });
+        }
+
+        // Event delegation para los enlaces de partidos en vivo
+        document.querySelectorAll('#live-matches-box a').forEach(link => {
+            link.addEventListener('click', (event) => {
+                const href = link.getAttribute('href');
+                if (href && href.startsWith('/match/')) {
+                    event.preventDefault();
+                    console.log(`Navegando a partida: ${href}`);
+                    // En lugar de navegar, solo mostramos información del match
+                    alert(`Esta es una funcionalidad de demostración. Partida: ${href}`);
+                }
+            });
+        });
+
+    } else {
+        console.error('Elemento con id "page-content" no encontrado para renderizar la página de inicio.');
+    }
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/src/input.css ===[0m
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/src/main.ts ===[0m
+// src/main.ts
+import { navigateTo } from './router';
+import { renderNavbar } from './components/navbar'; // Import the new navbar component
+import { getTranslation } from './i18n'; // Only need getTranslation for basic layout for now
+import { initSafariCompatibility, isSafari, isIOSSafari } from './utils/safariPolyfills';
+
+// Define the root element where the application will be mounted
+const appRoot = document.getElementById('app-root') as HTMLElement;
+
+if (!appRoot) {
+  console.error('Element with id "app-root" not found in index.html. Cannot initialize application.');
+} else {
+  // Set up the initial HTML structure: a container for the navbar and a container for page content
+  appRoot.innerHTML = `
+    <div id='navbar-container'></div>
+    <main id='page-content' class='flex-grow flex flex-col justify-center items-center p-4 sm:p-8 mt-24 sm:mt-32 w-full text-gray-100'></main>
+  `;
+
+  const pageContentContainer = document.getElementById('page-content');
+
+  if (!pageContentContainer) {
+    console.error('Element with id "page-content" not found. Cannot render page content.');
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    // Initialize Safari compatibility fixes first
+    if (isSafari() || isIOSSafari()) {
+      initSafariCompatibility();
+      console.log('🍎 Safari detected, compatibility fixes applied');
+    }
+    
+    // Initial render of the navbar and the current page
+    renderNavbar(location.pathname);
+    await navigateTo(location.pathname);
+
+    // Escuchar clics en el cuerpo del documento para la navegación (delegación de eventos)
+    document.body.addEventListener('click', async (e) => {
+      const target = e.target as HTMLElement;
+
+      // Busca el elemento 'a' más cercano si el click fue dentro de uno
+      const anchor = target.closest('a');
+
+      // Only handle internal links that start with '/'
+      if (anchor && anchor.matches('a') && anchor.getAttribute('href')?.startsWith('/')) {
+        e.preventDefault(); // Evita la recarga completa de la página
+        const path = anchor.getAttribute('href')!;
+        await navigateTo(path);
+      }
+    });
+
+    // Escuchar eventos 'popstate' para la navegación hacia atrás/adelante del navegador
+    window.addEventListener('popstate', async () => {
+      renderNavbar(location.pathname); // Re-render navbar on popstate to update active link
+      await navigateTo(location.pathname);
+    });
+
+    // Listen for custom languageChange event to re-render the whole UI
+    window.addEventListener('languageChange', async () => {
+      renderNavbar(location.pathname); // Re-render navbar
+      await navigateTo(location.pathname); // Re-render current page
+    });
+  });
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/nginx.conf ===[0m
+server {
+    listen 8080; # Nginx within frontend container listens on 8080
+    server_name localhost;
+
+    location / {
+        root /usr/share/nginx/html;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://api-gateway:8000/; # Points to API Gateway's internal port
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/package.json ===[0m
+{
+	"name": "transcendance-frontend",
+	"version": "1.0.0",
+	"description": "Frontend-only de Transcendance Pong con datos hardcodeados",
+	"scripts": {
+	  "start": "webpack serve --config webpack.config.js --mode development",
+	  "build": "webpack --config webpack.config.js --mode production",
+	  "dev": "webpack serve --config webpack.config.js --mode development",
+	  "test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": ["pong", "frontend", "typescript", "tailwind"],
+	"author": "transcendance",
+	"license": "MIT",
+	"devDependencies": {
+	  "autoprefixer": "^10.4.19",
+	  "clean-webpack-plugin": "^4.0.0",
+	  "css-loader": "^7.1.2",
+	  "html-webpack-plugin": "^5.6.0",
+	  "postcss": "^8.4.38",
+	  "postcss-loader": "^8.1.1",
+	  "style-loader": "^4.0.0",
+	  "tailwindcss": "^3.4.4",
+	  "ts-loader": "^9.5.1",
+	  "typescript": "^5.4.5",
+	  "webpack": "^5.91.0",
+	  "webpack-cli": "^5.1.4",
+	  "webpack-dev-server": "^5.0.4"
+	}
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/webpack.config.js ===[0m
+const path = require('path');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+
+module.exports = {
+  mode: 'development',
+  entry: './src/main.ts',
+  output: {
+    filename: 'bundle.[contenthash].js',
+    path: path.resolve(__dirname, 'dist'),
+    publicPath: '/'
+  },
+  resolve: {
+    extensions: ['.ts', '.js'],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        use: 'ts-loader',
+        exclude: /node_modules/,
+      },
+    ],
+  },
+  plugins: [
+    new CleanWebpackPlugin(),
+    new HtmlWebpackPlugin({
+      template: './index.html',
+      filename: 'index.html',
+    }),
+  ],
+  devServer: {
+    static: {
+      directory: path.join(__dirname, 'dist'),
+    },
+    compress: true,
+    port: 8080,
+    open: true,
+    historyApiFallback: true, // Esto es CRUCIAL para SPAs
+  },
+};
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/index.html ===[0m
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="Transcendence - A modern Pong game experience with online multiplayer, AI, and multiple game modes" />
+    <meta name="keywords" content="pong, game, multiplayer, online, transcendence, paddle, ball" />
+    <meta name="theme-color" content="#000814" />
+    <title>Transcendence</title>
+    <link rel="icon" href="data:image/svg+xml,%3csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3e%3ctext y=%22.9em%22 font-size=%2290%22%3e🏓%3c/text%3e%3c/svg%3e">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'primary-bg': '#000814',
+              'secondary-bg': '#001d3d', 
+              'tertiary-bg': '#003566',
+              'accent': '#ffc300',
+              'accent-light': '#ffd60a',
+              'text-primary': '#ffd60a',
+              'text-secondary': '#003566'
+            },
+            fontFamily: {
+              'inter': ['Inter', 'system-ui', 'sans-serif'],
+              'display': ['Montserrat', 'Inter', 'system-ui', 'sans-serif']
+            },
+            animation: {
+              'spin-slow': 'spin 1s linear infinite',
+              'fade-in': 'fadeIn 0.5s ease-in-out',
+              'slide-up': 'slideUp 0.3s ease-out'
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' }
+              },
+              slideUp: {
+                '0%': { opacity: '0', transform: 'translateY(20px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' }
+              }
+            },
+            screens: {
+              'xs': '320px',
+              'sm': '640px', 
+              'md': '768px',
+              'lg': '1024px',
+              'xl': '1280px',
+              '2xl': '1536px'
+            }
+          }
+        }
+      }
+    </script>
+    
+    <style>
+      /* Essential browser fixes that can't be done with Tailwind */
+      html, body {
+        overflow-x: hidden;
+        scroll-behavior: smooth;
+        /* Safari viewport fixes */
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+      }
+      
+      body {
+        -webkit-overflow-scrolling: touch;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+        /* Safari rendering improvements */
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        /* Safari fix for viewport height */
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+      }
+      
+      /* Prevent text selection on interactive elements */
+      button, .no-select {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      /* Loading spinner animation */
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      .loading-spinner {
+        animation: spin 1s linear infinite;
+      }
+      
+      /* Webkit scrollbar styling */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: #000814;
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: #003566;
+        border-radius: 4px;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: #ffc300;
+      }
+      
+      /* Safari-specific game container fixes */
+      .game-container {
+        /* Safari viewport fix */
+        height: 100vh;
+        height: -webkit-fill-available;
+        /* Safari touch optimization */
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      /* Safari canvas optimization */
+      canvas {
+        -webkit-transform: translateZ(0);
+        transform: translateZ(0);
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
+        /* Safari touch events */
+        touch-action: none;
+      }
+      
+      /* Safari button fixes */
+      button {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        border: none;
+        outline: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      /* Safari input fixes */
+      input, textarea {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        border-radius: 0;
+      }
+      
+      /* Safari safe area support */
+      @supports (padding: max(0px)) {
+        .safe-area-top {
+          padding-top: max(1rem, env(safe-area-inset-top));
+        }
+        
+        .safe-area-bottom {
+          padding-bottom: max(1rem, env(safe-area-inset-bottom));
+        }
+        
+        .safe-area-left {
+          padding-left: max(1rem, env(safe-area-inset-left));
+        }
+        
+        .safe-area-right {
+          padding-right: max(1rem, env(safe-area-inset-right));
+        }
+      }
+    </style>
+  </head>
+  <body
+    class="min-h-screen bg-gradient-to-br from-[#000814] via-[#001d3d] to-[#003566] font-inter text-gray-100 antialiased leading-relaxed"
+  >
+    <div id="app-root" class="flex flex-col min-h-screen relative z-10 w-full max-w-full overflow-x-hidden"></div>
+    
+    <!-- Loading indicator for better UX -->
+    <div id="global-loading" class="fixed inset-0 bg-[#000814] bg-opacity-90 flex items-center justify-center z-50" style="display: none;">
+      <div class="text-center">
+        <div class="border-4 border-[#ffc300]/30 border-t-[#ffc300] rounded-full w-10 h-10 animate-spin mx-auto mb-4"></div>
+        <p class="text-[#ffc300] text-lg font-semibold">Loading...</p>
+      </div>
+    </div>
+  </body>
+</html>
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./frontend/Dockerfile ===[0m
+# Build stage
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+# Production stage
+FROM nginx:alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/dist/ /usr/share/nginx/html/
+EXPOSE 8080
+CMD ["nginx", "-g", "daemon off;"]
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./api-gateway/tsconfig.json ===[0m
+{
+  "compilerOptions": {
+    "target": "es2021",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./api-gateway/src/server.ts ===[0m
+// api-gateway/src/server.ts
+import Fastify from 'fastify';
+import httpProxy from '@fastify/http-proxy';
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+
+dotenv.config();
+const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
+
+const fastify = Fastify({ logger: true });
+
+// Middleware global para autenticar JWT (excepto /auth/*)
+fastify.addHook('onRequest', async (request, reply) => {
+  if (request.url.startsWith('/auth')) return; // Excluir rutas públicas
+  const auth = request.headers['authorization'];
+  if (!auth || !auth.startsWith('Bearer ')) {
+    return reply.code(401).send({ message: 'No autorizado' });
+  }
+  try {
+    const token = auth.slice(7);
+    const payload = jwt.verify(token, JWT_SECRET) as any;
+    request.headers['x-user-id'] = String(payload.user_id);
+  } catch {
+    return reply.code(401).send({ message: 'Token inválido' });
+  }
+});
+
+fastify.register(httpProxy, {
+  upstream: process.env.AUTH_SERVICE_URL || 'http://auth-service:8000',
+  prefix: '/auth',
+  rewritePrefix: '/auth',
+  httpMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+});
+
+fastify.register(httpProxy, {
+  upstream: process.env.GAME_SERVICE_URL || 'http://game-service:8000',
+  prefix: '/game',
+  rewritePrefix: '/game',
+  httpMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+});
+
+fastify.register(httpProxy, {
+  upstream: process.env.CHAT_SERVICE_URL || 'http://chat-service:8000',
+  prefix: '/chat',
+  rewritePrefix: '/chat',
+  httpMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+});
+
+fastify.listen({ port: 8000, host: '0.0.0.0' }, err => {
+  if (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+});
+
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./api-gateway/package.json ===[0m
+{
+  "name": "api-gateway",
+  "version": "1.0.0",
+  "description": "Microservicio para api-gateway",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev src/server.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fastify": "^4.x.x",
+    "@fastify/http-proxy": "^9.x.x",
+    "jsonwebtoken": "^9.x.x",
+    "dotenv": "^16.x.x"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x.x",
+    "@types/jsonwebtoken": "^9.0.0",
+    "ts-node": "^10.x.x",
+    "ts-node-dev": "^2.x.x",
+    "typescript": "^5.x.x"
+  }
+
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./api-gateway/Dockerfile ===[0m
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+EXPOSE 8000
+CMD ["npm", "start"]
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./docker-compose.yml ===[0m
+
+services:
+  # Servicio de Autenticación y Perfiles de Usuario
+  auth-service:
+    build: ./auth-service
+    image: auth-service
+    container_name: auth-service
+    ports:
+      - "8001:8000" # Mapea el puerto 8000 interno a 8001 en el host
+    environment:
+      DB_SERVICE_URL: "http://db-service:8005"
+      VAULT_ADDR: "http://vault:8200"
+    depends_on:
+      - db-service
+      - vault
+    networks:
+      - transcendence_net
+    restart: on-failure
+
+  # Servicio de Juego (Pong)
+  game-service:
+    build: ./game-service
+    image: game-service
+    container_name: game-service
+    ports:
+      - "8002:8000" # Mapea el puerto 8000 interno a 8002 en el host
+    environment:
+      DB_SERVICE_URL: "http://db-service:8005"
+      VAULT_ADDR: "http://vault:8200"
+    depends_on:
+      - db-service
+      - auth-service
+      - vault
+    networks:
+      - transcendence_net
+    restart: on-failure
+
+  # Servicio de Chat
+  chat-service:
+    build: ./chat-service
+    image: chat-service
+    container_name: chat-service
+    ports:
+      - "8003:8000" # Mapea el puerto 8000 interno a 8003 en el host
+    environment:
+      DB_SERVICE_URL: "http://db-service:8005"
+      VAULT_ADDR: "http://vault:8200"
+    depends_on:
+      - db-service
+      - auth-service
+      - vault
+    networks:
+      - transcendence_net
+    restart: on-failure
+
+  # Pasarela API (API Gateway)
+  api-gateway:
+    build: ./api-gateway
+    image: api-gateway
+    container_name: api-gateway
+    ports:
+      - "9000:8000" # Mapea el puerto 8000 interno a 9000 en el host
+    environment:
+      AUTH_SERVICE_URL: "http://auth-service:8000" # Apunta al puerto interno del servicio
+      GAME_SERVICE_URL: "http://game-service:8000"
+      CHAT_SERVICE_URL: "http://chat-service:8000"
+    depends_on:
+      - auth-service
+      - game-service
+      - chat-service
+    networks:
+      - transcendence_net
+    restart: on-failure
+
+  # Frontend
+  frontend:
+    build: ./frontend
+    image: frontend
+    container_name: frontend
+    ports:
+      - "9001:8080" # El Nginx del frontend usará el puerto 8080 interno
+    depends_on:
+      - api-gateway
+    networks:
+      - transcendence_net
+    restart: on-failure
+
+  # HashiCorp Vault
+  vault:
+    image: hashicorp/vault:latest
+    container_name: hashicorp_vault
+    ports:
+      - "8200:8200" # Vault ya usa un puerto no privilegiado por defecto
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "dev-root-token"
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+    cap_add:
+      - IPC_LOCK
+    networks:
+      - transcendence_net
+    restart: on-failure
+
+  # WAF (Web Application Firewall) - Nginx con ModSecurity como ejemplo
+  waf:
+    image: owasp/modsecurity-crs:nginx
+    container_name: WAF
+    ports:
+      - "9002:8080" # El WAF escuchará en 9002 en el host
+    environment:
+      MODSECURITY_RULES_PATH: "/etc/nginx/modsecurity/modsecurity.conf"
+      PROXY_PASS: "http://frontend:8080" # Apunta al puerto interno del frontend
+    volumes:
+      - ./nginx-waf/modsecurity.conf:/etc/nginx/modsecurity/modsecurity.conf:ro
+    depends_on:
+      - frontend
+    networks:
+      - transcendence_net
+    restart: on-failure
+
+  # Servicio de Base de Datos (API de acceso a SQLite)
+  db-service:
+    build: ./db-service
+    image: db-service
+    container_name: db-service
+    ports:
+      - "8005:8000" # Mapea el puerto 8000 interno a 8005 en el host
+    volumes:
+      - db_data:/app/data # Monta un volumen para persistir la base de datos SQLite
+    environment:
+      VAULT_ADDR: "http://vault:8200"
+    depends_on:
+      - vault
+    networks:
+      - transcendence_net
+    restart: on-failure
+  redis:
+    build:
+      context: ./db-service/redis
+    container_name: redis
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - ${DATA_PATH}/redis:/data
+    environment:
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+    healthcheck:
+      test: ["CMD", "sh", "/usr/local/etc/redis/healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    secrets:
+      - redis_password
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--maxmemory", "${REDIS_MAXMEMORY}"]
+    networks:
+      - transcendence_net
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: redis_commander
+    environment:
+      - REDIS_HOSTS=redis
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - transcendence_net
+  sqlite-writer:
+    build: ./db-service/sqlite-writer
+    container_name: sqlite-writer
+    depends_on:
+      - redis
+      - db-service
+    environment:
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+    secrets:
+      - redis_password
+    volumes:
+      - db_data:/app/data
+    restart: on-failure
+
+
+
+secrets:
+  redis_password:
+    file: ./secrets/redis/password.txt
+
+volumes:
+  db_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH}/sqlite
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH}/redis
+
+networks:
+  transcendence_net:
+    name: transcendence_net 
+    driver: bridge[1;30m----------------------------------------[0m
