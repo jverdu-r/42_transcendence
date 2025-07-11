@@ -1,0 +1,27 @@
+-> La lectura de la bbdd se hace como hasta ahora, directamente con SELECT o  usando sqlite o sqlite3
+
+-> La escritura directa esta prohibida directamente, no se debe hacer INSERT, UPDATE, DELETE directamente desde los microservicios!!
+
+   Se debe usar la cola Redis sqlite_write_queue de la forma:
+
+        await redis.rPush('sqlite_write_queue', JSON.stringify({
+          sql: 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+          params: [username, email, hash]
+        }));
+
+   Ejemplo completo de escritura:
+        import redis from './redis-client'; 
+
+        await redis.rPush('sqlite_write_queue', JSON.stringify({
+          sql: 'UPDATE games SET score1 = ? WHERE id = ?',
+          params: [newScore, gameId]
+        }));
+
+  Para esto es necesario tener en vuestro microservicio un redis-client.ts como este:
+        import { createClient } from 'redis';
+        const redis = createClient({
+          url: process.env.REDIS_URL || 'redis://default@redis:6379'
+        });
+        redis.on('error', err => console.error('Redis error:', err));
+        redis.connect();
+        export default redis;
