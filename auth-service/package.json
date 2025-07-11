@@ -13,12 +13,23 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "fastify": "^4.x.x"
+    "fastify": "^4.x.x",
+    "sqlite3": "^5.x.x",
+    "sqlite": "^5.x.x",
+    "jsonwebtoken": "^9.x.x",
+    "bcryptjs": "^2.x.x",
+    "node-fetch": "^3.x.x",
+    "dotenv": "^16.x.x",
+    "redis": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^20.x.x",
     "ts-node": "^10.x.x",
     "ts-node-dev": "^2.x.x",
-    "typescript": "^5.x.x"
+    "typescript": "^5.x.x",
+    "@types/jsonwebtoken": "^9.0.0",
+    "@types/bcryptjs": "^2.4.2"
+
   }
 }
+
