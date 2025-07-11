@@ -12,7 +12,8 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
+    "dependencies": {
+    "dotenv": "^16.0.0",
     "fastify": "^4.x.x",
     "sqlite3": "^5.x.x",
     "sqlite": "^5.x.x",
