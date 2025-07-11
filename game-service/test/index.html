@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 Selección de Modo de Juego Pong</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Montserrat:wght@700;800&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --bg-dark-navy: #000814;
+            --bg-mid-navy: #001d3d;
+            --border-light-navy: #003566;
+            --text-gold: #ffc300;
+            --highlight-gold: #ffd60a;
+            --text-light-gray: #e0e0e0;
+            --focus-outline: #ffd60a;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark-navy);
+            color: var(--text-light-gray);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--text-gold);
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 3rem;
+            text-shadow: 0 0 10px rgba(255, 195, 0, 0.5);
+        }
+
+        .mode-selection-container {
+            width: 100%;
+            max-width: 600px;
+            background-color: var(--bg-mid-navy);
+            border: 2px solid var(--border-light-navy);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 0 25px rgba(0, 53, 102, 0.7);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .mode-card {
+            background-color: rgba(0, 29, 61, 0.7);
+            border: 1px solid var(--border-light-navy);
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            cursor: pointer;
+            text-decoration: none; /* Quitar subrayado de los enlaces */
+            color: inherit; /* Heredar color de texto */
+            display: block; /* Para que ocupe todo el ancho y sea clicable en toda el área */
+        }
+
+        .mode-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(255, 214, 10, 0.3);
+            background-color: rgba(0, 29, 61, 0.9);
+        }
+
+        .mode-card h2 {
+            margin: 0 0 0.5rem 0;
+            font-family: 'Montserrat', sans-serif;
+            color: var(--highlight-gold);
+            font-size: 1.8rem;
+        }
+
+        .mode-card p {
+            margin: 0;
+            font-size: 1.1rem;
+            color: var(--text-light-gray);
+        }
+
+        .observer-link {
+            margin-top: 2rem;
+            font-size: 1.1rem;
+        }
+
+        .observer-link a {
+            color: var(--highlight-gold);
+            text-decoration: none;
+            font-weight: 700;
+            transition: color 0.2s ease-in-out;
+        }
+
+        .observer-link a:hover {
+            color: var(--text-gold);
+            text-decoration: underline;
+        }
+
+         /* Estilos generales para asegurar enfoque visible */
+        *:focus-visible {
+            outline: 3px solid var(--focus-outline);
+            outline-offset: 2px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 Elige tu Modo de Juego Pong</h1>
+
+    <div class="mode-selection-container">
+        <a href="test_network.html" class="mode-card">
+            <h2>Jugar Online / Unirse a Partida</h2>
+            <p>Encuentra o crea una partida online para competir.</p>
+        </a>
+        <a href="pong-local.html" class="mode-card">
+            <h2>1 vs 1 Local</h2>
+            <p>Juega con un amigo en el mismo teclado.</p>
+        </a>
+        </div>
+
+    <div class="observer-link">
+        ¿Solo quieres observar? <a href="visor.html">Ir al Observador de Partidas</a>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong - Jugador</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Montserrat:wght@700;800&display=swap" rel="stylesheet" />
+    <style>
+:root {
+            --bg-dark-navy: #000814;
+            --bg-mid-navy: #001d3d;
+            --border-light-navy: #003566;
+            --text-gold: #ffc300;
+            --highlight-gold: #ffd60a;
+            --text-light-gray: #e0e0e0;
+
+            --color-ball: #ffd60a;
+            --color-player-paddle: #ffc300; /* Tu pala (Amarilla) */
+            --color-opponent-paddle: #003566; /* Pala del oponente (Azul marino) */
+            --color-game-border: #003566;
+            --color-paddle-border: #FFFFFF;
+
+            --button-bg-primary: #007bff; /* Azul para acciones primarias */
+            --button-hover-primary: #0056b3;
+            --button-bg-danger: #dc3545; /* Rojo para desconectar/volver */
+            --button-hover-danger: #c82333;
+            --button-bg-success: #28a745; /* Verde para crear/unir */
+            --button-hover-success: #218838;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark-navy);
+            color: var(--text-gold);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        .player-info-display {
+            background-color: var(--bg-mid-navy);
+            border: 2px solid var(--border-light-navy);
+            border-radius: 8px;
+            padding: 0.5rem 1.5rem;
+            text-align: center;
+            width: 200px;
+            color: var(--text-gold);
+        }
+
+        .player-name-display {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--text-light-gray);
+            display: block;
+        }
+
+        .player-score-display {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 800;
+            font-size: 2.5rem;
+            color: var(--text-gold);
+            line-height: 1;
+        }
+
+        .game-title h1 {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 800;
+            font-size: 1.5rem;
+            margin: 0;
+            color: var(--text-gold);
+            text-align: center;
+            letter-spacing: 2px;
+        }
+        .game-title h2 {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            margin: 0;
+            color: var(--text-light-gray);
+            text-align: center;
+        }
+
+        #gameCanvas {
+            background-color: var(--bg-mid-navy);
+            border: 2px solid var(--color-game-border);
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 53, 102, 0.5);
+            width: 100%;
+            aspect-ratio: 1.5 / 1;
+        }
+
+        .controls-panel {
+            background-color: var(--bg-mid-navy);
+            border: 2px solid var(--border-light-navy);
+            border-radius: 8px;
+            padding: 1rem;
+            flex-grow: 1;
+            width: 100%;
+            text-align: center;
+        }
+
+        .controls-panel h3 {
+            margin: 0 0 0.5rem 0;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            color: var(--text-gold);
+            border-bottom: 1px solid var(--border-light-navy);
+            padding-bottom: 0.5rem;
+            text-align: center;
+        }
+
+        .controls-panel p {
+            margin: 0;
+            color: var(--text-light-gray);
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .controls-panel strong {
+            color: var(--highlight-gold);
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap; /* Para que los botones se ajusten en pantallas pequeñas */
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-gold);
+            background-color: var(--border-light-navy);
+            border: 2px solid var(--text-gold);
+        }
+        button:hover {
+            background-color: var(--text-gold);
+            color: var(--bg-mid-navy);
+        }
+
+        .button-create {
+            background-color: var(--button-bg-success);
+            color: white;
+            border: none;
+        }
+        .button-create:hover {
+            background-color: var(--button-hover-success);
+        }
+
+        .button-join-list { /* Estilo específico para los botones de "Unirse" en la lista */
+            background-color: var(--button-bg-primary);
+            color: white;
+            border: none;
+            padding: 8px 15px; /* Más pequeño */
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+        .button-join-list:hover:not(:disabled) {
+            background-color: var(--button-hover-primary);
+            transform: translateY(-1px);
+        }
+        .button-join-list.available {
+            background-color: var(--button-bg-success);
+            animation: pulse 2s infinite;
+        }
+        .button-join-list.available:hover {
+            background-color: var(--button-hover-success);
+        }
+        .button-join-list.disabled,
+        .button-join-list:disabled {
+            background-color: #6c757d;
+            color: #adb5bd;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+        }
+
+
+        .button-disconnect {
+            background-color: var(--button-bg-danger);
+            color: white;
+            border: none;
+        }
+        .button-disconnect:hover {
+            background-color: var(--button-hover-danger);
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            border-radius: 8px;
+            border: 2px solid var(--border-light-navy);
+            background-color: var(--bg-mid-navy);
+            color: var(--text-light-gray);
+            font-size: 1rem;
+            width: 180px;
+            max-width: 100%;
+            box-sizing: border-box;
+            text-align: center; /* Centrar texto del ID de partida */
+        }
+        input[type="text"]::placeholder {
+            color: #999;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--highlight-gold);
+        }
+
+        .message-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.85); /* Más oscuro para mejor contraste */
+            display: flex;
+            flex-direction: column; /* Para centrar texto y luego valor */
+            align-items: center;
+            justify-content: center;
+            font-family: 'Montserrat', sans-serif;
+            color: var(--highlight-gold);
+            text-align: center;
+            z-index: 100;
+            opacity: 0; /* Empieza oculto */
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .message-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        .overlay-text {
+            font-size: 2.5em; /* Más grande */
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(255, 214, 10, 0.6);
+        }
+        #countdownValue {
+            font-size: 4em; /* Enorme para la cuenta atrás */
+            font-weight: 800;
+            color: var(--text-gold);
+            text-shadow: 0 0 15px rgba(255, 214, 10, 0.8);
+        }
+
+        .hidden { display: none !important; } /* Usar !important para asegurar la ocultación */
+        .status-message {
+            margin-top: 10px;
+            font-size: 1.1em;
+            font-weight: bold;
+            color: var(--highlight-gold);
+            text-align: center;
+        }
+
+        .lobby-section {
+            width: 100%;
+            text-align: center;
+        }
+
+        .partidas-list {
+            max-height: 250px; /* Altura máxima para la lista de partidas */
+            overflow-y: auto; /* Scroll si hay muchas partidas */
+            padding: 10px;
+            border: 1px solid var(--border-light-navy);
+            border-radius: 8px;
+            margin-top: 15px;
+            background-color: #001932; /* Fondo ligeramente diferente para la lista */
+        }
+        .partida-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            background-color: #002d5a;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+        .partida-item:last-child {
+            margin-bottom: 0;
+        }
+        .partida-item span {
+            color: var(--text-light-gray);
+        }
+        .partida-item strong {
+            color: var(--highlight-gold);
+        }
+        .partida-item .status {
+            font-weight: bold;
+            color: var(--highlight-gold);
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <header class="game-header">
+            <div class="player-info-display player-1">
+                <span class="player-name-display" id="player-info-name">JUGADOR 1</span>
+                <span class="player-score-display" id="score-j1">0</span>
+            </div>
+            <div class="game-title">
+                <h1>TRANSCENDENCE</h1>
+                <h2>PONG MULTIJUGADOR</h2>
+            </div>
+            <div class="player-info-display player-2">
+                <span class="player-name-display">JUGADOR 2</span>
+                <span class="player-score-display" id="score-j2">0</span>
+            </div>
+        </header>
+
+        <canvas id="gameCanvas" width="600" height="400"></canvas>
+
+        <section class="controls-panel">
+            <h3>Conexión y Controles</h3>
+            <p id="player-status-message">Conectando al lobby...</p>
+
+            <div id="lobby-controls" class="lobby-section">
+                <button id="createGameButton" class="button-create">Crear Nueva Partida</button>
+                <div id="partidas-list-container" class="partidas-list">
+                    <p>Cargando partidas disponibles...</p>
+                </div>
+            </div>
+
+            <div id="game-controls" class="hidden">
+                <p id="partidaIdDisplayContainer">ID de tu partida: <input type="text" id="partidaIdDisplay" readonly></p>
+                <div class="button-group">
+                    <button id="disconnectButton" class="button-disconnect">Desconectar</button>
+                </div>
+            </div>
+
+            <p style="margin-top: 15px;">Usa W y S para mover tu pala.</p>
+        </section>
+    </div>
+
+    <div id="countdownOverlay" class="message-overlay hidden">
+        <span class="overlay-text" id="countdownMessage"></span>
+        <span id="countdownValue"></span>
+    </div>
+
+    <!-- Sonidos removidos para mejor experiencia de usuario -->
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreJ1El = document.getElementById('score-j1');
+        const scoreJ2El = document.getElementById('score-j2');
+        const playerStatusMessage = document.getElementById('player-status-message');
+        const playerInfoName = document.getElementById('player-info-name');
+        const countdownOverlay = document.getElementById('countdownOverlay');
+        const countdownValueSpan = document.getElementById('countdownValue');
+        const countdownMessageSpan = document.getElementById('countdownMessage');
+
+        const lobbyControls = document.getElementById('lobby-controls');
+        const gameControls = document.getElementById('game-controls');
+        const createGameButton = document.getElementById('createGameButton');
+        const partidasListContainer = document.getElementById('partidas-list-container');
+        const partidaIdDisplayContainer = document.getElementById('partidaIdDisplayContainer'); // Contenedor del ID de partida
+        const partidaIdDisplay = document.getElementById('partidaIdDisplay');
+        const disconnectButton = document.getElementById('disconnectButton');
+
+        // Sonidos removidos para mejor experiencia de usuario
+
+        let socket;
+        let myPlayer = { id: null, numero: null, partidaId: null };
+        let game = {
+            ancho: 600,
+            alto: 400,
+            palaAncho: 12,
+            palaAlto: 80,
+            pelota: { x: 300, y: 200, vx: 0, vy: 0, radio: 8, trail: [] },
+            palas: {
+                jugador1: { x: 15, y: 160 },
+                jugador2: { x: 573, y: 160 },
+            },
+            puntuacion: { jugador1: 0, jugador2: 0 },
+            rallyCount: 0,
+            enJuego: false,
+            cuentaAtrasActiva: false,
+            cuentaAtrasValor: 0,
+            jugadoresConectados: 0,
+            capacidadMaxima: 2,
+            nombre: "",
+            particles: [],
+            shake: { x: 0, y: 0, intensity: 0 },
+            juegoTerminado: false, // Flag para evitar que se actualice el overlay cuando termina el juego
+            // Parámetros de jugabilidad idénticos al modo local
+            paddleSpeed: 7,
+            baseBallSpeed: 5,
+            maxBallSpeed: 10,
+            speedIncrease: 1.02
+        };
+
+        // Estado del servidor (objetivo para la interpolación)
+        let serverState = {
+            pelota: { ...game.pelota },
+            palas: { ...game.palas },
+        };
+
+        // Funciones para efectos visuales como en el modo local
+        function createParticles(x, y, color, count = 6) {
+            for (let i = 0; i < count; i++) {
+                game.particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    life: 1.0,
+                    decay: 0.02,
+                    color: color,
+                    size: Math.random() * 4 + 2
+                });
+            }
+        }
+
+        function updateParticles() {
+            for (let i = game.particles.length - 1; i >= 0; i--) {
+                const p = game.particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vx *= 0.98;
+                p.vy *= 0.98;
+                p.life -= p.decay;
+                if (p.life <= 0) {
+                    game.particles.splice(i, 1);
+                }
+            }
+        }
+
+        // Interpolación adaptativa mejorada para mayor fluidez
+        let INTERPOLATION_FACTOR = 0.25;
+        let BALL_INTERPOLATION_FACTOR = 0.45; // Aumentado para respuesta más rápida
+        let PADDLE_INTERPOLATION_FACTOR = 0.25; // Aumentado para mejor respuesta
+
+        const PADDLE_SPEED = 7; // Idéntico al modo local
+        let keysPressed = {};
+        let lastInputTime = 0;
+        let predictedPaddleY = 0;
+        let serverSyncTime = Date.now();
+        let latencyHistory = [];
+        let averageLatency = 0;
+
+        // Colores de las palas desde CSS
+        const PLAYER_PADDLE_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--color-player-paddle');
+        const OPPONENT_PADDLE_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--color-opponent-paddle');
+
+        // --- Event Listeners para el control de la pala ---
+        document.addEventListener('keydown', (e) => {
+            keysPressed[e.key] = true;
+            lastInputTime = Date.now();
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keysPressed[e.key] = false;
+            lastInputTime = Date.now();
+        });
+
+        // --- Interpolación mejorada con predicción avanzada ---
+        function interpolateGameState() {
+            const now = Date.now();
+            const timeSinceSync = now - serverSyncTime;
+            
+            // Calcular latencia promedio para mejor adaptación
+            if (latencyHistory.length > 10) {
+                latencyHistory.shift();
+            }
+            latencyHistory.push(timeSinceSync);
+            averageLatency = latencyHistory.reduce((a, b) => a + b, 0) / latencyHistory.length;
+            
+            // Ajustar factores de interpolación basados en latencia promedio
+            const latencyFactor = Math.min(averageLatency / 100, 1.5); // Normalizar a 100ms
+            const adaptiveBallFactor = Math.min(BALL_INTERPOLATION_FACTOR * (1 + latencyFactor * 0.4), 0.8);
+            const adaptivePaddleFactor = Math.min(PADDLE_INTERPOLATION_FACTOR * (1 + latencyFactor * 0.3), 0.6);
+            
+            // Interpolar la pelota con predicción mejorada
+            const ballDx = serverState.pelota.x - game.pelota.x;
+            const ballDy = serverState.pelota.y - game.pelota.y;
+            const ballDistance = Math.sqrt(ballDx * ballDx + ballDy * ballDy);
+            
+            // Usar snap más inteligente basado en velocidad de la pelota
+            const ballSpeed = Math.sqrt(serverState.pelota.vx * serverState.pelota.vx + serverState.pelota.vy * serverState.pelota.vy);
+            const snapThreshold = Math.max(30, ballSpeed * 2); // Threshold dinámico
+            
+            if (ballDistance > snapThreshold) {
+                game.pelota.x = serverState.pelota.x;
+                game.pelota.y = serverState.pelota.y;
+            } else {
+                // Interpolación con predicción basada en velocidad
+                const predictionTime = Math.min(timeSinceSync / 1000, 0.05); // Máximo 50ms de predicción
+                const predictedX = serverState.pelota.x + serverState.pelota.vx * predictionTime;
+                const predictedY = serverState.pelota.y + serverState.pelota.vy * predictionTime;
+                
+                game.pelota.x += (predictedX - game.pelota.x) * adaptiveBallFactor;
+                game.pelota.y += (predictedY - game.pelota.y) * adaptiveBallFactor;
+            }
+
+            // Interpolar la pala del oponente con suavizado mejorado
+            if (myPlayer.numero) {
+                const opponentPaddleKey = myPlayer.numero === 1 ? 'jugador2' : 'jugador1';
+                const opponentServerY = serverState.palas[opponentPaddleKey].y;
+                const opponentDy = opponentServerY - game.palas[opponentPaddleKey].y;
+                
+                // Threshold más agresivo para snap de pala
+                if (Math.abs(opponentDy) > 25) {
+                    game.palas[opponentPaddleKey].y = opponentServerY;
+                } else {
+                    game.palas[opponentPaddleKey].y += opponentDy * adaptivePaddleFactor;
+                }
+            }
+        }
+
+        // --- Bucle de actualización y renderizado del cliente ---
+        function updateClientPaddleAndSend() {
+            // Interpolar estado del servidor si estamos en una partida
+            if (myPlayer.partidaId) {
+                interpolateGameState();
+            }
+
+            // Actualizar efectos visuales
+            updateParticles();
+            if (game.shake.intensity > 0) {
+                game.shake.x = (Math.random() - 0.5) * game.shake.intensity;
+                game.shake.y = (Math.random() - 0.5) * game.shake.intensity;
+                game.shake.intensity *= 0.85;
+                if (game.shake.intensity < 0.1) game.shake.intensity = 0;
+            }
+
+            // Solo procesar controles si estoy conectado a una partida, tengo un número asignado y no estoy en cuenta atrás
+            if (!myPlayer.partidaId || !myPlayer.numero || !socket || socket.readyState !== WebSocket.OPEN || game.cuentaAtrasActiva) return;
+
+            // Obtener referencia a mi pala
+            let myPaddle = myPlayer.numero === 1 ? game.palas.jugador1 : game.palas.jugador2;
+            let originalY = myPaddle.y;
+            let newY = myPaddle.y;
+            
+            // Predicción local mejorada con respuesta más directa
+            const currentTime = Date.now();
+            const timeSinceInput = currentTime - lastInputTime;
+            
+            if (keysPressed['w'] || keysPressed['W']) {
+                newY = Math.max(0, newY - PADDLE_SPEED);
+            }
+            if (keysPressed['s'] || keysPressed['S']) {
+                newY = Math.min(game.alto - game.palaAlto, newY + PADDLE_SPEED);
+            }
+
+            // Actualizar posición local con predicción
+            myPaddle.y = newY;
+
+            // Enviar posición con mayor frecuencia para mejor sincronización
+            if (Math.abs(newY - originalY) > 0.3) {
+                socket.send(JSON.stringify({ tipo: 'mover', y: newY }));
+            }
+            
+            // Enviar posición periódicamente aunque no haya cambios significativos
+            // para mantener sincronización con el servidor
+            if (currentTime - (myPaddle.lastSentTime || 0) > 100) {
+                socket.send(JSON.stringify({ tipo: 'mover', y: newY }));
+                myPaddle.lastSentTime = currentTime;
+            }
+        }
+
+        // Helper function for rounded rectangles (compatibility)
+        function drawRoundedRect(ctx, x, y, width, height, radius) {
+            if (typeof ctx.roundRect === 'function') {
+                ctx.roundRect(x, y, width, height, radius);
+            } else {
+                // Fallback for browsers without roundRect
+                ctx.moveTo(x + radius, y);
+                ctx.lineTo(x + width - radius, y);
+                ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+                ctx.lineTo(x + width, y + height - radius);
+                ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+                ctx.lineTo(x + radius, y + height);
+                ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+                ctx.lineTo(x, y + radius);
+                ctx.quadraticCurveTo(x, y, x + radius, y);
+            }
+        }
+
+        // --- Funciones de dibujo ---
+        function drawGame() {
+            // Aplicar screen shake como en el modo local
+            ctx.save();
+            ctx.translate(game.shake.x, game.shake.y);
+            
+            ctx.clearRect(-game.shake.x, -game.shake.y, game.ancho + Math.abs(game.shake.x * 2), game.alto + Math.abs(game.shake.y * 2));
+
+            // Actualizar trail de la pelota
+            if (game.pelota) {
+                game.pelota.trail = game.pelota.trail || [];
+                game.pelota.trail.push({ x: game.pelota.x, y: game.pelota.y });
+                if (game.pelota.trail.length > 8) {
+                    game.pelota.trail.shift();
+                }
+            }
+
+            // Colores CSS
+            const ballColor = getComputedStyle(document.documentElement).getPropertyValue('--color-ball');
+            const dashedLineColor = getComputedStyle(document.documentElement).getPropertyValue('--border-light-navy');
+            const paddleBorderColor = getComputedStyle(document.documentElement).getPropertyValue('--color-paddle-border');
+
+            // Dibujar trail de la pelota como en el modo local
+            if (game.pelota.trail && game.pelota.trail.length > 1) {
+                for (let i = 0; i < game.pelota.trail.length - 1; i++) {
+                    const alpha = (i + 1) / game.pelota.trail.length * 0.3;
+                    const trail = game.pelota.trail[i];
+                    ctx.globalAlpha = alpha;
+                    ctx.beginPath();
+                    ctx.arc(trail.x, trail.y, game.pelota.radio * (0.5 + alpha), 0, Math.PI * 2);
+                    ctx.fillStyle = ballColor;
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            // Dibujar línea central con resplandor
+            ctx.strokeStyle = dashedLineColor;
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 8]);
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#003566';
+            ctx.beginPath();
+            ctx.moveTo(game.ancho / 2, 0);
+            ctx.lineTo(game.ancho / 2, game.alto);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.shadowBlur = 0;
+
+            // Dibujar palas con bordes redondeados y resplandor
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = paddleBorderColor;
+
+            // Pala del Jugador 1
+            if (myPlayer.numero === 1) {
+                ctx.fillStyle = PLAYER_PADDLE_COLOR; // Tu pala (amarilla)
+                ctx.shadowColor = PLAYER_PADDLE_COLOR;
+            } else {
+                ctx.fillStyle = OPPONENT_PADDLE_COLOR; // Pala del oponente (azul)
+                ctx.shadowColor = OPPONENT_PADDLE_COLOR;
+            }
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            drawRoundedRect(ctx, game.palas.jugador1.x, game.palas.jugador1.y, game.palaAncho, game.palaAlto, 6);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.stroke();
+
+            // Pala del Jugador 2
+            if (myPlayer.numero === 2) {
+                ctx.fillStyle = PLAYER_PADDLE_COLOR; // Tu pala (amarilla)
+                ctx.shadowColor = PLAYER_PADDLE_COLOR;
+            } else {
+                ctx.fillStyle = OPPONENT_PADDLE_COLOR; // Pala del oponente (azul)
+                ctx.shadowColor = OPPONENT_PADDLE_COLOR;
+            }
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            drawRoundedRect(ctx, game.palas.jugador2.x, game.palas.jugador2.y, game.palaAncho, game.palaAlto, 6);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.stroke();
+
+            // Dibujar partículas como en el modo local
+            for (const p of game.particles) {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+
+            // Dibujar la pelota con resplandor mejorado
+            ctx.shadowColor = ballColor;
+            ctx.shadowBlur = 20;
+            
+            // Pelota exterior
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.arc(game.pelota.x, game.pelota.y, game.pelota.radio + 3, 0, Math.PI * 2);
+            ctx.fillStyle = ballColor;
+            ctx.fill();
+            
+            // Pelota principal
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(game.pelota.x, game.pelota.y, game.pelota.radio, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Resplandor de pelota
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(game.pelota.x - 2, game.pelota.y - 2, game.pelota.radio / 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = 0.6;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+
+            // Borde de la pelota
+            ctx.strokeStyle = paddleBorderColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(game.pelota.x, game.pelota.y, game.pelota.radio, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            ctx.restore(); // Restaurar transformaciones del screen shake
+
+            // Actualizar puntuación
+            scoreJ1El.textContent = game.puntuacion.jugador1.toString();
+            scoreJ2El.textContent = game.puntuacion.jugador2.toString();
+
+            // Manejo de la superposición de cuenta atrás o mensajes
+            // NO actualizar el overlay si el juego ha terminado (para mantener el mensaje de ganador)
+            if (myPlayer.partidaId && !game.juegoTerminado) { // Solo si estamos en una partida Y el juego NO ha terminado
+                if (game.cuentaAtrasActiva) {
+                    countdownMessageSpan.textContent = "INICIANDO PARTIDA";
+                    countdownValueSpan.textContent = game.cuentaAtrasValor;
+                    countdownOverlay.classList.add('visible');
+                } else if (!game.enJuego && game.jugadoresConectados < game.capacidadMaxima) {
+                    countdownMessageSpan.textContent = "ESPERANDO OPONENTE";
+                    countdownValueSpan.textContent = `(${game.jugadoresConectados}/${game.capacidadMaxima})`;
+                    countdownOverlay.classList.add('visible');
+                } else if (!game.enJuego && game.jugadoresConectados === game.capacidadMaxima && game.puntuacion.jugador1 === 0 && game.puntuacion.jugador2 === 0) {
+                     countdownMessageSpan.textContent = "OPONENTE ENCONTRADO";
+                     countdownValueSpan.textContent = "PREPARÁNDOSE...";
+                     countdownOverlay.classList.add('visible');
+                } else {
+                    countdownOverlay.classList.remove('visible'); // Ocultar si el juego está en curso
+                }
+            } else if (!myPlayer.partidaId && !game.juegoTerminado) { // Si no estamos en una partida Y el juego NO ha terminado
+                countdownOverlay.classList.remove('visible');
+            }
+        }
+
+
+        // --- Gestión de la interfaz (Lobby vs Juego) ---
+        function showLobbyView() {
+            lobbyControls.classList.remove('hidden');
+            gameControls.classList.add('hidden');
+            partidaIdDisplayContainer.classList.add('hidden'); // Ocultar campo de ID de partida
+            playerStatusMessage.textContent = 'Selecciona o crea una partida.';
+            playerInfoName.textContent = 'JUGADOR 1'; // Resetear nombre de jugador
+            scoreJ1El.textContent = '0'; // Resetear scores
+            scoreJ2El.textContent = '0';
+            // Asegurarse de que el overlay esté oculto cuando estamos en el lobby
+            countdownOverlay.classList.remove('visible');
+            // Resetear el flag de juego terminado
+            game.juegoTerminado = false;
+            // Resetear el estado del juego visualmente (para que el canvas esté "vacío")
+            game.pelota = { x: game.ancho / 2, y: game.alto / 2, vx: 0, vy: 0, radio: 8 };
+            game.palas = {
+                jugador1: { x: 10, y: game.alto / 2 - game.palaAlto / 2 },
+                jugador2: { x: game.ancho - 10 - game.palaAncho, y: game.alto / 2 - game.palaAlto / 2 },
+            };
+            drawGame();
+            // Reactivar el botón crear partida
+            createGameButton.disabled = false;
+            createGameButton.textContent = 'Crear Nueva Partida';
+            // Solicitar lista de partidas
+            if (socket && socket.readyState === WebSocket.OPEN && myPlayer.partidaId === null) {
+                socket.send(JSON.stringify({ tipo: 'get_partidas_disponibles' }));
+            }
+        }
+
+        function showGameView(partidaId) {
+            lobbyControls.classList.add('hidden');
+            gameControls.classList.remove('hidden');
+            partidaIdDisplayContainer.classList.remove('hidden'); // Mostrar campo de ID de partida
+            partidaIdDisplay.value = partidaId;
+            playerStatusMessage.textContent = `Conectado a la partida: ${partidaId}.`;
+            // Asegúrate de que el canvas se redibuje con el estado actual del juego
+            drawGame();
+        }
+
+        function displayPartidas(partidas) {
+            partidasListContainer.innerHTML = ''; // Limpiar lista actual
+            
+            // Mostrar todas las partidas con mejor información
+            if (partidas.length === 0) {
+                partidasListContainer.innerHTML = `
+                    <p style="text-align: center; color: var(--text-light-gray); margin: 20px 0;">
+                        <strong>No hay partidas disponibles</strong><br>
+                        <small>Crea una nueva partida para empezar a jugar</small>
+                    </p>
+                `;
+                return;
+            }
+
+            partidas.forEach(partida => {
+                const partidaDiv = document.createElement('div');
+                partidaDiv.className = 'partida-item';
+                
+                let statusText, buttonText, isDisabled = false, buttonClass = 'button-join-list';
+                
+                if (partida.enJuego) {
+                    statusText = `🎮 EN JUEGO (${partida.jugadoresConectados}/${partida.capacidadMaxima})`;
+                    buttonText = 'En Curso';
+                    isDisabled = true;
+                    buttonClass += ' disabled';
+                } else if (partida.jugadoresConectados >= partida.capacidadMaxima) {
+                    statusText = `🔒 LLENA (${partida.jugadoresConectados}/${partida.capacidadMaxima})`;
+                    buttonText = 'Llena';
+                    isDisabled = true;
+                    buttonClass += ' disabled';
+                } else {
+                    statusText = `⏳ ESPERANDO (${partida.jugadoresConectados}/${partida.capacidadMaxima})`;
+                    buttonText = 'Unirse';
+                    buttonClass += ' available';
+                }
+
+                partidaDiv.innerHTML = `
+                    <span>
+                        <strong>${partida.nombre.toUpperCase()}</strong><br>
+                        <span class="status" style="color: ${partida.enJuego ? '#28a745' : partida.jugadoresConectados >= partida.capacidadMaxima ? '#dc3545' : '#ffc300'}">${statusText}</span><br>
+                        <small style="color: var(--text-light-gray);">Puntuación: ${partida.puntuacion.jugador1} - ${partida.puntuacion.jugador2}</small>
+                    </span>
+                    <button data-partida-id="${partida.id}" class="${buttonClass}" ${isDisabled ? 'disabled' : ''}>${buttonText}</button>
+                `;
+                
+                const joinButton = partidaDiv.querySelector('button');
+                if (!isDisabled) {
+                    joinButton.onclick = () => {
+                        if (socket && socket.readyState === WebSocket.OPEN) {
+                            joinButton.disabled = true;
+                            joinButton.textContent = 'Conectando...';
+                            socket.send(JSON.stringify({ tipo: 'unirse_a_partida', partidaId: partida.id }));
+                            playerStatusMessage.textContent = `🔗 Conectando a la partida ${partida.nombre}...`;
+                        } else {
+                            console.warn('Socket no abierto. Reintentando conexión al lobby.');
+                            connectWebSocket();
+                        }
+                    };
+                }
+                partidasListContainer.appendChild(partidaDiv);
+            });
+        }
+
+        // --- Conexión WebSocket ---
+        function connectWebSocket(partidaId = null) {
+            console.log('Iniciando conexión WebSocket...', partidaId ? `a partida ${partidaId}` : 'al lobby');
+            
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                console.log('Cerrando conexión WebSocket existente...');
+                socket.close();
+            }
+
+        const wsUrl = `ws://localhost:8002/pong${partidaId ? `/${partidaId}` : '/lobby'}`;
+        console.log('Conectando a:', wsUrl);
+        
+        // Mostrar mensaje de conexión
+        playerStatusMessage.textContent = partidaId ? `Conectando a partida ${partidaId}...` : 'Conectando al lobby...';
+        
+        socket = new WebSocket(wsUrl);
+
+            socket.onopen = () => {
+                console.log('WebSocket conectado exitosamente');
+                if (partidaId) {
+                    playerStatusMessage.textContent = `✓ Conectado a la partida: ${partidaId}.`;
+                } else {
+                    playerStatusMessage.textContent = '✓ Conectado al lobby. Cargando partidas...';
+                    socket.send(JSON.stringify({ tipo: 'get_partidas_disponibles' }));
+                }
+            };
+
+            socket.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                console.log('Mensaje recibido del servidor:', message.tipo, message);
+                switch (message.tipo) {
+                    case 'bienvenida':
+                        myPlayer.id = message.id;
+                        myPlayer.numero = message.numero;
+                        myPlayer.partidaId = message.partidaId;
+                        playerInfoName.textContent = `JUGADOR ${myPlayer.numero}`;
+                        showGameView(myPlayer.partidaId);
+                        playerStatusMessage.textContent = `Eres el Jugador ${myPlayer.numero} - Esperando oponente...`;
+                        
+                        // Inicializar palas en posiciones correctas
+                        game.palas.jugador1.y = game.alto / 2 - game.palaAlto / 2;
+                        game.palas.jugador2.y = game.alto / 2 - game.palaAlto / 2;
+                        
+                        // Mostrar inmediatamente estado de espera
+                        if (game.jugadoresConectados < game.capacidadMaxima) {
+                            countdownMessageSpan.textContent = "ESPERANDO OPONENTE";
+                            countdownValueSpan.textContent = `(${game.jugadoresConectados}/${game.capacidadMaxima})`;
+                            countdownOverlay.classList.add('visible');
+                        }
+                        break;
+                    case 'estado':
+                        // Guardamos el estado del servidor como un objetivo para la interpolación.
+                        serverState = message.juego;
+                        serverSyncTime = Date.now(); // Actualizar tiempo de sincronización
+                        
+                        // Actualizamos datos que no se interpolan directamente, como la puntuación.
+                        const oldPuntuacion = { ...game.puntuacion };
+                        game.puntuacion = serverState.puntuacion;
+                        game.rallyCount = serverState.rallyCount;
+                        game.enJuego = serverState.enJuego;
+                        game.cuentaAtrasActiva = serverState.cuentaAtrasActiva;
+                        game.cuentaAtrasValor = serverState.cuentaAtrasValor;
+                        game.jugadoresConectados = serverState.jugadoresConectados;
+                        
+                        // Verificar si el juego terminó (fallback si no llega el mensaje)
+                        if ((oldPuntuacion.jugador1 < 5 && oldPuntuacion.jugador2 < 5) && 
+                            (game.puntuacion.jugador1 >= 5 || game.puntuacion.jugador2 >= 5) && 
+                            !game.enJuego) {
+                            console.log('Detectado fin de juego por puntuación. Esperando mensaje oficial del servidor.');
+                            // Ahora que arreglamos el servidor, no necesitamos este fallback
+                            // Simplemente esperamos el mensaje oficial del servidor
+                        }
+                        
+                        // Asegurar que las dimensiones del juego sean correctas
+                        if (serverState.ancho) game.ancho = serverState.ancho;
+                        if (serverState.alto) game.alto = serverState.alto;
+                        
+                        // Corrección de pala local mejorada (anti-desync)
+                        if (myPlayer.numero) {
+                            const myPaddleKey = myPlayer.numero === 1 ? 'jugador1' : 'jugador2';
+                            const myServerY = serverState.palas[myPaddleKey].y;
+                            const myLocalY = game.palas[myPaddleKey].y;
+                            
+                            // Solo corregir si la diferencia es significativa
+                            // Threshold más estricto para mejor precisión
+                            if (Math.abs(myServerY - myLocalY) > 15) {
+                                // Corrección suave en lugar de snap abrupto
+                                const correctionFactor = 0.6;
+                                game.palas[myPaddleKey].y += (myServerY - myLocalY) * correctionFactor;
+                            }
+                        }
+                        
+                        // Actualizar mensaje de estado según el número de jugadores
+                        if (game.jugadoresConectados === 2 && !game.enJuego && !game.cuentaAtrasActiva) {
+                            playerStatusMessage.textContent = '¡Oponente encontrado! Preparándose...';
+                        } else if (game.enJuego) {
+                            playerStatusMessage.textContent = '¡Juego en curso!';
+                        }
+                        break;
+                    case 'partidas_disponibles':
+                        displayPartidas(message.partidas);
+                        break;
+                    case 'conectar_a_partida':
+                        console.log(`Recibida instrucción para conectar a partida: ${message.partidaId}`);
+                        playerStatusMessage.textContent = `Conectando a partida ${message.partidaId}...`;
+                        // Cierra la conexión actual al lobby y abre una nueva a la partida
+                        if (socket && socket.readyState === WebSocket.OPEN) {
+                            console.log('Cerrando conexión de lobby...');
+                            socket.close();
+                        }
+                        // Forzamos la reconexión AHORA con el ID de la partida
+                        console.log(`Reconectando a partida ${message.partidaId} en 100ms...`);
+                        setTimeout(() => {
+                            console.log(`Iniciando conexión a partida ${message.partidaId}`);
+                            connectWebSocket(message.partidaId);
+                        }, 100);
+                        break;
+                    case 'cuenta_atras':
+                        game.cuentaAtrasActiva = true;
+                        game.cuentaAtrasValor = message.valor;
+                        countdownMessageSpan.textContent = "INICIANDO PARTIDA";
+                        countdownValueSpan.textContent = game.cuentaAtrasValor;
+                        countdownOverlay.classList.add('visible');
+                        break;
+                    case 'juego_iniciado':
+                        game.enJuego = true;
+                        game.cuentaAtrasActiva = false;
+                        countdownOverlay.classList.remove('visible');
+                        playerStatusMessage.textContent = '¡Juego en curso!';
+                        break;
+                    case 'jugador_desconectado':
+                        // Cuando un jugador se desconecta, se muestra un mensaje y se vuelve al lobby
+                        game.enJuego = false;
+                        game.cuentaAtrasActiva = false;
+                        countdownOverlay.classList.remove('visible');
+                        playerStatusMessage.textContent = 'Oponente desconectado. Esperando nuevo oponente...';
+                        
+                        // Mostrar mensaje de espera de nuevo
+                        if (game.jugadoresConectados < game.capacidadMaxima) {
+                            countdownMessageSpan.textContent = "ESPERANDO OPONENTE";
+                            countdownValueSpan.textContent = `(${game.jugadoresConectados}/${game.capacidadMaxima})`;
+                            countdownOverlay.classList.add('visible');
+                        }
+                        break;
+                    case 'juego_finalizado':
+                        console.log('Mensaje de juego finalizado recibido:', message);
+                        console.log('Ganador:', message.ganador);
+                        console.log('Mi número de jugador:', myPlayer.numero);
+                        
+                        // Manejar el fin del juego y mostrar el ganador
+                        game.enJuego = false;
+                        game.cuentaAtrasActiva = false;
+                        game.juegoTerminado = true; // Marcar que el juego terminó para evitar que se oculte
+
+                        // Asegurar que la puntuación final sea correcta (5 puntos para el ganador)
+                        if (message.ganador === 'Jugador 1') {
+                            game.puntuacion.jugador1 = Math.max(5, game.puntuacion.jugador1);
+                        } else if (message.ganador === 'Jugador 2') {
+                            game.puntuacion.jugador2 = Math.max(5, game.puntuacion.jugador2);
+                        }
+                        
+                        // Actualizar la puntuación en pantalla inmediatamente
+                        scoreJ1El.textContent = game.puntuacion.jugador1.toString();
+                        scoreJ2El.textContent = game.puntuacion.jugador2.toString();
+
+                        // Determinar si el jugador actual ganó o perdió
+                        let resultMessage = '';
+                        let resultColor = '';
+                        
+                        if (message.ganador === 'Jugador 1' && myPlayer.numero === 1) {
+                            resultMessage = '🎉 ¡GANASTE!';
+                            resultColor = '#28a745'; // Verde
+                        } else if (message.ganador === 'Jugador 2' && myPlayer.numero === 2) {
+                            resultMessage = '🎉 ¡GANASTE!';
+                            resultColor = '#28a745'; // Verde
+                        } else {
+                            resultMessage = '😞 PERDISTE';
+                            resultColor = '#dc3545'; // Rojo
+                        }
+
+                        // Limpiar cualquier contenido previo del overlay
+                        const existingElements = countdownOverlay.querySelectorAll('button, .additional-info');
+                        existingElements.forEach(el => el.remove());
+                        
+                        // Mostrar mensaje de fin de juego en el overlay
+                        countdownMessageSpan.textContent = resultMessage;
+                        countdownMessageSpan.style.color = resultColor;
+                        countdownValueSpan.textContent = `Puntuación Final: ${game.puntuacion.jugador1} - ${game.puntuacion.jugador2}`;
+                        countdownValueSpan.style.color = 'var(--text-light-gray)';
+                        
+                        // Agregar mensaje adicional debajo de la puntuación
+                        const additionalInfo = document.createElement('div');
+                        additionalInfo.style.cssText = `
+                            margin-top: 15px;
+                            font-size: 14px;
+                            color: var(--text-light-gray);
+                            text-align: center;
+                        `;
+                        
+                        if (resultMessage.includes('GANASTE')) {
+                            additionalInfo.textContent = '¡Excelente juego! 🏆';
+                        } else {
+                            additionalInfo.textContent = '¡Sigue intentando! 💪';
+                        }
+                        
+                        additionalInfo.className = 'additional-info';
+                        countdownOverlay.appendChild(additionalInfo);
+
+                        // Crear y mostrar el botón de volver al lobby
+                        const volverLobbyButton = document.createElement('button');
+                        volverLobbyButton.textContent = '🏠 Volver al Lobby';
+                        volverLobbyButton.className = 'btn btn-primary';
+                        volverLobbyButton.style.cssText = `
+                            margin-top: 30px;
+                            padding: 15px 30px;
+                            background-color: #FFD60A;
+                            color: #003566;
+                            border: none;
+                            border-radius: 10px;
+                            font-size: 18px;
+                            font-weight: bold;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                            box-shadow: 0 4px 15px rgba(255, 214, 10, 0.4);
+                        `;
+                        volverLobbyButton.onmouseover = () => {
+                            volverLobbyButton.style.backgroundColor = '#FFC300';
+                            volverLobbyButton.style.transform = 'scale(1.05)';
+                            volverLobbyButton.style.boxShadow = '0 6px 20px rgba(255, 214, 10, 0.6)';
+                        };
+                        volverLobbyButton.onmouseout = () => {
+                            volverLobbyButton.style.backgroundColor = '#FFD60A';
+                            volverLobbyButton.style.transform = 'scale(1)';
+                            volverLobbyButton.style.boxShadow = '0 4px 15px rgba(255, 214, 10, 0.4)';
+                        };
+                        
+                        // Agregar el botón al overlay
+                        countdownOverlay.appendChild(volverLobbyButton);
+                        
+                        // Función para volver al lobby
+                        const volverAlLobby = () => {
+                            console.log('Volviendo al lobby después del fin de juego');
+                            
+                            // Limpiar todo el overlay
+                            game.juegoTerminado = false; // Resetear el flag
+                            countdownOverlay.classList.remove('visible');
+                            countdownOverlay.style.display = 'none';
+                            const elementsToRemove = countdownOverlay.querySelectorAll('button, .additional-info');
+                            elementsToRemove.forEach(el => el.remove());
+                            
+                            // Restaurar colores originales
+                            countdownMessageSpan.style.color = 'var(--highlight-gold)';
+                            countdownValueSpan.style.color = 'var(--text-gold)';
+                            
+                            // Desconectar y volver al lobby
+                            myPlayer.partidaId = null;
+                            if (socket) socket.close();
+                            connectWebSocket();
+                        };
+                        
+                        // Agregar el evento de click al botón
+                        volverLobbyButton.onclick = volverAlLobby;
+                        
+                        // Forzar la visibilidad del overlay
+                        countdownOverlay.classList.remove('hidden');
+                        countdownOverlay.classList.add('visible');
+                        countdownOverlay.style.display = 'flex';
+                        countdownOverlay.style.opacity = '1';
+                        countdownOverlay.style.visibility = 'visible';
+                        
+                        console.log('Overlay de fin de juego mostrado:', {
+                            message: resultMessage,
+                            color: resultColor,
+                            score: `${game.puntuacion.jugador1} - ${game.puntuacion.jugador2}`,
+                            overlayVisible: countdownOverlay.classList.contains('visible')
+                        });
+                        
+                        // Timeout automático de 20 segundos
+                        setTimeout(() => {
+                            if (myPlayer.partidaId === message.partidaId && game.juegoTerminado) {
+                                console.log('Timeout: volviendo al lobby automáticamente');
+                                volverAlLobby();
+                            }
+                        }, 20000);
+                        break;
+                    case 'sonido':
+                        // Sonidos deshabilitados para mejor experiencia
+                        // Crear efectos visuales en su lugar con posiciones más precisas
+                        if (message.evento === 'pala') {
+                            // Usar posición de la pelota del servidor para efectos más precisos
+                            const effectX = serverState.pelota ? serverState.pelota.x : game.pelota.x;
+                            const effectY = serverState.pelota ? serverState.pelota.y : game.pelota.y;
+                            createParticles(effectX, effectY, '#ffc300', 4);
+                            game.shake.intensity = 3;
+                        } else if (message.evento === 'pared') {
+                            const effectX = serverState.pelota ? serverState.pelota.x : game.pelota.x;
+                            const effectY = serverState.pelota ? serverState.pelota.y : game.pelota.y;
+                            createParticles(effectX, effectY, '#ffd60a', 3);
+                            game.shake.intensity = 2;
+                        } else if (message.evento === 'punto') {
+                            const effectX = serverState.pelota ? serverState.pelota.x : game.pelota.x;
+                            const effectY = serverState.pelota ? serverState.pelota.y : game.pelota.y;
+                            createParticles(effectX, effectY, '#ffd60a', 8);
+                            game.shake.intensity = 6;
+                        }
+                        break;
+                    case 'error':
+                        console.error('Error del servidor:', message.mensaje);
+                        alert(`Error: ${message.mensaje}`);
+                        if (socket && socket.readyState === WebSocket.OPEN) {
+                            socket.close();
+                        }
+                        myPlayer = { id: null, numero: null, partidaId: null };
+                        // Reactivar el botón crear partida en caso de error
+                        createGameButton.disabled = false;
+                        createGameButton.textContent = 'Crear Nueva Partida';
+                        showLobbyView();
+                        break;
+                }
+            };
+
+            socket.onclose = () => {
+                console.log('Desconectado del servidor.');
+                if (!myPlayer.partidaId) { // Solo si no estoy en proceso de reconexión a una partida
+                    myPlayer = { id: null, numero: null, partidaId: null };
+                    // Reactivar el botón crear partida en caso de desconexión
+                    createGameButton.disabled = false;
+                    createGameButton.textContent = 'Crear Nueva Partida';
+                    showLobbyView();
+                }
+            };
+
+            socket.onerror = (error) => {
+                console.error('Error de WebSocket:', error);
+                playerStatusMessage.textContent = 'Error de conexión. Reintentando...';
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.close();
+                }
+                myPlayer = { id: null, numero: null, partidaId: null };
+                // Reactivar el botón crear partida en caso de error
+                createGameButton.disabled = false;
+                createGameButton.textContent = 'Crear Nueva Partida';
+                showLobbyView();
+                
+                // Reintentar conexión después de 2 segundos
+                setTimeout(() => {
+                    console.log('Reintentando conexión...');
+                    connectWebSocket();
+                }, 2000);
+            };
+        }
+
+        // --- Eventos de botones ---
+        createGameButton.addEventListener('click', () => {
+            console.log('Botón crear partida presionado');
+            console.log('Socket state:', socket ? socket.readyState : 'null');
+            console.log('Player partidaId:', myPlayer.partidaId);
+            
+            if (socket && socket.readyState === WebSocket.OPEN && myPlayer.partidaId === null) {
+                console.log('Enviando solicitud de crear partida...');
+                // Deshabilitar el botón para evitar clicks múltiples
+                createGameButton.disabled = true;
+                createGameButton.textContent = 'Creando...';
+                
+                socket.send(JSON.stringify({ tipo: 'crear_partida_y_unirse' }));
+                playerStatusMessage.textContent = 'Solicitando crear nueva partida...';
+                
+                // Timeout de seguridad para reactivar el botón en caso de no recibir respuesta
+                setTimeout(() => {
+                    if (createGameButton.disabled && myPlayer.partidaId === null) {
+                        console.log('Timeout: reactivando botón crear partida');
+                        createGameButton.disabled = false;
+                        createGameButton.textContent = 'Crear Nueva Partida';
+                        playerStatusMessage.textContent = 'Error al crear partida. Intenta de nuevo.';
+                    }
+                }, 5000); // 5 segundos de timeout
+            } else if (!socket || socket.readyState !== WebSocket.OPEN) {
+                console.warn('Socket no abierto. Estado actual:', socket ? socket.readyState : 'null');
+                console.warn('Estados WebSocket: CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3');
+                playerStatusMessage.textContent = 'Reconectando al lobby...';
+                connectWebSocket();
+            } else if (myPlayer.partidaId !== null) {
+                console.warn('Ya estás en una partida. Desconéctate primero.');
+                playerStatusMessage.textContent = 'Ya estás en una partida. Desconéctate primero.';
+            }
+        });
+
+        disconnectButton.addEventListener('click', () => {
+            if (socket) {
+                myPlayer.partidaId = null; // Indicar que volvemos al lobby
+                socket.close();
+            }
+        });
+
+        // --- Bucle de animación para el cliente ---
+        function gameLoop() {
+            // 1. Mueve la pala local y la interpola hacia el estado del servidor
+            updateClientPaddleAndSend();
+            // 2. Dibuja el estado actual
+            drawGame();
+            // 3. Repite en el siguiente frame
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Inicialización ---
+        showLobbyView(); // Mostrar el lobby al cargar la página
+        connectWebSocket(); // Conectar al lobby general al inicio
+        gameLoop(); // Iniciar el bucle de actualización de la pala
+    </script>
+</body>
+</html>

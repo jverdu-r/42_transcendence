@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>👁️ Observador de Partidas de Pong</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Montserrat:wght@700;800&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --bg-dark-navy: #000814;
+            --bg-mid-navy: #001d3d;
+            --border-light-navy: #003566;
+            --text-gold: #ffc300;
+            --highlight-gold: #ffd60a;
+            --text-light-gray: #e0e0e0;
+            --focus-outline: #ffd60a;
+
+            --color-ball: #ffd60a;
+            --color-player-paddle: #ffc300;
+            --color-opponent-paddle: #003566;
+            --color-game-border: #003566;
+            --color-paddle-border: #FFFFFF;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark-navy);
+            color: var(--text-light-gray);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1.5rem;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--text-gold);
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 2.5rem;
+            text-shadow: 0 0 10px rgba(255, 195, 0, 0.5);
+        }
+
+        .main-container {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .partidas-list-container {
+            background-color: var(--bg-mid-navy);
+            border: 2px solid var(--border-light-navy);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 0 20px rgba(0, 53, 102, 0.5);
+        }
+
+        .partidas-list-container h2 {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--highlight-gold);
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-light-navy);
+            padding-bottom: 0.8rem;
+            font-size: 1.8rem;
+        }
+
+        #partidas-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .partida-card {
+            background-color: rgba(0, 29, 61, 0.7);
+            border: 1px solid var(--border-light-navy);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: left;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+
+        .partida-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(255, 214, 10, 0.2);
+        }
+
+        .partida-card h3 {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--text-gold);
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            font-size: 1.3rem;
+        }
+
+        .partida-card p {
+            margin: 0.3rem 0;
+            font-size: 0.95rem;
+            color: var(--text-light-gray);
+        }
+
+        .partida-card .status {
+            font-weight: 700;
+            color: var(--highlight-gold);
+        }
+
+        .partida-card.in-game .status {
+            color: #4CAF50; /* Verde para en juego */
+        }
+
+        .partida-card.waiting .status {
+            color: #FFEB3B; /* Amarillo para esperando */
+        }
+
+        .partida-card.full .status {
+            color: #F44336; /* Rojo para llena */
+        }
+
+        .back-to-lobby-button {
+            margin-top: 2rem;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: var(--border-light-navy);
+            color: var(--text-gold);
+            border: 2px solid var(--text-gold);
+            border-radius: 8px;
+            transition: background 0.2s, border-color 0.2s, color 0.2s;
+            font-weight: 600;
+        }
+
+        .back-to-lobby-button:hover {
+            background: var(--text-gold);
+            color: var(--bg-mid-navy);
+        }
+
+        .observe-button {
+            margin-top: 1rem;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            background: var(--text-gold);
+            color: var(--bg-dark-navy);
+            border: none;
+            border-radius: 6px;
+            transition: background 0.2s, transform 0.2s;
+            font-weight: 600;
+            width: 100%;
+        }
+
+        .observe-button:hover {
+            background: var(--highlight-gold);
+            transform: translateY(-2px);
+        }
+
+        .observe-button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .game-container {
+            background-color: var(--bg-mid-navy);
+            border: 2px solid var(--border-light-navy);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 0 20px rgba(0, 53, 102, 0.5);
+            display: none;
+        }
+
+        .game-container.active {
+            display: block;
+        }
+
+        .game-info {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .game-info h2 {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--highlight-gold);
+            margin: 0 0 0.5rem 0;
+            font-size: 1.5rem;
+        }
+
+        .game-info p {
+            color: var(--text-light-gray);
+            margin: 0.2rem 0;
+            font-size: 1rem;
+        }
+
+        .score {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--text-gold);
+            margin: 0.5rem 0;
+        }
+
+        .game-canvas {
+            border: 2px solid var(--color-game-border);
+            border-radius: 8px;
+            background-color: var(--bg-dark-navy);
+            margin: 0 auto;
+            display: block;
+            box-shadow: 0 0 15px rgba(0, 53, 102, 0.8);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>👁️ Observador de Partidas de Pong</h1>
+
+    <div class="main-container">
+        <div class="partidas-list-container" id="partidas-container">
+            <h2>Partidas Disponibles</h2>
+            <ul id="partidas-list">
+                <li class="partida-card" id="loading-card">
+                    <h3>Cargando Partidas...</h3>
+                    <p>Conectando al servidor y esperando datos.</p>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Contenedor del juego en vivo -->
+        <div class="game-container" id="game-container">
+            <div class="game-info">
+                <h2 id="game-title">Observando Partida</h2>
+                <p id="game-players">Jugadores: - vs -</p>
+                <div class="score" id="game-score">0 - 0</div>
+                <p id="game-status">Estado: Conectando...</p>
+            </div>
+            <canvas id="game-canvas" class="game-canvas" width="800" height="400"></canvas>
+            <button class="back-to-lobby-button" onclick="volverAlLobby()" style="margin-top: 1rem;">Volver a la Lista</button>
+        </div>
+    </div>
+
+    <button class="back-to-lobby-button" onclick="window.location.href = 'index.html';">Volver al Lobby</button>
+
+    <script>
+        const partidasList = document.getElementById('partidas-list');
+
+        // Reemplaza '10.11.2.4' con la IP real de tu servidor Node.js
+        const socket = new WebSocket('ws://10.11.16.5:8002/observar');
+
+        socket.addEventListener('open', () => {
+            console.log('Conectado al servidor de observadores.');
+            // Eliminar la tarjeta de "Cargando" si se conecta
+            const loadingCard = document.getElementById('loading-card');
+            if (loadingCard) {
+                loadingCard.remove();
+            }
+            
+            // Solicitar las partidas disponibles
+            const mensaje = {
+                tipo: 'solicitar_partidas'
+            };
+            socket.send(JSON.stringify(mensaje));
+        });
+
+        socket.addEventListener('message', (event) => {
+            console.log('Mensaje recibido del servidor:', event.data);
+            const msg = JSON.parse(event.data);
+
+            if (msg.tipo === 'partidas_disponibles' || msg.tipo === 'partidas_actualizadas') {
+                console.log('Procesando partidas disponibles:', msg.partidas);
+                renderizarPartidas(msg.partidas);
+            } else if (msg.tipo === 'estado_juego') {
+                console.log('Actualizando estado del juego:', msg.estado);
+                actualizarEstadoJuego(msg.estado);
+            } else if (msg.tipo === 'observando_partida') {
+                console.log('Confirmación de observación:', msg);
+                // Actualizar información de la partida
+                updateGameInfo(msg.partida);
+            } else {
+                console.log('Mensaje no procesado:', msg);
+            }
+        });
+
+        socket.addEventListener('close', () => {
+            console.log('Desconectado del servidor de observadores.');
+            partidasList.innerHTML = `
+                <li class="partida-card">
+                    <h3>Desconectado</h3>
+                    <p>No se pudo conectar al servidor de partidas.</p>
+                </li>
+            `;
+        });
+
+        socket.addEventListener('error', (err) => {
+            console.error('Error en la conexión WebSocket:', err);
+            partidasList.innerHTML = `
+                <li class="partida-card">
+                    <h3>Error de Conexión</h3>
+                    <p>Verifica que el servidor esté activo.</p>
+                </li>
+            `;
+        });
+
+        function renderizarPartidas(partidas) {
+            console.log('Renderizando partidas:', partidas);
+            partidasList.innerHTML = ''; // Limpiar lista existente
+            console.log('Contenedor de partidas limpiado');
+            
+            if (partidas.length === 0) {
+                partidasList.innerHTML = `
+                    <li class="partida-card">
+                        <h3>No hay partidas activas</h3>
+                        <p>Vuelve más tarde o inicia una partida.</p>
+                    </li>
+                `;
+                return;
+            }
+
+            partidas.forEach(partida => {
+                const li = document.createElement('li');
+                li.className = 'partida-card';
+                li.id = `partida-${partida.id}`;
+
+                let statusText = '';
+                let statusClass = '';
+                if (partida.enJuego) {
+                    statusText = 'En Juego';
+                    statusClass = 'in-game';
+                } else if (partida.jugadoresConectados < partida.capacidadMaxima) {
+                    statusText = `Esperando Jugadores (${partida.jugadoresConectados}/${partida.capacidadMaxima})`;
+                    statusClass = 'waiting';
+                } else {
+                    statusText = 'Llena (Esperando inicio)';
+                    statusClass = 'full';
+                }
+
+                li.innerHTML = `
+                    <h3>${partida.nombre}</h3>
+                    <p>Puntuación: ${partida.puntuacion.jugador1} - ${partida.puntuacion.jugador2}</p>
+                    <p>Estado: <span class="status ${statusClass}">${statusText}</span></p>
+                    <button class="observe-button" onclick="observarPartida('${partida.id}')">Observar</button>
+                `;
+                partidasList.appendChild(li);
+                console.log('Partida agregada:', partida.id);
+            });
+            console.log('Contenido final del contenedor de partidas:', partidasList.innerHTML);
+        }
+
+        let currentGameId = null;
+        let canvas = null;
+        let ctx = null;
+
+        function observarPartida(partidaId) {
+            console.log('Observando partida:', partidaId);
+            currentGameId = partidaId;
+            
+            // Ocultar lista de partidas y mostrar contenedor de juego
+            document.getElementById('partidas-container').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
+            
+            // Inicializar canvas
+            canvas = document.getElementById('game-canvas');
+            ctx = canvas.getContext('2d');
+            
+            // Enviar mensaje al servidor para observar la partida
+            const mensaje = {
+                tipo: 'observar_partida',
+                partidaId: partidaId
+            };
+            socket.send(JSON.stringify(mensaje));
+        }
+
+        function volverAlLobby() {
+            console.log('Volviendo al lobby');
+            currentGameId = null;
+            
+            // Mostrar lista de partidas y ocultar contenedor de juego
+            document.getElementById('partidas-container').style.display = 'block';
+            document.getElementById('game-container').style.display = 'none';
+            
+            // Enviar mensaje al servidor para dejar de observar
+            const mensaje = {
+                tipo: 'dejar_observar'
+            };
+            socket.send(JSON.stringify(mensaje));
+        }
+
+        function updateGameInfo(partida) {
+            document.getElementById('game-title').textContent = `Observando: ${partida.nombre}`;
+            document.getElementById('game-players').textContent = `Jugadores: ${partida.jugador1 || 'Esperando'} vs ${partida.jugador2 || 'Esperando'}`;
+            document.getElementById('game-score').textContent = `${partida.puntuacion.jugador1} - ${partida.puntuacion.jugador2}`;
+            document.getElementById('game-status').textContent = `Estado: ${partida.enJuego ? 'En Juego' : 'Esperando'}`;
+        }
+
+        function actualizarEstadoJuego(estado) {
+            if (!canvas || !ctx) {
+                console.error('Canvas no inicializado');
+                return;
+            }
+            
+            // Actualizar información del juego
+            if (estado.jugador1 && estado.jugador2) {
+                document.getElementById('game-players').textContent = `Jugadores: ${estado.jugador1} vs ${estado.jugador2}`;
+            }
+            document.getElementById('game-score').textContent = `${estado.puntuacion.jugador1} - ${estado.puntuacion.jugador2}`;
+            document.getElementById('game-status').textContent = 'Estado: En Juego';
+            
+            // Limpiar canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Dibujar fondo
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-dark-navy');
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Dibujar línea central
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-light-gray');
+            ctx.setLineDash([5, 15]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Dibujar palas
+            if (estado.pala1) {
+                ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-player-paddle');
+                ctx.fillRect(estado.pala1.x, estado.pala1.y, estado.pala1.width, estado.pala1.height);
+            }
+            if (estado.pala2) {
+                ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-opponent-paddle');
+                ctx.fillRect(estado.pala2.x, estado.pala2.y, estado.pala2.width, estado.pala2.height);
+            }
+            
+            // Dibujar pelota
+            if (estado.pelota) {
+                ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-ball');
+                ctx.beginPath();
+                ctx.arc(estado.pelota.x, estado.pelota.y, estado.pelota.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    </script>
+</body>
+</html>
