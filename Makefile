@@ -8,30 +8,18 @@ MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 # CONSTRUCCION__________________________________________________________________
 all: prepare build up
 
-check-secrets:
-	@if [ ! -f "secrets/redis/password.txt" ]; then \
-		echo "Error: secrets/redis/password.txt no encontrado"; \
-		exit 1; \
-	fi
-	@echo "Todos los secrets existen"
-
 prepare:
-	@mkdir -p "$(DATA_PATH)/sqlite"
-	@chmod -R 777 "$(DATA_PATH)/sqlite"
-	@echo "SQLite data directory prepared at: $(DATA_PATH)/sqlite"
+	mkdir -p "$(HOME)/data/transcendence/sqlite"
+	chmod -R 777 "$(HOME)/data/transcendence/sqlite"
+	@echo "SQLite data directory prepared at: $(HOME)/data/transcendence/sqlite"
 
-	@mkdir -p "$(DATA_PATH)/redis" secrets/redis
-	@chmod 600 secrets/redis/password.txt 2>/dev/null || true
-	@chown -R 1000:1000 "$(DATA_PATH)/redis"
-	@chmod -R 750 "$(DATA_PATH)/redis"
-	@echo "Redis data directory prepared at: $(DATA_PATH)/redis"
+	mkdir -p "$(HOME)/data/transcendence/redis"
+	chown -R 1000:1000 "$(HOME)/data/transcendence/redis" || true
+	chmod -R 750 "$(HOME)/data/transcendence/redis"
+	@echo "Redis data directory prepared at: $(HOME)/data/transcendence/redis"
 
-	@mkdir -p "$(DATA_PATH)/frontend"
-	@if [ ! -f "$(DATA_PATH)/sqlite/transcendance.db" ]; then \
-		chmod -R 777 "$(DATA_PATH)/sqlite"; \
-	fi
-	@echo "Frontend data directory prepared at: $(DATA_PATH)/frontend"
-
+	mkdir -p "$(HOME)/data/transcendence/frontend"
+	@echo "Frontend data directory prepared at: $(HOME)/data/transcendence/frontend"
 
 build:
 	@$(COMPOSE) build

@@ -1,15 +1,16 @@
 import Fastify from 'fastify';
 import httpProxy from '@fastify/http-proxy';
 import Redis from 'ioredis';
+import dotenv from 'dotenv';
+dotenv.config();
 
-// Here, environment variables and secrets (like microservice URLs, Redis credentials, certificates)
-// should be dynamically retrieved from HashiCorp Vault on startup in a production setup.
-// For dev purposes, .env or docker-compose envs are typically used.
-
-// -- Redis connection --
+// -- Redis connection setup from env --
 const redisHost = process.env.REDIS_HOST || 'redis';
 const redisPort = Number(process.env.REDIS_PORT) || 6379;
-const redis = new Redis({ host: redisHost, port: redisPort });
+const redisPassword = process.env.REDIS_PASSWORD || '';
+let redis = new Redis({ host: redisHost, port: redisPort, password: redisPassword });
+
+// -- fastify and other setup below --
 
 const fastify = Fastify({
     logger: true
@@ -38,8 +39,8 @@ fastify.get('/health', async (request, reply) => {
     try {
         await redis.ping();
         reply.send({ status: 'ok', redis: 'connected' });
-    } catch (err) {
-        reply.status(500).send({ status: 'fail', error: err.message });
+    } catch (err: any) {
+        reply.status(500).send({ status: 'fail', error: (err && err.message) ? err.message : String(err) });
     }
 });
 
@@ -49,14 +50,18 @@ fastify.post('/queue/job', async (request, reply) => {
         const job = request.body;
         await redis.lpush('job-queue', JSON.stringify(job));
         reply.send({ queued: true });
-    } catch (err) {
-        reply.status(500).send({ error: 'Failed to queue job', detail: err.message });
+    } catch (err: any) {
+        reply.status(500).send({ error: 'Failed to queue job', detail: (err && err.message) ? err.message : String(err) });
     }
 });
 
 // -- Start server --
 const start = async () => {
     try {
+        // Test redis connection on startup
+        await redis.ping();
+        fastify.log.info('Redis connection successfully established from .env or environment variables');
+        
         await fastify.listen({ port: 8000, host: '0.0.0.0' });
         fastify.log.info('API Gateway listening on port 8000');
     } catch (err) {

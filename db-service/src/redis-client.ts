@@ -2,8 +2,11 @@
 
 import { createClient } from 'redis';
 
+import dotenv from 'dotenv';
+dotenv.config();
+
 const redis = createClient({
-  url: process.env.REDIS_URL || 'redis://default@redis:6379'
+  url: process.env.REDIS_URL || `redis://:${process.env.REDIS_PASSWORD || ''}@${process.env.REDIS_HOST || 'redis'}:${process.env.REDIS_PORT || '6379'}`
 });
 
 redis.on('error', (err) => {

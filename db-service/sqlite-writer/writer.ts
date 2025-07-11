@@ -2,9 +2,12 @@ import Redis from 'ioredis';
 import sqlite3 from 'sqlite3';
 
 // Conexión Redis
+import dotenv from 'dotenv';
+dotenv.config();
+
 const redis = new Redis({
-  host: 'redis',
-  port: 6379,
+  host: process.env.REDIS_HOST || 'redis',
+  port: Number(process.env.REDIS_PORT) || 6379,
   password: process.env.REDIS_PASSWORD || undefined,
 });
 

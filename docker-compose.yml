@@ -1,4 +1,3 @@
-
 services:
   # Servicio de Autenticación y Perfiles de Usuario
   auth-service:
@@ -10,6 +9,10 @@ services:
     environment:
       DB_SERVICE_URL: "http://db-service:8005"
       VAULT_ADDR: "http://vault:8200"
+      REDIS_HOST: "${REDIS_HOST}"
+      REDIS_PORT: "${REDIS_PORT}"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+      JWT_SECRET: "${JWT_SECRET}"
     depends_on:
       - db-service
       - vault
@@ -27,10 +30,15 @@ services:
     environment:
       DB_SERVICE_URL: "http://db-service:8005"
       VAULT_ADDR: "http://vault:8200"
+      REDIS_HOST: "${REDIS_HOST}"
+      REDIS_PORT: "${REDIS_PORT}"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+      JWT_SECRET: "${JWT_SECRET}"
     depends_on:
       - db-service
       - auth-service
       - vault
+      - redis
     networks:
       - transcendence_net
     restart: on-failure
@@ -45,10 +53,15 @@ services:
     environment:
       DB_SERVICE_URL: "http://db-service:8005"
       VAULT_ADDR: "http://vault:8200"
+      REDIS_HOST: "${REDIS_HOST}"
+      REDIS_PORT: "${REDIS_PORT}"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+      JWT_SECRET: "${JWT_SECRET}"
     depends_on:
       - db-service
       - auth-service
       - vault
+      - redis
     networks:
       - transcendence_net
     restart: on-failure
@@ -61,13 +74,18 @@ services:
     ports:
       - "9000:8000" # Mapea el puerto 8000 interno a 9000 en el host
     environment:
-      AUTH_SERVICE_URL: "http://auth-service:8000" # Apunta al puerto interno del servicio
-      GAME_SERVICE_URL: "http://game-service:8000"
-      CHAT_SERVICE_URL: "http://chat-service:8000"
+      AUTH_SERVICE_URL: "${AUTH_SERVICE_URL}"
+      GAME_SERVICE_URL: "${GAME_SERVICE_URL}"
+      CHAT_SERVICE_URL: "${CHAT_SERVICE_URL}"
+      REDIS_HOST: "${REDIS_HOST}"
+      REDIS_PORT: "${REDIS_PORT}"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+      JWT_SECRET: "${JWT_SECRET}"
     depends_on:
       - auth-service
       - game-service
       - chat-service
+      - redis
     networks:
       - transcendence_net
     restart: on-failure
@@ -78,7 +96,7 @@ services:
     image: frontend
     container_name: frontend
     ports:
-      - "9001:8080" # El Nginx del frontend usará el puerto 8080 interno
+      - "80:8080" # Main web access on port 80
     depends_on:
       - api-gateway
     networks:
@@ -109,8 +127,10 @@ services:
     environment:
       MODSECURITY_RULES_PATH: "/etc/nginx/modsecurity/modsecurity.conf"
       PROXY_PASS: "http://frontend:8080" # Apunta al puerto interno del frontend
+      SSL_STAPLING: "off" # Disable SSL stapling to remove warning
     volumes:
       - ./nginx-waf/modsecurity.conf:/etc/nginx/modsecurity/modsecurity.conf:ro
+      - ./nginx-waf/proxy_backend.conf:/etc/nginx/includes/proxy_backend.conf:ro
     depends_on:
       - frontend
     networks:
@@ -128,8 +148,13 @@ services:
       - db_data:/app/data # Monta un volumen para persistir la base de datos SQLite
     environment:
       VAULT_ADDR: "http://vault:8200"
+      REDIS_HOST: "${REDIS_HOST}"
+      REDIS_PORT: "${REDIS_PORT}"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+      JWT_SECRET: "${JWT_SECRET}"
     depends_on:
       - vault
+      - redis
     networks:
       - transcendence_net
     restart: on-failure
@@ -150,14 +175,14 @@ services:
       retries: 5
     secrets:
       - redis_password
-    command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--maxmemory", "${REDIS_MAXMEMORY}"]
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "o-meu-contrasinal.42", "--maxmemory", "256mb"]
     networks:
       - transcendence_net
   redis-commander:
     image: rediscommander/redis-commander:latest
     container_name: redis_commander
     environment:
-      - REDIS_HOSTS=redis
+      - REDIS_HOSTS=redis:redis:6379:0:${REDIS_PASSWORD}
     ports:
       - "8081:8081"
     depends_on:
@@ -172,11 +197,16 @@ services:
       - db-service
     environment:
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     secrets:
       - redis_password
     volumes:
       - db_data:/app/data
     restart: on-failure
+    networks:
+      - transcendence_net
 
 
 
