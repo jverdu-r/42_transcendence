@@ -96,7 +96,7 @@ services:
     image: frontend
     container_name: frontend
     ports:
-      - "80:8080" # Main web access on port 80
+      - "9001:8080" # Main web access on port 80
     depends_on:
       - api-gateway
     networks:

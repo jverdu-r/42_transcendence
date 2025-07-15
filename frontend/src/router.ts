@@ -9,6 +9,14 @@ import { renderLoginPage } from './pages/login';
 import { renderRegister } from './pages/register';
 import { renderNavbar } from './components/navbar';
 import { isAuthenticated } from './auth';
+import { renderGameSelection } from './pages/gameSelection';
+import { renderGameLocal } from './pages/gameLocal';
+import { renderGameOnline } from './pages/gameOnline';
+import { renderGameObserver } from './pages/gameObserver';
+import { renderGameSelect } from './pages/gameSelect';
+import { renderGameAI } from './pages/gameAI';
+import { renderGameMultiplayer } from './pages/gameMultiplayer';
+
 
 // Define tus rutas
 const routes: { [key: string]: () => void } = {
@@ -26,7 +34,16 @@ const routes: { [key: string]: () => void } = {
   '/ranking': renderRankingPage,
   '/settings': renderSettingsPage,
   '/login': renderLoginPage,
-  '/register': renderRegister
+  '/register': renderRegister,
+  
+  // Nuevas rutas de juego
+  '/game-selection': renderGameSelection,
+  '/game-local': renderGameLocal,
+  '/game-online': renderGameOnline,
+  '/game-observer': renderGameObserver,
+  '/game-select': renderGameSelect,
+  '/game-ai': renderGameAI,
+  '/game-multiplayer': renderGameMultiplayer
 };
 
 /**
@@ -60,8 +77,12 @@ export async function navigateTo(path: string): Promise<void> {
     console.error('Elemento con id "app-root" no encontrado. No se puede navegar.');
     return;
   }
-
-  const isAuthPage = path === '/login' || path === '/register';
+  
+  // Separar la ruta de los parámetros de consulta
+  const [routePath, queryString] = path.split('?');
+  const fullPath = path; // Mantener el path completo para el historial
+  
+  const isAuthPage = routePath === '/login' || routePath === '/register';
   const currentPagePath = window.location.pathname;
   const wasAuthPage = currentPagePath === '/login' || currentPagePath === '/register';
   
@@ -89,11 +110,11 @@ export async function navigateTo(path: string): Promise<void> {
     if (!wasAuthPage) { // Solo si venimos de una página que no era de autenticación
         appRoot.innerHTML = ''; // Limpia la estructura principal (navbar + main)
     }
-    const renderFunction = routes[path];
+    const renderFunction = routes[routePath];
     if (renderFunction) {
       renderFunction(); // Llama a la función de renderizado de login/register
     } else {
-        console.warn(`Ruta no encontrada para página de autenticación: ${path}`);
+        console.warn(`Ruta no encontrada para página de autenticación: ${routePath}`);
     }
   } else {
     // Si vamos a una página de la aplicación principal, nos aseguramos de que la estructura exista
@@ -113,22 +134,22 @@ export async function navigateTo(path: string): Promise<void> {
     // Limpia solo el contenido de la página para las rutas no de autenticación
     pageContentContainer.innerHTML = '';
 
-    const renderFunction = routes[path];
+    const renderFunction = routes[routePath]; // Usar routePath sin parámetros
     if (renderFunction) {
       renderFunction(); // Renderiza el contenido de la página dentro de #page-content
     } else {
       // Manejar 404 o redirigir a una página predeterminada
       pageContentContainer.innerHTML = '<h1>404 - Página No Encontrada</h1><p>Lo sentimos, la página que buscas no existe.</p>';
-      console.warn(`Ruta no encontrada para la ruta: ${path}`);
+      console.warn(`Ruta no encontrada para la ruta: ${routePath}`);
     }
 
     // Siempre vuelve a renderizar el navbar para actualizar el enlace activo en las páginas de la aplicación
-    renderNavbar(path);
+    renderNavbar(routePath);
   }
 
   // Actualiza el historial del navegador (a menos que sea la carga inicial y la ruta sea la misma)
-  if (window.location.pathname !== path) {
-    window.history.pushState({}, path, path);
+  if (window.location.pathname !== fullPath) {
+    window.history.pushState({}, fullPath, fullPath);
   }
 }
 
