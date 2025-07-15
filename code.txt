@@ -73,6 +73,8 @@
 │   ├── package.json
 │   └── tsconfig.json
 ├── nginx-waf
+│   ├── Dockerfile
+│   ├── location_common.conf
 │   ├── modsecurity.conf
 │   ├── nginx.conf
 │   └── proxy_backend.conf
@@ -87,7 +89,7 @@
 ├── escritura_bbdd.md
 └── print_tree.sh
 
-22 directories, 65 files
+22 directories, 67 files
 
 [1;32m=== CONTENIDO DE ARCHIVOS DE TEXTO ===[0m
 
@@ -711,7 +713,8 @@ CMD ["node", "dist/server.js"]
 [1;34m=== ./.env ===[0m
 # Redis settings for all microservices
 REDIS_HOST=redis
-REDIS_PORT=6379
+REDIS_PORT=6380
+REDIS_MAXMEMORY=256mb
 REDIS_PASSWORD=o-meu-contrasinal.42
 
 # Service URLs for gateway proxies
@@ -724,9 +727,7 @@ CHAT_SERVICE_URL=http://chat-service:8000
 DATA_PATH=/home/$USER/data/transcendence
 
 JWT_SECRET=supersecreto123
-
-REDIS_PORT=6379
-REDIS_MAXMEMORY=256mb[1;30m----------------------------------------[0m
+[1;30m----------------------------------------[0m
 
 [1;34m=== ./chat-service/tsconfig.json ===[0m
 {
@@ -1155,6 +1156,31 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./nginx-waf/Dockerfile ===[0m
+FROM owasp/modsecurity-crs:nginx
+
+# Crea el directorio y cambia permisos
+RUN mkdir -p /etc/nginx/includes && chmod -R 777 /etc/nginx/includes
+
+# Copia directamente los archivos necesarios
+COPY modsecurity.conf /etc/nginx/modsecurity/modsecurity.conf
+COPY proxy_backend.conf /etc/nginx/includes/proxy_backend.conf
+COPY location_common.conf /etc/nginx/includes/location_common.conf
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./nginx-waf/location_common.conf ===[0m
+# location_common.conf mínimo
+proxy_set_header Host $host;
+proxy_set_header X-REAL-IP $remote_addr;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Proto $scheme;
+
+proxy_http_version 1.1;
+proxy_buffering off;
+proxy_connect_timeout 60s;
+proxy_read_timeout 36000s;
 [1;30m----------------------------------------[0m
 
 [1;34m=== ./frontend/tailwind.config.js ===[0m
