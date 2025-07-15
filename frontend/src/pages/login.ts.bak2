@@ -87,10 +87,13 @@ export function renderLoginPage(): void {
 
           <p class="text-center text-gray-400 text-sm mt-6" data-i18n="login.or">${getTranslation('login', 'or')}</p>
 
-          <button id="google-login-button" disabled style="opacity: 0.5; cursor: not-allowed; background-color: #555;"
+          <button id="google-login-button" 
                   class="w-full mt-4 rounded-xl shadow 
-                         bg-[#555] border border-[#003566] text-[#aaa] text-sm font-semibold h-10 px-3 relative overflow-hidden 
-                         flex items-center justify-center space-x-3 transition-colors duration-200">
+                         bg-[#001d3d] border border-[#003566] text-[#e0e0e0] text-sm font-semibold h-10 px-3 relative overflow-hidden 
+                         flex items-center justify-center space-x-3 transition-colors duration-200 
+                         hover:bg-[#002c53] hover:shadow-lg 
+                         focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-75 
+                         disabled:opacity-50 disabled:cursor-not-allowed">
               <div class="flex items-center">
                   <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" xmlns:xlink="http://www.w3.org/1999/xlink" class="h-5 w-5 mr-3 flex-shrink-0">
                       <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
@@ -99,7 +102,7 @@ export function renderLoginPage(): void {
                       <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
                       <path fill="none" d="M0 0h48v48H0z"></path>
                   </svg>
-                  <span class="flex-grow text-left">Google Sign-In (Próximamente)</span>
+                  <span class="flex-grow text-left" data-i18n="login.continueWithGoogle">${getTranslation('login', 'continueWithGoogle')}</span>
               </div>
           </button>
 
@@ -108,6 +111,7 @@ export function renderLoginPage(): void {
           </p>
         </div>
         <style>
+            /* Custom styling for login page - patterns and animations can stay as they are not button-specific */
             .login-bg-pattern {
                 background: radial-gradient(circle at center, rgba(0, 53, 102, 0.2) 1px, transparent 1px),
                             radial-gradient(circle at center, rgba(0, 29, 61, 0.2) 1px, transparent 1px);
@@ -176,13 +180,52 @@ export function renderLoginPage(): void {
             });
         }
 
-        // Botón de Google deshabilitado
+        // Login con Google
         const googleLoginButton = document.getElementById('google-login-button');
         if (googleLoginButton) {
-            googleLoginButton.addEventListener('click', (event) => {
-                event.preventDefault();
-                alert('Google Sign-In estará disponible próximamente');
-            });
+            // Verificar si Google está disponible
+            if (typeof window.google !== 'undefined' && window.google.accounts) {
+                window.google.accounts.id.initialize({
+                    client_id: '58128894262-ak29ohah5ovkh31dvp2srdbm16thp961.apps.googleusercontent.com',
+                    callback: async (response: any) => {
+                        try {
+                            const token = response.credential;
+                            const res = await fetch('/api/auth/google', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ token }),
+                            });
+                            
+                            if (!res.ok) {
+                                alert('❌ Error al iniciar sesión con Google');
+                                return;
+                            }
+                            
+                            const data = await res.json();
+                            localStorage.setItem('jwt', data.token);
+                            console.log('✅ Login con Google exitoso');
+                            navigateTo('/home');
+                        } catch (err) {
+                            console.error('Error en Google Sign-In:', err);
+                            alert('Algo falló con Google');
+                        }
+                    }
+                });
+                
+                window.google.accounts.id.renderButton(googleLoginButton, {
+                    theme: 'outline',
+                    size: 'large',
+                    shape: 'pill',
+                    text: 'continue_with',
+                    width: 250
+                });
+            } else {
+                // Fallback si Google no está disponible
+                googleLoginButton.addEventListener('click', async (event) => {
+                    event.preventDefault();
+                    alert('Google Sign-In no está disponible en este momento');
+                });
+            }
         }
 
         const createAccountLink = document.getElementById('create-account-link');

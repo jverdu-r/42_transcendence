@@ -49,8 +49,6 @@ async function createMultiplayerGame(): Promise<void> {
     const game = await response.json();
     console.log('✅ Partida multijugador creada:', game);
     
-    alert(`✅ Partida multijugador creada!\nID: ${game.id}\nEsperando a que se una otro jugador...\n\nConectando al lobby...`);
-    
     // Guardar gameId y tipo de juego para usar en gameOnline
     sessionStorage.setItem('pendingGameId', game.id);
     sessionStorage.setItem('gameType', 'multiplayer');

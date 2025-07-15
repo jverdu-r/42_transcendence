@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Auth System</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <h1>Test del Sistema de Autenticación</h1>
+    
+    <h2>Registro Manual</h2>
+    <form id="registerForm">
+        <input type="text" id="username" placeholder="Username" required><br><br>
+        <input type="email" id="email" placeholder="Email" required><br><br>
+        <input type="password" id="password" placeholder="Password" required><br><br>
+        <button type="submit">Registrar</button>
+    </form>
+    
+    <h2>Login Manual</h2>
+    <form id="loginForm">
+        <input type="email" id="loginEmail" placeholder="Email" required><br><br>
+        <input type="password" id="loginPassword" placeholder="Password" required><br><br>
+        <button type="submit">Login</button>
+    </form>
+    
+    <h2>Google Sign-In</h2>
+    <div id="g_id_onload"
+         data-client_id="58128894262-ak29ohah5ovkh31dvp2srdbm16thp961.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse">
+    </div>
+    <div class="g_id_signin" data-type="standard"></div>
+
+    <div id="result"></div>
+
+    <script>
+        function showResult(message, isError = false) {
+            const result = document.getElementById('result');
+            result.innerHTML = `<p style="color: ${isError ? 'red' : 'green'}">${message}</p>`;
+        }
+
+        // Registro
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('http://localhost:8001/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    showResult('✅ Registro exitoso: ' + data.message);
+                } else {
+                    showResult('❌ Error en registro: ' + data.message, true);
+                }
+            } catch (error) {
+                showResult('❌ Error de conexión: ' + error.message, true);
+            }
+        });
+
+        // Login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await fetch('http://localhost:8001/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    showResult('✅ Login exitoso! Token: ' + data.token.substring(0, 50) + '...');
+                    localStorage.setItem('jwt', data.token);
+                } else {
+                    showResult('❌ Error en login: ' + data.message, true);
+                }
+            } catch (error) {
+                showResult('❌ Error de conexión: ' + error.message, true);
+            }
+        });
+
+        // Google Sign-In
+        function handleCredentialResponse(response) {
+            fetch('http://localhost:8001/auth/google', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: response.credential })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.token) {
+                    showResult('✅ Google Sign-In exitoso! Token: ' + data.token.substring(0, 50) + '...');
+                    localStorage.setItem('jwt', data.token);
+                } else {
+                    showResult('❌ Error en Google Sign-In: ' + data.message, true);
+                }
+            })
+            .catch(error => {
+                showResult('❌ Error de conexión con Google: ' + error.message, true);
+            });
+        }
+    </script>
+</body>
+</html>

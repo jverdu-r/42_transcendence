@@ -10,7 +10,6 @@
     <meta name="keywords" content="pong, game, multiplayer, online, transcendence, paddle, ball" />
     <meta name="theme-color" content="#000814" />
     <title>Transcendence</title>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link rel="icon" href="data:image/svg+xml,%3csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3e%3ctext y=%22.9em%22 font-size=%2290%22%3e🏓%3c/text%3e%3c/svg%3e">
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />

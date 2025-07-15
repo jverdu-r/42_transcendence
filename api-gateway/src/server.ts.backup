@@ -23,14 +23,6 @@ fastify.register(httpProxy, {
     httpMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 });
 
-// Proxy para game stats (db-service)
-fastify.register(httpProxy, {
-    upstream: 'http://db-service:8000',
-    prefix: '/api/game',
-    rewritePrefix: '/game',
-    httpMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
-});
-
 // Health check route
 fastify.get('/health', async (request, reply) => {
     reply.send({ status: 'ok', service: 'api-gateway' });
@@ -39,8 +31,8 @@ fastify.get('/health', async (request, reply) => {
 // Start server
 const start = async () => {
     try {
-        await fastify.listen({ port: 8000, host: '0.0.0.0' });
-        fastify.log.info('API Gateway listening on port 8000');
+        await fastify.listen({ port: 9000, host: '0.0.0.0' });
+        fastify.log.info('API Gateway listening on port 9000');
     } catch (err) {
         fastify.log.error(err);
         process.exit(1);

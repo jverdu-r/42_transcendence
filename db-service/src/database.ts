@@ -31,7 +31,11 @@ export async function initializeDb() {
                 score2 INTEGER DEFAULT 0,
                 status TEXT NOT NULL,
                 start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-                end_time DATETIME
+                end_time DATETIME,
+                winner_id INTEGER,
+                winner_name TEXT,
+                game_mode TEXT DEFAULT 'local',
+                duration INTEGER DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

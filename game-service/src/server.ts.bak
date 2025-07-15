@@ -161,10 +161,6 @@ fastify.post('/api/games/:gameId/start', async (request, reply) => {
   
   // Verificar condiciones según el tipo de partida
   if (game.gameMode === 'pve') {
-    // Asegurar que la IA esté presente
-    if (game.aiPlayers.size === 0) {
-      game.addAIPlayer(2, 'medium');
-    }
     const jugadoresHumanos = Array.from(game.jugadores.values()).filter(j => !j.esIA);
     if (jugadoresHumanos.length < 1 || game.aiPlayers.size < 1) {
       reply.status(400);
