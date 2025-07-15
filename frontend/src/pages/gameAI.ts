@@ -45,6 +45,8 @@ export function renderGameAI(): void {
 async function createAIGame(difficulty: string): Promise<void> {
   try {
     console.log(`🎮 Creando partida vs IA (${difficulty})...`);
+    
+    // Primero crear la partida
     const response = await fetch('/api/games', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -59,23 +61,37 @@ async function createAIGame(difficulty: string): Promise<void> {
     console.log('✅ Partida creada:', game);
     
     // El backend ya agrega automáticamente la IA para partidas PvE
-    
-    // Iniciar la partida
-    await fetch(`/api/games/${game.id}/start`, {
+    // Pero vamos a asegurar que la IA esté configurada con la dificultad correcta
+    await fetch(`/api/games/${game.id}/ai`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
+      body: JSON.stringify({ player: 2, difficulty: difficulty })
     });
     
-    alert(`✅ Partida vs IA (${difficulty}) iniciada!\nID: ${game.id}\n\nConectando al juego...`);
+    // Dar un pequeño delay para que la IA se configure
+    setTimeout(async () => {
+      // Iniciar la partida
+      const startResponse = await fetch(`/api/games/${game.id}/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      
+      if (startResponse.ok) {
+        console.log('🎮 Partida iniciada con IA');
+        
+        // Guardar gameId y tipo de juego para usar en gameOnline
+        sessionStorage.setItem('pendingGameId', game.id);
+        sessionStorage.setItem('gameType', 'ai');
+        navigateTo('/game-online');
+      } else {
+        console.error('Error iniciando partida:', await startResponse.text());
+        alert('Error iniciando la partida. Intenta nuevamente.');
+      }
+    }, 500);
     
-    // Guardar gameId y tipo de juego para usar en gameOnline
-    sessionStorage.setItem('pendingGameId', game.id);
-    sessionStorage.setItem('gameType', 'ai');
-    navigateTo('/game-online');
   } catch (error) {
     console.error('❌ Error creando la partida:', error);
     alert(`❌ Error: ${error instanceof Error ? error.message : 'Error desconocido'}`);
   }
 }
-

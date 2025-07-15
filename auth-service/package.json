@@ -7,12 +7,12 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "ts-node-dev src/server.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\"  exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-    "dependencies": {
+  "dependencies": {
     "dotenv": "^16.0.0",
     "fastify": "^4.x.x",
     "sqlite3": "^5.x.x",
@@ -21,7 +21,8 @@
     "bcryptjs": "^2.x.x",
     "node-fetch": "^3.x.x",
     "dotenv": "^16.x.x",
-    "redis": "^4.6.7"
+    "redis": "^4.6.7",
+    "@fastify/cors": "^9.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.x.x",
@@ -30,7 +31,5 @@
     "typescript": "^5.x.x",
     "@types/jsonwebtoken": "^9.0.0",
     "@types/bcryptjs": "^2.4.2"
-
   }
 }
-

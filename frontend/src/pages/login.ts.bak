@@ -2,6 +2,7 @@
 
 import { navigateTo } from '../router';
 import { getTranslation, setLanguage, getCurrentLanguage } from '../i18n';
+import { login } from '../auth';
 
 export function renderLoginPage(): void {
     const loginHtml = `
@@ -47,18 +48,18 @@ export function renderLoginPage(): void {
           <form class="space-y-6">
             <div class="relative z-0 group">
               <input
-                type="email"
-                id="email"
-                name="email"
+                type="text"
+                id="username"
+                name="username"
                 class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
                 placeholder=" "
                 required
               />
               <label
-                for="email"
+                for="username"
                 class="peer-focus:font-medium absolute text-lg text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:start-0 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto peer-focus:text-[#ffc300] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
-                data-i18n="login.emailLabel"
-              >Email</label>
+                data-i18n="login.usernameLabel"
+              >${getTranslation('login', 'usernameLabel')}</label>
             </div>
 
             <div class="relative z-0 group">
@@ -87,10 +88,13 @@ export function renderLoginPage(): void {
 
           <p class="text-center text-gray-400 text-sm mt-6" data-i18n="login.or">${getTranslation('login', 'or')}</p>
 
-          <button id="google-login-button" disabled style="opacity: 0.5; cursor: not-allowed; background-color: #555;"
+          <button id="google-login-button" 
                   class="w-full mt-4 rounded-xl shadow 
-                         bg-[#555] border border-[#003566] text-[#aaa] text-sm font-semibold h-10 px-3 relative overflow-hidden 
-                         flex items-center justify-center space-x-3 transition-colors duration-200">
+                         bg-[#001d3d] border border-[#003566] text-[#e0e0e0] text-sm font-semibold h-10 px-3 relative overflow-hidden 
+                         flex items-center justify-center space-x-3 transition-colors duration-200 
+                         hover:bg-[#002c53] hover:shadow-lg 
+                         focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-75 
+                         disabled:opacity-50 disabled:cursor-not-allowed">
               <div class="flex items-center">
                   <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" xmlns:xlink="http://www.w3.org/1999/xlink" class="h-5 w-5 mr-3 flex-shrink-0">
                       <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
@@ -99,7 +103,7 @@ export function renderLoginPage(): void {
                       <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
                       <path fill="none" d="M0 0h48v48H0z"></path>
                   </svg>
-                  <span class="flex-grow text-left">Google Sign-In (Próximamente)</span>
+                  <span class="flex-grow text-left" data-i18n="login.continueWithGoogle">${getTranslation('login', 'continueWithGoogle')}</span>
               </div>
           </button>
 
@@ -108,6 +112,7 @@ export function renderLoginPage(): void {
           </p>
         </div>
         <style>
+            /* Custom styling for login page - patterns and animations can stay as they are not button-specific */
             .login-bg-pattern {
                 background: radial-gradient(circle at center, rgba(0, 53, 102, 0.2) 1px, transparent 1px),
                             radial-gradient(circle at center, rgba(0, 29, 61, 0.2) 1px, transparent 1px);
@@ -134,54 +139,40 @@ export function renderLoginPage(): void {
     if (appRoot) {
         appRoot.innerHTML = loginHtml;
 
-        // Login normal (sin Google)
         const loginButton = document.getElementById('login-button');
         if (loginButton) {
             loginButton.addEventListener('click', async (event) => {
                 event.preventDefault();
                 
-                const emailInput = document.getElementById('email') as HTMLInputElement;
+                const usernameInput = document.getElementById('username') as HTMLInputElement;
                 const passwordInput = document.getElementById('password') as HTMLInputElement;
                 
-                const email = emailInput?.value || '';
+                const username = usernameInput?.value || '';
                 const password = passwordInput?.value || '';
                 
-                if (!email || !password) {
-                    alert('Por favor, completa todos los campos');
-                    return;
-                }
-
-                try {
-                    const response = await fetch('/api/auth/login', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ email, password }),
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        localStorage.setItem('jwt', data.token);
-                        console.log('✅ Login exitoso');
-                        navigateTo('/home');
-                    } else {
-                        const error = await response.json();
-                        alert(`❌ Error: ${error.message}`);
-                    }
-                } catch (error) {
-                    console.error('Error en login:', error);
-                    alert('Error de conexión');
+                console.log('Intentando login...');
+                
+                if (login(username, password)) {
+                    console.log('Login exitoso, redirigiendo a home...');
+                    navigateTo('/home');
+                } else {
+                    console.log('Login fallido');
+                    alert('Usuario o contraseña incorrectos');
                 }
             });
         }
 
-        // Botón de Google deshabilitado
         const googleLoginButton = document.getElementById('google-login-button');
         if (googleLoginButton) {
-            googleLoginButton.addEventListener('click', (event) => {
+            googleLoginButton.addEventListener('click', async (event) => {
                 event.preventDefault();
-                alert('Google Sign-In estará disponible próximamente');
+                
+                console.log('Simulando login con Google...');
+                // Simula login exitoso
+                if (login('google_user', 'google_password')) {
+                    console.log('Login con Google exitoso, redirigiendo a home...');
+                    navigateTo('/home');
+                }
             });
         }
 

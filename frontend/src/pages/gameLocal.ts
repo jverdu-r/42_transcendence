@@ -1,4 +1,6 @@
 import { navigateTo } from '../router';
+import { getCurrentUser } from '../auth';
+import { saveGameStats, createGameStats } from '../utils/gameStats';
 
 export function renderGameLocal(): void {
   const content = document.getElementById('page-content');
@@ -7,6 +9,11 @@ export function renderGameLocal(): void {
     console.error('No se encontró el contenedor principal para renderizar el juego local.');
     return;
   }
+
+  // Obtener usuario actual
+  const currentUser = getCurrentUser();
+  const player1Name = currentUser?.username || 'Jugador 1';
+  const player2Name = 'Oponente'; // En juego local, el segundo jugador será siempre "Jugador 2"
 
   content.innerHTML = `
     <div class="w-full max-w-4xl mx-auto p-8">
@@ -19,37 +26,52 @@ export function renderGameLocal(): void {
       <div class="text-center mb-4">
         <div class="grid grid-cols-2 gap-4 mb-4">
           <div class="text-left">
-            <h3 class="text-xl font-bold">Jugador 1</h3>
+            <h3 class="text-xl font-bold" id="player1-name">${player1Name}</h3>
             <p class="text-gray-400">Teclas: W (arriba), S (abajo)</p>
-            <p class="text-2xl font-bold" id="score1">0</p>
+            <p class="text-2xl font-bold text-blue-500" id="score1">0</p>
           </div>
           <div class="text-right">
-            <h3 class="text-xl font-bold">Jugador 2</h3>
+            <h3 class="text-xl font-bold" id="player2-name">${player2Name}</h3>
             <p class="text-gray-400">Teclas: ↑ (arriba), ↓ (abajo)</p>
-            <p class="text-2xl font-bold" id="score2">0</p>
+            <p class="text-2xl font-bold text-red-500" id="score2">0</p>
           </div>
         </div>
         
         <div class="space-x-4">
-          <button id="start-game" class="bg-green-500 text-white font-semibold py-2 px-4 rounded">Iniciar Juego</button>
-          <button id="pause-game" class="bg-yellow-500 text-white font-semibold py-2 px-4 rounded">Pausar</button>
-          <button id="reset-game" class="bg-red-500 text-white font-semibold py-2 px-4 rounded">Reiniciar</button>
+          <button id="start-game" class="bg-green-500 text-white font-semibold py-2 px-4 rounded hover:bg-green-600">Iniciar Juego</button>
+          <button id="pause-game" class="bg-yellow-500 text-white font-semibold py-2 px-4 rounded hover:bg-yellow-600">Pausar</button>
+          <button id="reset-game" class="bg-red-500 text-white font-semibold py-2 px-4 rounded hover:bg-red-600">Reiniciar</button>
         </div>
       </div>
       
       <div class="text-center">
-        <button id="back-to-play" class="bg-blue-500 text-white font-semibold py-2 px-4 rounded">Volver a Selección</button>
+        <button id="back-to-play" class="bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600">Volver a Selección</button>
+      </div>
+      
+      <!-- Modal para mostrar el resultado del juego -->
+      <div id="game-result-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-8 max-w-lg w-full mx-4 text-center shadow-2xl border-2 border-blue-200">
+          <div id="game-result-content" class="mb-6"></div>
+          <div class="space-x-4">
+            <button id="play-again" class="bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-3 px-6 rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-lg">
+              🎮 Jugar de Nuevo
+            </button>
+            <button id="close-modal" class="bg-gradient-to-r from-gray-500 to-gray-600 text-white font-bold py-3 px-6 rounded-lg hover:from-gray-600 hover:to-gray-700 transition-all duration-200 shadow-lg">
+              ❌ Cerrar
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   `;
 
   // Inicializar el juego local
-  initLocalGame();
+  initLocalGame(player1Name, player2Name);
 
   document.getElementById('back-to-play')?.addEventListener('click', () => navigateTo('/play'));
 }
 
-function initLocalGame(): void {
+function initLocalGame(player1Name: string, player2Name: string): void {
   const canvas = document.getElementById('pongCanvas') as HTMLCanvasElement;
   const ctx = canvas.getContext('2d');
   
@@ -60,7 +82,9 @@ function initLocalGame(): void {
 
   // Estado del juego
   let gameRunning = false;
+  let gameStartTime: Date | null = null;
   let animationId: number;
+  const maxScore = 5; // Puntuación máxima para ganar
   
   const gameState = {
     ball: { x: 300, y: 200, vx: 5, vy: 3, radius: 10 },
@@ -141,10 +165,22 @@ function initLocalGame(): void {
       gameState.score.right++;
       resetBall();
       updateScore();
+      checkGameEnd();
     } else if (gameState.ball.x > canvas.width) {
       gameState.score.left++;
       resetBall();
       updateScore();
+      checkGameEnd();
+    }
+  }
+
+  function checkGameEnd(): void {
+    if (gameState.score.left >= maxScore || gameState.score.right >= maxScore) {
+      gameRunning = false;
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+      showGameResult();
     }
   }
 
@@ -199,6 +235,9 @@ function initLocalGame(): void {
   }
 
   function startGame(): void {
+    if (!gameStartTime) {
+      gameStartTime = new Date();
+    }
     gameRunning = true;
     gameLoop();
   }
@@ -214,15 +253,94 @@ function initLocalGame(): void {
     pauseGame();
     gameState.score.left = 0;
     gameState.score.right = 0;
+    gameStartTime = null;
     resetBall();
     updateScore();
     draw();
+  }
+
+  async function showGameResult(): Promise<void> {
+    const gameEndTime = new Date();
+    const winner = gameState.score.left > gameState.score.right ? player1Name : player2Name;
+    const loser = gameState.score.left > gameState.score.right ? player2Name : player1Name;
+    const winnerScore = Math.max(gameState.score.left, gameState.score.right);
+    const loserScore = Math.min(gameState.score.left, gameState.score.right);
+    const isPlayer1Winner = gameState.score.left > gameState.score.right;
+
+    // Crear mensaje de resultado mejorado con colores vibrantes
+    const resultMessage = `
+      <div class="text-center">
+        <div class="text-5xl font-bold text-yellow-600 mb-4">🏆</div>
+        <div class="text-3xl font-bold ${isPlayer1Winner ? 'text-blue-700' : 'text-red-700'} mb-4">
+          ${winner} Gana!
+        </div>
+        <div class="text-xl font-semibold text-gray-800 mb-6">Resultado Final</div>
+        <div class="bg-white rounded-lg p-6 mb-6 shadow-lg border-2 border-gray-200">
+          <div class="flex justify-between items-center text-xl mb-4">
+            <span class="font-bold ${isPlayer1Winner ? 'text-green-600' : 'text-gray-600'}">${player1Name}</span>
+            <span class="font-bold text-3xl ${isPlayer1Winner ? 'text-green-600' : 'text-gray-600'}">${gameState.score.left}</span>
+          </div>
+          <div class="border-t-2 border-gray-300 my-4"></div>
+          <div class="flex justify-between items-center text-xl">
+            <span class="font-bold ${!isPlayer1Winner ? 'text-green-600' : 'text-gray-600'}">${player2Name}</span>
+            <span class="font-bold text-3xl ${!isPlayer1Winner ? 'text-green-600' : 'text-gray-600'}">${gameState.score.right}</span>
+          </div>
+        </div>
+        <div class="text-lg font-semibold text-gray-700 bg-yellow-100 p-3 rounded-lg">
+          🎉 ${winner} venció a ${loser} por ${winnerScore} - ${loserScore}
+        </div>
+      </div>
+    `;
+
+    // Mostrar modal con resultado
+    const modal = document.getElementById('game-result-modal');
+    const content = document.getElementById('game-result-content');
+    if (modal && content) {
+      content.innerHTML = resultMessage;
+      modal.classList.remove('hidden');
+    }
+
+    // Guardar estadísticas en la base de datos
+    if (gameStartTime) {
+      const stats = createGameStats(
+        player1Name,
+        player2Name,
+        gameState.score.left,
+        gameState.score.right,
+        'local',
+        gameStartTime,
+        gameEndTime
+      );
+      
+      const saved = await saveGameStats(stats);
+      if (saved) {
+        console.log('Estadísticas guardadas exitosamente');
+      } else {
+        console.warn('No se pudieron guardar las estadísticas del juego');
+      }
+    }
   }
 
   // Event listeners para botones
   document.getElementById('start-game')?.addEventListener('click', startGame);
   document.getElementById('pause-game')?.addEventListener('click', pauseGame);
   document.getElementById('reset-game')?.addEventListener('click', resetGame);
+
+  // Event listeners para modal
+  document.getElementById('play-again')?.addEventListener('click', () => {
+    const modal = document.getElementById('game-result-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+    }
+    resetGame();
+  });
+
+  document.getElementById('close-modal')?.addEventListener('click', () => {
+    const modal = document.getElementById('game-result-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+    }
+  });
 
   // Dibujar estado inicial
   draw();

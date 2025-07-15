@@ -322,7 +322,7 @@ function connectToGame(gameId: string): void {
         }
         if (statusElement) {
           const modeText = gameMode === 'pve' ? 'IA' : 'otro jugador';
-          statusElement.innerHTML = `<p class="text-green-500">🎮 Eres el ${getCurrentUser()?.username || "Usuario"} vs ${modeText}! Usa W/S para mover</p>`;
+          statusElement.innerHTML = `<p class="text-green-500">🎮 Eres el ${currentUserName} vs ${modeText}! Usa W/S para mover</p>`;
         }
       }
       
@@ -473,7 +473,7 @@ function updatePlayerRole(playerNumber: number, gameMode: string = 'pvp'): void 
   if (config) {
     playerCardsContainer.innerHTML = `
       <div class="${config.you.bgColor} rounded-lg p-3">
-        <h3 class="text-lg font-bold text-white">📱 Tú (${getCurrentUser()?.username || "Usuario"})</h3>
+        <h3 class="text-lg font-bold text-white">📱 Tú (${currentUserName})</h3>
         <p class="text-sm text-${config.you.color}-200">${config.you.color === 'yellow' ? 'Amarilla' : 'Azul'} - Lado ${config.you.side}</p>
         <p class="text-xs text-${config.you.color}-200">Controles: ${config.you.controls}</p>
       </div>
@@ -486,18 +486,18 @@ function updatePlayerRole(playerNumber: number, gameMode: string = 'pvp'): void 
     
     playerRoleElement.innerHTML = `
       <div class="text-green-400 font-bold">
-        ✅ Eres el ${getCurrentUser()?.username || "Usuario"} vs ${config.opponent.type} (Pala ${config.you.color === 'yellow' ? 'Amarilla' : 'Azul'} - Lado ${config.you.side})
+        ✅ Eres el ${currentUserName} vs ${config.opponent.type} (Pala ${config.you.color === 'yellow' ? 'Amarilla' : 'Azul'} - Lado ${config.you.side})
       </div>
     `;
     
     // Actualizar títulos del marcador
     if (score1Title && score2Title) {
       if (playerNumber === 1) {
-                  score1Title.innerHTML = `🟡 ${getCurrentUser()?.username || "Usuario"} (Tú)`;
+                  score1Title.innerHTML = ;
                   score2Title.innerHTML = isPvE ? '🔵 IA (Oponente)' : '🔵 Oponente';
       } else {
         score1Title.innerHTML = isPvE ? '🟡 IA (Oponente)' : '🟡 Oponente';
-        score2Title.innerHTML = `🔵 ${getCurrentUser()?.username || "Usuario"} (Tú)`;
+        score2Title.innerHTML = `🔵 ${currentUserName} (Tú)`;
       }
     }
   }

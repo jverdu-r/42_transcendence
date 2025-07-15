@@ -119,10 +119,13 @@ export function renderRegister(): void {
 
                 <p class="text-center text-gray-400 text-sm mt-6" data-i18n="register.or">${getTranslation('register', 'or')}</p>
 
-                <button id="google-register-button" disabled style="opacity: 0.5; cursor: not-allowed; background-color: #555;"
+                <button id="google-register-button" 
                         class="w-full mt-4 rounded-xl shadow 
-                               bg-[#555] border border-[#003566] text-[#aaa] text-sm font-semibold h-10 px-3 relative overflow-hidden 
-                               flex items-center justify-center space-x-3 transition-colors duration-200">
+                               bg-[#001d3d] border border-[#003566] text-[#e0e0e0] text-sm font-semibold h-10 px-3 relative overflow-hidden 
+                               flex items-center justify-center space-x-3 transition-colors duration-200 
+                               hover:bg-[#002c53] hover:shadow-lg 
+                               focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-75 
+                               disabled:opacity-50 disabled:cursor-not-allowed">
                     <div class="flex items-center">
                         <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" xmlns:xlink="http://www.w3.org/1999/xlink" class="h-5 w-5 mr-3 flex-shrink-0">
                             <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
@@ -131,7 +134,7 @@ export function renderRegister(): void {
                             <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
                             <path fill="none" d="M0 0h48v48H0z"></path>
                         </svg>
-                        <span class="flex-grow text-left">Google Sign-In (Próximamente)</span>
+                        <span class="flex-grow text-left" data-i18n="register.registerWithGoogle">${getTranslation('register', 'registerWithGoogle')}</span>
                     </div>
                 </button>
 
@@ -140,6 +143,7 @@ export function renderRegister(): void {
                 </p>
             </div>
             <style>
+                /* Custom styling for register page - patterns and animations can stay as they are not button-specific */
                 .register-bg-pattern {
                     background: radial-gradient(circle at center, rgba(0, 53, 102, 0.2) 1px, transparent 1px),
                                 radial-gradient(circle at center, rgba(0, 29, 61, 0.2) 1px, transparent 1px);
@@ -166,61 +170,25 @@ export function renderRegister(): void {
     if (appRoot) {
         appRoot.innerHTML = registerHtml;
 
-        // Registro normal (sin Google)
         const registerButton = document.getElementById('register-button');
         if (registerButton) {
             registerButton.addEventListener('click', async (event) => {
                 event.preventDefault();
                 
-                const usernameInput = document.getElementById('username') as HTMLInputElement;
-                const emailInput = document.getElementById('email') as HTMLInputElement;
-                const passwordInput = document.getElementById('password') as HTMLInputElement;
-                const confirmPasswordInput = document.getElementById('confirm-password') as HTMLInputElement;
-                
-                const username = usernameInput?.value || '';
-                const email = emailInput?.value || '';
-                const password = passwordInput?.value || '';
-                const confirmPassword = confirmPasswordInput?.value || '';
-                
-                if (!username || !email || !password || !confirmPassword) {
-                    alert('Por favor, completa todos los campos');
-                    return;
-                }
-                
-                if (password !== confirmPassword) {
-                    alert('Las contraseñas no coinciden');
-                    return;
-                }
-
-                try {
-                    const response = await fetch('/api/auth/register', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ username, email, password }),
-                    });
-
-                    if (response.ok) {
-                        alert('✅ Registro exitoso! Ahora puedes iniciar sesión');
-                        navigateTo('/login');
-                    } else {
-                        const error = await response.json();
-                        alert(`❌ Error: ${error.message}`);
-                    }
-                } catch (error) {
-                    console.error('Error en registro:', error);
-                    alert('Error de conexión');
-                }
+                console.log('Simulando registro...');
+                // Simula registro exitoso y redirige al home
+                navigateTo('/home');
             });
         }
 
-        // Botón de Google deshabilitado
         const googleRegisterButton = document.getElementById('google-register-button');
         if (googleRegisterButton) {
-            googleRegisterButton.addEventListener('click', (event) => {
+            googleRegisterButton.addEventListener('click', async (event) => {
                 event.preventDefault();
-                alert('Google Sign-In estará disponible próximamente');
+                
+                console.log('Simulando registro con Google...');
+                // Simula registro exitoso y redirige al home
+                navigateTo('/home');
             });
         }
 
