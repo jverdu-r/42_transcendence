@@ -191,6 +191,7 @@ services:
       - transcendence_net
   sqlite-writer:
     build: ./db-service/sqlite-writer
+    image: sqlite-writer
     container_name: sqlite-writer
     depends_on:
       - redis
