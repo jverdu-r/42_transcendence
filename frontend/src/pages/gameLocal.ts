@@ -1,6 +1,7 @@
 import { navigateTo } from '../router';
 import { getCurrentUser } from '../auth';
 import { saveGameStats, createGameStats } from '../utils/gameStats';
+import { PlayerDisplay, PlayerInfo } from '../components/playerDisplay';
 
 export function renderGameLocal(): void {
   const content = document.getElementById('page-content');
@@ -13,31 +14,44 @@ export function renderGameLocal(): void {
   // Obtener usuario actual
   const currentUser = getCurrentUser();
   const player1Name = currentUser?.username || 'Jugador 1';
-  const player2Name = 'Oponente'; // En juego local, el segundo jugador será siempre "Jugador 2"
+  const player2Name = 'Jugador 2'; // En juego local, el segundo jugador será siempre "Jugador 2"
 
   content.innerHTML = `
     <div class="w-full max-w-4xl mx-auto p-8">
-      <h1 class="text-3xl font-bold text-center mb-8">Juego Local - Pong</h1>
+      <h1 class="text-3xl font-bold text-center mb-4">🎮 Juego Local - Pong</h1>
+      <p class="text-center mb-6">Juega contra otro jugador en el mismo dispositivo</p>
+      
+      <!-- Player Info Section -->
+      <div id="player-info" class="bg-gray-800 rounded-lg p-4 mb-6">
+        <div id="player-cards" class="mb-4">
+          <!-- Las tarjetas se generarán dinámicamente -->
+        </div>
+        <div id="player-role" class="text-center text-green-400 font-bold">
+          🎮 Juego Local - Dos jugadores en el mismo dispositivo
+        </div>
+      </div>
       
       <div class="bg-black border-2 border-gray-400 rounded-lg p-4 mb-6">
         <canvas id="pongCanvas" width="600" height="400" class="w-full h-auto bg-black"></canvas>
       </div>
       
       <div class="text-center mb-4">
-        <div class="grid grid-cols-2 gap-4 mb-4">
+        <div id="score-container" class="grid grid-cols-2 gap-4 mb-4">
           <div class="text-left">
-            <h3 class="text-xl font-bold" id="player1-name">${player1Name}</h3>
-            <p class="text-gray-400">Teclas: W (arriba), S (abajo)</p>
-            <p class="text-2xl font-bold text-blue-500" id="score1">0</p>
+            <h3 class="text-xl font-bold text-yellow-400" id="score1-title">🟡 ${player1Name}</h3>
+            <p class="text-2xl font-bold" id="score1">0</p>
           </div>
           <div class="text-right">
-            <h3 class="text-xl font-bold" id="player2-name">${player2Name}</h3>
-            <p class="text-gray-400">Teclas: ↑ (arriba), ↓ (abajo)</p>
-            <p class="text-2xl font-bold text-red-500" id="score2">0</p>
+            <h3 class="text-xl font-bold text-blue-400" id="score2-title">🔵 ${player2Name}</h3>
+            <p class="text-2xl font-bold" id="score2">0</p>
           </div>
         </div>
         
-        <div class="space-x-4">
+        <div id="game-status" class="mb-4">
+          <p class="text-yellow-500">🔄 Presiona 'Iniciar Juego' para comenzar</p>
+        </div>
+        
+        <div class="space-x-4 mb-4">
           <button id="start-game" class="bg-green-500 text-white font-semibold py-2 px-4 rounded hover:bg-green-600">Iniciar Juego</button>
           <button id="pause-game" class="bg-yellow-500 text-white font-semibold py-2 px-4 rounded hover:bg-yellow-600">Pausar</button>
           <button id="reset-game" class="bg-red-500 text-white font-semibold py-2 px-4 rounded hover:bg-red-600">Reiniciar</button>
@@ -79,6 +93,27 @@ function initLocalGame(player1Name: string, player2Name: string): void {
     console.error('No se pudo obtener el contexto del canvas.');
     return;
   }
+
+  // Inicializar la visualización de jugadores
+  const player1: PlayerInfo = {
+    numero: 1,
+    username: player1Name,
+    displayName: player1Name,
+    esIA: false,
+    isCurrentUser: true,
+    controls: 'W (arriba) / S (abajo)'
+  };
+
+  const player2: PlayerInfo = {
+    numero: 2,
+    username: player2Name,
+    displayName: player2Name,
+    esIA: false,
+    isCurrentUser: false,
+    controls: '↑ (arriba) / ↓ (abajo)'
+  };
+
+  updatePlayerDisplay(player1, player2);
 
   // Estado del juego
   let gameRunning = false;
@@ -239,6 +274,10 @@ function initLocalGame(player1Name: string, player2Name: string): void {
       gameStartTime = new Date();
     }
     gameRunning = true;
+    const statusElement = document.getElementById('game-status');
+    if (statusElement) {
+      statusElement.innerHTML = '<p class="text-green-500">🎮 ¡Juego iniciado! Usa las teclas asignadas para mover</p>';
+    }
     gameLoop();
   }
 
@@ -246,6 +285,10 @@ function initLocalGame(player1Name: string, player2Name: string): void {
     gameRunning = false;
     if (animationId) {
       cancelAnimationFrame(animationId);
+    }
+    const statusElement = document.getElementById('game-status');
+    if (statusElement) {
+      statusElement.innerHTML = '<p class="text-yellow-500">⏸️ Juego pausado</p>';
     }
   }
 
@@ -257,6 +300,19 @@ function initLocalGame(player1Name: string, player2Name: string): void {
     resetBall();
     updateScore();
     draw();
+    const statusElement = document.getElementById('game-status');
+    if (statusElement) {
+      statusElement.innerHTML = '<p class="text-yellow-500">🔄 Presiona \'Iniciar Juego\' para comenzar</p>';
+    }
+  }
+
+  function updatePlayerDisplay(player1: PlayerInfo, player2: PlayerInfo): void {
+    const playerCardsContainer = document.getElementById('player-cards');
+    
+    if (playerCardsContainer) {
+      const playerCardsHtml = PlayerDisplay.generatePlayerCards(player1, player2, 'local');
+      playerCardsContainer.innerHTML = playerCardsHtml;
+    }
   }
 
   async function showGameResult(): Promise<void> {

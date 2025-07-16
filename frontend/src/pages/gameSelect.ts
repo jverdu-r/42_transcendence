@@ -177,8 +177,9 @@ Nombre: ${game.nombre || 'Sin nombre'}
 Conectando al juego...`);
     
     // Guardar gameId en sessionStorage y navegar
-    sessionStorage.setItem('pendingGameId', game.id);
-    navigateTo('/game-online');
+    sessionStorage.setItem('currentGameId', game.id);
+    sessionStorage.setItem('currentGameMode', 'pvp');
+    navigateTo('/game-lobby');
     
   } catch (error) {
     console.error('❌ Error creando partida:', error);
@@ -219,8 +220,9 @@ Jugadores: ${game.jugadoresConectados}/${game.capacidadMaxima}
 Conectando al juego...`);
     
     // Guardar gameId en sessionStorage y navegar
-    sessionStorage.setItem('pendingGameId', gameId);
-    navigateTo('/game-online');
+    sessionStorage.setItem('currentGameId', gameId);
+    sessionStorage.setItem('currentGameMode', 'pvp');
+    navigateTo('/game-lobby');
     
   } catch (error) {
     console.error('❌ Error uniéndose a la partida:', error);
