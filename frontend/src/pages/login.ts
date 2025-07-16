@@ -35,9 +35,7 @@ export function renderLoginPage(): void {
             </div>
         </div>
 
-        <div
-          class="relative bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl shadow-2xl p-6 sm:p-8 md:p-10 lg:p-12 w-full max-w-md mx-auto border border-[#003566] transform transition-all duration-500 ease-in-out z-10"
-        >
+        <div class="relative bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl shadow-2xl p-6 sm:p-8 md:p-10 lg:p-12 w-full max-w-md mx-auto border border-[#003566] transform transition-all duration-500 ease-in-out z-10">
           <div class="text-center mb-8">
             <h1 class="text-4xl sm:text-5xl font-display font-extrabold text-[#ffc300] mb-2 drop-shadow-md" data-i18n="login.title">${getTranslation('login', 'title')}</h1>
             <h2 class="text-2xl sm:text-3xl font-display font-extrabold text-gray-100 mb-4 drop-shadow-md" data-i18n="login.welcomeBack">${getTranslation('login', 'welcomeBack')}</h2>
@@ -46,62 +44,27 @@ export function renderLoginPage(): void {
 
           <form class="space-y-6">
             <div class="relative z-0 group">
-              <input
-                type="email"
-                id="email"
-                name="email"
-                class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
-                placeholder=" "
-                required
-              />
-              <label
-                for="email"
-                class="peer-focus:font-medium absolute text-lg text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:start-0 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto peer-focus:text-[#ffc300] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
-                data-i18n="login.emailLabel"
-              >Email</label>
+              <input type="email" id="email" name="email" class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer" placeholder=" " required />
+              <label for="email" class="peer-focus:font-medium absolute text-lg text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:start-0 peer-focus:text-[#ffc300] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6" data-i18n="login.emailLabel">Email</label>
             </div>
 
             <div class="relative z-0 group">
-              <input
-                type="password"
-                id="password"
-                name="password"
-                class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
-                placeholder=" "
-                required
-              />
-              <label
-                for="password"
-                class="peer-focus:font-medium absolute text-lg text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:start-0 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto peer-focus:text-[#ffc300] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6"
-                data-i18n="login.passwordLabel"
-              >${getTranslation('login', 'passwordLabel')}</label>
+              <input type="password" id="password" name="password" class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer" placeholder=" " required />
+              <label for="password" class="peer-focus:font-medium absolute text-lg text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:start-0 peer-focus:text-[#ffc300] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6" data-i18n="login.passwordLabel">${getTranslation('login', 'passwordLabel')}</label>
             </div>
 
-            <button
-              type="submit"
-              id="login-button"
-              class="w-full py-3 mt-6 rounded-xl bg-gradient-to-r from-[#ffc300] to-[#ffd60a] text-[#000814] font-bold text-xl shadow-lg hover:from-[#ffd60a] hover:to-[#ffc300] transition-all duration-300 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-75"
-              data-i18n="login.loginButton"
-            >${getTranslation('login', 'loginButton')}</button>
+            <button type="submit" id="login-button" class="w-full py-3 mt-6 rounded-xl bg-gradient-to-r from-[#ffc300] to-[#ffd60a] text-[#000814] font-bold text-xl shadow-lg hover:from-[#ffd60a] hover:to-[#ffc300] transition-all duration-300 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-75" data-i18n="login.loginButton">${getTranslation('login', 'loginButton')}</button>
           </form>
 
           <p class="text-center text-gray-400 text-sm mt-6" data-i18n="login.or">${getTranslation('login', 'or')}</p>
 
-          <button id="google-login-button" disabled style="opacity: 0.5; cursor: not-allowed; background-color: #555;"
-                  class="w-full mt-4 rounded-xl shadow 
-                         bg-[#555] border border-[#003566] text-[#aaa] text-sm font-semibold h-10 px-3 relative overflow-hidden 
-                         flex items-center justify-center space-x-3 transition-colors duration-200">
-              <div class="flex items-center">
-                  <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" xmlns:xlink="http://www.w3.org/1999/xlink" class="h-5 w-5 mr-3 flex-shrink-0">
-                      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
-                      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
-                      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
-                      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
-                      <path fill="none" d="M0 0h48v48H0z"></path>
-                  </svg>
-                  <span class="flex-grow text-left">Google Sign-In (Próximamente)</span>
-              </div>
-          </button>
+          <div id="g_id_onload"
+               data-client_id="58128894262-ak29ohah5ovkh31dvp2srdbm16thp961.apps.googleusercontent.com"
+               data-context="signin"
+               data-callback="handleGoogleCredentialResponse"
+               data-auto_prompt="false">
+          </div>
+          <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="left"></div>
 
           <p class="text-center text-gray-300 text-base mt-6">
             <span data-i18n-html="login.createAccountSentence">${getTranslation('login', 'noAccountYet')} <a href="/register" id="create-account-link" class="text-[#ffc300] hover:underline font-semibold transition-colors duration-200 hover:text-[#ffd60a]" data-i18n="login.createAccountButton">${getTranslation('register', 'registerButton')}</a></span>
@@ -134,54 +97,31 @@ export function renderLoginPage(): void {
     if (appRoot) {
         appRoot.innerHTML = loginHtml;
 
-        // Login normal (sin Google)
         const loginButton = document.getElementById('login-button');
         if (loginButton) {
             loginButton.addEventListener('click', async (event) => {
                 event.preventDefault();
-                
-                const emailInput = document.getElementById('email') as HTMLInputElement;
-                const passwordInput = document.getElementById('password') as HTMLInputElement;
-                
-                const email = emailInput?.value || '';
-                const password = passwordInput?.value || '';
-                
-                if (!email || !password) {
-                    alert('Por favor, completa todos los campos');
-                    return;
-                }
+                const email = (document.getElementById('email') as HTMLInputElement)?.value || '';
+                const password = (document.getElementById('password') as HTMLInputElement)?.value || '';
+                if (!email || !password) return alert('Por favor, completa todos los campos');
 
                 try {
-                    const response = await fetch('/api/auth/login', {
+                    const res = await fetch('/api/auth/login', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ email, password }),
                     });
-
-                    if (response.ok) {
-                        const data = await response.json();
+                    const data = await res.json();
+                    if (res.ok && data.token) {
                         localStorage.setItem('jwt', data.token);
-                        console.log('✅ Login exitoso');
                         navigateTo('/home');
                     } else {
-                        const error = await response.json();
-                        alert(`❌ Error: ${error.message}`);
+                        alert(data.message || 'Login fallido');
                     }
-                } catch (error) {
-                    console.error('Error en login:', error);
+                } catch (e) {
                     alert('Error de conexión');
+                    console.error(e);
                 }
-            });
-        }
-
-        // Botón de Google deshabilitado
-        const googleLoginButton = document.getElementById('google-login-button');
-        if (googleLoginButton) {
-            googleLoginButton.addEventListener('click', (event) => {
-                event.preventDefault();
-                alert('Google Sign-In estará disponible próximamente');
             });
         }
 
@@ -219,7 +159,25 @@ export function renderLoginPage(): void {
             });
         }
 
-    } else {
-        console.error('Elemento con id "app-root" no encontrado para renderizar la página de login.');
+        // Google Sign-In callback
+        (window as any).handleGoogleCredentialResponse = async (response: any) => {
+            try {
+                const res = await fetch('/api/auth/google', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: response.credential })
+                });
+                const data = await res.json();
+                if (res.ok && data.token) {
+                    localStorage.setItem('jwt', data.token);
+                    navigateTo('/home');
+                } else {
+                    alert(data.message || 'Error en autenticación con Google');
+                }
+            } catch (error) {
+                console.error('Error en autenticación con Google:', error);
+                alert('Error de conexión con el servidor');
+            }
+        };
     }
 }
