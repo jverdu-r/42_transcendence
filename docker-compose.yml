@@ -189,18 +189,14 @@ services:
   redis:
     build:
       context: ./db-service/redis
+    image: redis
     container_name: redis
     ports:
       - "${REDIS_PORT}:6379"
     volumes:
-      - ${DATA_PATH}/redis:/data
+      - redis_data:/data
     environment:
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password
-    healthcheck:
-      test: ["CMD", "sh", "/usr/local/etc/redis/healthcheck.sh"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     secrets:
       - redis_password
     command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "o-meu-contrasinal.42", "--maxmemory", "256mb"]
