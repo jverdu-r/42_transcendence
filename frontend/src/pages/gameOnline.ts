@@ -1,5 +1,6 @@
 import { getCurrentUser } from '../auth';
 import { navigateTo } from '../router';
+import { PlayerDisplay, PlayerInfo } from '../components/playerDisplay';
 
 export function renderGameOnline(): void {
   const content = document.getElementById('page-content');
@@ -28,11 +29,8 @@ export function renderGameOnline(): void {
           <button id="create-ai-game" class="w-full bg-green-500 text-white py-2 px-4 rounded-xl hover:bg-green-700 transition">
             Jugar contra la IA
           </button>
-          <button id="create-online-game" class="w-full bg-blue-500 text-white py-2 px-4 rounded-xl hover:bg-blue-700 transition">
-            Crear Partida Online
-          </button>
           <button id="join-online-game" class="w-full bg-yellow-500 text-white py-2 px-4 rounded-xl hover:bg-yellow-700 transition">
-            Unirse a Partida
+            Jugar Online
           </button>
       </div>
       <button id="back-to-play" class="mt-6 bg-gray-500 text-white font-semibold py-2 px-4 rounded">
@@ -42,110 +40,25 @@ export function renderGameOnline(): void {
   `;
 
   document.getElementById('create-ai-game')?.addEventListener('click', () => navigateTo('/game-ai'));
-  document.getElementById('create-online-game')?.addEventListener('click', () => navigateTo('/game-multiplayer'));
   document.getElementById('join-online-game')?.addEventListener('click', () => navigateTo('/game-select'));
   document.getElementById('back-to-play')?.addEventListener('click', () => navigateTo('/play'));
 }
 
-async function createAIGame(): Promise<void> {
-  try {
-    console.log('🎮 Creando partida vs IA...');
-    const response = await fetch('/api/games', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre: 'Online vs IA', gameMode: 'pve', maxPlayers: 2 })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const game = await response.json();
-    console.log('✅ Partida creada:', game);
-    
-    // La IA se agrega automáticamente en el backend para partidas PvE
-    console.log('🤖 IA agregada automáticamente por el backend');
-    
-    // Iniciar la partida
-    await fetch(`/api/games/${game.id}/start`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
-    });
-    
-    alert(`✅ Partida vs IA iniciada!\nID: ${game.id}\n\nConectando al juego...`);
-    showGameView(game.id);
-  } catch (error) {
-    console.error('❌ Error creando la partida:', error);
-    alert(`❌ Error: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-  }
-}
-
-async function createOnlineGame(): Promise<void> {
-  try {
-    console.log('🌐 Creando partida multijugador...');
-    const response = await fetch('/api/games', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre: 'Multijugador', gameMode: 'pvp', maxPlayers: 2 })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const game = await response.json();
-    console.log('✅ Partida multijugador creada:', game);
-    alert(`✅ Partida multijugador creada!\nID: ${game.id}\n\nConectando al juego...`);
-    showGameView(game.id);
-  } catch (error) {
-    console.error('❌ Error creando partida multijugador:', error);
-    alert(`❌ Error: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-  }
-}
-
-async function joinOnlineGame(): Promise<void> {
-  try {
-    // Primero obtener lista de partidas disponibles
-    const response = await fetch('/api/games');
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    const availableGames = data.games.filter((g: any) => g.jugadoresConectados < g.capacidadMaxima);
-    
-    if (availableGames.length === 0) {
-      console.log('❌ No hay partidas disponibles para unirse.');
-      navigateTo('/game-select');
-    }
-    
-    navigateTo('/game-select');
-  } catch (error) {
-    console.error('❌ Error uniéndose a la partida:', error);
-    alert(`❌ Error: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-  }
-}
-
 function showGameView(gameId: string): void {
-  // Obtener usuario actual
-  const currentUser = getCurrentUser();
-  const currentUserName = currentUser?.username || "Usuario";
   const content = document.getElementById('page-content');
   if (!content) return;
   
   content.innerHTML = `
     <div class="w-full max-w-4xl mx-auto p-8">
-      <h1 class="text-3xl font-bold text-center mb-4">🎮 Partida Online</h1>
-      <p class="text-center mb-6">ID: ${gameId}</p>
+      <h1 class="text-3xl font-bold text-center mb-6">🎮 Partida Online</h1>
       
-      <!-- Player Role and Controls Info -->
-      <div id="player-info" class="bg-gray-800 rounded-lg p-4 mb-6 text-center">
-        <div id="player-cards" class="grid grid-cols-2 gap-4 mb-4">
-          <!-- Las cartas se generarán dinámicamente -->
+      <!-- Player Info Section -->
+      <div id="player-info" class="bg-gray-800 rounded-lg p-4 mb-6">
+        <div id="player-cards" class="mb-4">
+          <!-- Las tarjetas se generarán dinámicamente -->
         </div>
-        <div id="player-role" class="text-yellow-400 font-bold">
-          🔄 Asignando rol de jugador...
+        <div id="player-role" class="text-center text-yellow-400 font-bold">
+          🔄 Conectando y asignando rol...
         </div>
       </div>
       
@@ -156,11 +69,11 @@ function showGameView(gameId: string): void {
       <div class="text-center mb-4">
         <div id="score-container" class="grid grid-cols-2 gap-4 mb-4">
           <div class="text-left">
-            <h3 class="text-xl font-bold text-yellow-400" id="score1-title">🟡 Jugador</h3>
+            <h3 class="text-xl font-bold text-yellow-400" id="score1-title">🟡 Conectando...</h3>
             <p class="text-2xl font-bold" id="score1">0</p>
           </div>
           <div class="text-right">
-            <h3 class="text-xl font-bold text-blue-400" id="score2-title">🔵 Jugador</h3>
+            <h3 class="text-xl font-bold text-blue-400" id="score2-title">🔵 Conectando...</h3>
             <p class="text-2xl font-bold" id="score2">0</p>
           </div>
         </div>
@@ -170,106 +83,25 @@ function showGameView(gameId: string): void {
         </div>
         
         <div class="space-x-4">
-          <button id="leave-game" class="bg-red-500 text-white font-semibold py-2 px-4 rounded">Salir del Juego</button>
+          <button id="leave-game" class="bg-red-500 text-white font-semibold py-2 px-4 rounded hover:bg-red-600">Salir del Juego</button>
         </div>
       </div>
-    </div>
-    
-    <!-- Winner Modal -->
-    <div id="winner-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-      <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center">
-        <div id="winner-content" class="mb-6">
-          <h2 class="text-3xl font-bold mb-4">🏆 Juego Terminado</h2>
-          <p id="winner-message" class="text-xl mb-4">Mensaje del ganador</p>
-          <div id="final-score" class="text-lg text-gray-600 mb-4">Puntuación final</div>
-        </div>
-        <button id="return-to-lobby" class="bg-blue-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 transition">
-          Volver al Lobby
-        </button>
+      
+      <div class="text-center">
+        <button id="back-to-play" class="bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600">Volver a Selección</button>
       </div>
     </div>
   `;
   
   document.getElementById('leave-game')?.addEventListener('click', () => {
-    navigateTo('/game-online');
+    navigateTo('/game-select');
   });
   
-  document.getElementById('return-to-lobby')?.addEventListener('click', () => {
-    hideWinnerModal();
-    navigateTo('/game-online');
+  document.getElementById('back-to-play')?.addEventListener('click', () => {
+    navigateTo('/play');
   });
   
   connectToGame(gameId);
-}
-
-function showGameLobby(gameId: string): void {
-  const content = document.getElementById('page-content');
-  if (!content) return;
-  
-  content.innerHTML = `
-    <div class="w-full max-w-4xl mx-auto p-8 text-center">
-      <h1 class="text-3xl font-bold mb-4">🌐 Lobby Multijugador</h1>
-      <p class="mb-6">ID de Partida: ${gameId}</p>
-      
-      <div class="bg-gray-800 rounded-lg p-6 mb-6">
-        <h2 class="text-xl font-bold mb-4">Esperando Jugadores...</h2>
-        <div id="players-list" class="space-y-2">
-          <p>🔄 Cargando...</p>
-        </div>
-      </div>
-      
-      <div class="space-x-4">
-        <button id="start-game" class="bg-green-500 text-white font-semibold py-2 px-4 rounded" disabled>Iniciar Partida</button>
-        <button id="leave-lobby" class="bg-red-500 text-white font-semibold py-2 px-4 rounded">Salir del Lobby</button>
-      </div>
-    </div>
-  `;
-  
-  document.getElementById('leave-lobby')?.addEventListener('click', () => {
-    navigateTo('/game-online');
-  });
-  
-  // Aquí se conectaría al lobby WebSocket
-  checkGameStatus(gameId);
-}
-
-async function checkGameStatus(gameId: string): Promise<void> {
-  try {
-    const response = await fetch(`/api/games/${gameId}`);
-    const game = await response.json();
-    
-    const playersList = document.getElementById('players-list');
-    if (playersList) {
-      playersList.innerHTML = `
-        <p>👥 Jugadores: ${game.jugadoresConectados}/${game.capacidadMaxima}</p>
-        <p>Estado: ${game.enJuego ? '🎮 En Juego' : '⏳ Esperando'}</p>
-      `;
-    }
-    
-    if (game.jugadoresConectados >= 2) {
-      const startBtn = document.getElementById('start-game') as HTMLButtonElement;
-      if (startBtn) {
-        startBtn.disabled = false;
-        startBtn.onclick = () => startMultiplayerGame(gameId);
-      }
-    }
-  } catch (error) {
-    console.error('Error verificando estado:', error);
-  }
-}
-
-async function startMultiplayerGame(gameId: string): Promise<void> {
-  try {
-    await fetch(`/api/games/${gameId}/start`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
-    });
-    
-    showGameView(gameId);
-  } catch (error) {
-    console.error('Error iniciando partida:', error);
-  }
 }
 
 function connectToGame(gameId: string): void {
@@ -288,12 +120,17 @@ function connectToGame(gameId: string): void {
   
   // Construir URL WebSocket correcta
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${window.location.host}/pong/${gameId}`;
+  const currentUser = getCurrentUser();
+  const currentUserName = currentUser?.username || "Usuario";
+  const username = encodeURIComponent(currentUserName);
+  const wsUrl = `${protocol}//${window.location.host}/pong/${gameId}?username=${username}`;
   
   console.log('🔗 Conectando al WebSocket:', wsUrl);
   const socket = new WebSocket(wsUrl);
   let playerNumber: number | null = null;
-  let gameMode: string = 'pvp'; // Por defecto PvP
+  let gameMode: string = 'pvp';
+  let player1Info: PlayerInfo | null = null;
+  let player2Info: PlayerInfo | null = null;
 
   socket.onopen = () => {
     console.log(`✅ Conectado a la partida ${gameId}`);
@@ -301,6 +138,80 @@ function connectToGame(gameId: string): void {
       statusElement.innerHTML = '<p class="text-green-500">✅ Conectado! Esperando asignación...</p>';
     }
   };
+
+  function updatePlayersInfo(jugadoresInfo: any[]) {
+    console.log('📋 Actualizando información de jugadores:', jugadoresInfo);
+    
+    // Detectar el modo de juego
+    const currentUrl = window.location.pathname;
+    if (currentUrl.includes('game-ai') || sessionStorage.getItem('gameType') === 'ai') {
+      gameMode = 'pve';
+    }
+    
+    // Crear información de jugadores con datos reales
+    player1Info = {
+      numero: 1,
+      username: 'Esperando...',
+      displayName: 'Esperando...',
+      esIA: false,
+      isCurrentUser: playerNumber === 1
+    };
+    
+    player2Info = {
+      numero: 2,
+      username: gameMode === 'pve' ? 'IA' : 'Esperando...',
+      displayName: gameMode === 'pve' ? 'IA' : 'Esperando...',
+      esIA: gameMode === 'pve',
+      isCurrentUser: playerNumber === 2
+    };
+    
+    // Actualizar con información real de los jugadores
+    jugadoresInfo.forEach((jugador: any) => {
+      if (jugador.numero === 1) {
+        player1Info = {
+          numero: 1,
+          username: jugador.username || jugador.displayName || 'Jugador 1',
+          displayName: jugador.displayName || jugador.username || 'Jugador 1',
+          esIA: jugador.esIA || false,
+          isCurrentUser: playerNumber === 1
+        };
+      } else if (jugador.numero === 2) {
+        player2Info = {
+          numero: 2,
+          username: jugador.username || jugador.displayName || (gameMode === 'pve' ? 'IA' : 'Jugador 2'),
+          displayName: jugador.displayName || jugador.username || (gameMode === 'pve' ? 'IA' : 'Jugador 2'),
+          esIA: jugador.esIA || (gameMode === 'pve'),
+          isCurrentUser: playerNumber === 2
+        };
+      }
+    });
+    
+    // Actualizar la visualización
+    if (playerNumber !== null && player1Info && player2Info) {
+      updatePlayerDisplay(player1Info, player2Info, playerNumber, gameMode);
+    }
+    
+    // Actualizar el estado según la cantidad de jugadores
+    if (statusElement) {
+      const currentPlayerName = playerNumber === 1 ? player1Info?.displayName : player2Info?.displayName;
+      const opponentName = playerNumber === 1 ? player2Info?.displayName : player1Info?.displayName;
+      const side = playerNumber === 1 ? 'izquierda' : 'derecha';
+      const sideColor = playerNumber === 1 ? 'amarilla' : 'azul';
+      
+      if (jugadoresInfo.length === 2) {
+        statusElement.innerHTML = `
+          <p class="text-green-500 text-lg font-bold">🎮 Eres <span class="text-yellow-300">${currentPlayerName}</span> vs <span class="text-blue-300">${opponentName}</span></p>
+          <p class="text-blue-400">📍 Juegas en el lado <strong>${side}</strong> con la pala <strong>${sideColor}</strong></p>
+          <p class="text-gray-300">🎯 Controles: <strong>W</strong> (arriba) y <strong>S</strong> (abajo)</p>
+        `;
+      } else {
+        statusElement.innerHTML = `
+          <p class="text-yellow-500">⏳ Esperando otro jugador...</p>
+          <p class="text-blue-400">📍 Serás el jugador del lado <strong>${side}</strong> con la pala <strong>${sideColor}</strong></p>
+        `;
+      }
+    }
+  }
 
   socket.onmessage = (event) => {
     try {
@@ -311,19 +222,14 @@ function connectToGame(gameId: string): void {
         playerNumber = data.numero;
         console.log(`🎮 Soy el jugador ${playerNumber}`);
         
-        // Detectar el modo de juego basado en el gameId almacenado
-        const currentUrl = window.location.pathname;
-        if (currentUrl.includes('game-ai') || sessionStorage.getItem('gameType') === 'ai') {
-          gameMode = 'pve';
-        }
-        
-        if (playerNumber !== null) {
-          updatePlayerRole(playerNumber, gameMode);
-        }
-        if (statusElement) {
-          const modeText = gameMode === 'pve' ? 'IA' : 'otro jugador';
-          statusElement.innerHTML = `<p class="text-green-500">🎮 Eres el ${getCurrentUser()?.username || "Usuario"} vs ${modeText}! Usa W/S para mover</p>`;
-        }
+        // Actualizar información de jugadores
+        const jugadoresInfo = data.jugadores || [];
+        updatePlayersInfo(jugadoresInfo);
+      }
+      
+      if (data.tipo === 'jugadores_actualizados') {
+        console.log('🔄 Recibida actualización de jugadores');
+        updatePlayersInfo(data.jugadores || []);
       }
       
       if (data.tipo === 'estado' && data.juego && ctx) {
@@ -333,9 +239,15 @@ function connectToGame(gameId: string): void {
       
       if (data.tipo === 'estado_general') {
         if (statusElement) {
-          // En modo PvE, no mostrar "Esperando jugador" si la IA ya está presente
           if (gameMode === 'pve' && data.estado && data.estado.includes('esperando_jugador')) {
             statusElement.innerHTML = '<p class="text-green-500">🎮 ¡Listo para jugar contra la IA!</p>';
+          } else if (data.estado && data.estado.includes('esperando_jugador')) {
+            const side = playerNumber === 1 ? 'izquierda' : 'derecha';
+            const sideColor = playerNumber === 1 ? 'amarilla' : 'azul';
+            statusElement.innerHTML = `
+              <p class="text-yellow-500">⏳ Esperando otro jugador...</p>
+              <p class="text-blue-400">📍 Serás el jugador del lado <strong>${side}</strong> con la pala <strong>${sideColor}</strong></p>
+            `;
           } else {
             statusElement.innerHTML = `<p class="text-yellow-500">⏳ ${data.estado}</p>`;
           }
@@ -344,25 +256,45 @@ function connectToGame(gameId: string): void {
       
       if (data.tipo === 'cuenta_atras') {
         if (statusElement) {
-          statusElement.innerHTML = `<p class="text-orange-500">🔢 Iniciando en ${data.valor}...</p>`;
+          const currentPlayerName = playerNumber === 1 ? player1Info?.displayName : player2Info?.displayName;
+          const opponentName = playerNumber === 1 ? player2Info?.displayName : player1Info?.displayName;
+          const side = playerNumber === 1 ? 'izquierda' : 'derecha';
+          const sideColor = playerNumber === 1 ? 'amarilla' : 'azul';
+          
+          statusElement.innerHTML = `
+            <p class="text-orange-500 text-xl font-bold">🔢 Iniciando en ${data.valor}...</p>
+            <p class="text-green-500">🎮 <span class="text-yellow-300">${currentPlayerName}</span> vs <span class="text-blue-300">${opponentName}</span></p>
+            <p class="text-blue-400">📍 Lado <strong>${side}</strong> - Pala <strong>${sideColor}</strong> - Controles: <strong>W/S</strong></p>
+          `;
         }
       }
       
       if (data.tipo === 'juego_iniciado') {
         if (statusElement) {
-          statusElement.innerHTML = '<p class="text-green-500">🎮 ¡Juego iniciado! Usa W/S para mover</p>';
+          const currentPlayerName = playerNumber === 1 ? player1Info?.displayName : player2Info?.displayName;
+          const opponentName = playerNumber === 1 ? player2Info?.displayName : player1Info?.displayName;
+          const side = playerNumber === 1 ? 'izquierda' : 'derecha';
+          const sideColor = playerNumber === 1 ? 'amarilla' : 'azul';
+          
+          statusElement.innerHTML = `
+            <p class="text-green-500 text-lg font-bold">🎮 ¡Juego iniciado!</p>
+            <p class="text-green-400"><span class="text-yellow-300">${currentPlayerName}</span> vs <span class="text-blue-300">${opponentName}</span></p>
+            <p class="text-blue-400">📍 Lado <strong>${side}</strong> - Pala <strong>${sideColor}</strong> - Usa <strong>W/S</strong> para mover</p>
+          `;
         }
       }
       
       if (data.tipo === 'juego_finalizado') {
-        showWinnerModal(data.mensaje, data.juego);
+        console.log('🏆 Juego finalizado recibido:', data);
+        showWinnerModal(data.mensaje, data.juego, player1Info, player2Info);
         if (statusElement) {
           statusElement.innerHTML = `<p class="text-blue-500">🏆 ${data.mensaje}</p>`;
         }
       }
       
       if (data.tipo === 'jugador_desconectado') {
-        showWinnerModal('¡Has ganado! Tu oponente se desconectó.', data.juego);
+        console.log('❌ Jugador desconectado recibido:', data);
+        showWinnerModal('¡Has ganado! Tu oponente se desconectó.', data.juego, player1Info, player2Info);
         if (statusElement) {
           statusElement.innerHTML = '<p class="text-red-500">❌ Oponente desconectado</p>';
         }
@@ -373,9 +305,9 @@ function connectToGame(gameId: string): void {
   };
 
   socket.onclose = () => {
-    console.log('❌ Desconectado del juego');
+    console.log('🔌 Desconectado del WebSocket');
     if (statusElement) {
-      statusElement.innerHTML = '<p class="text-red-500">❌ Desconectado del juego</p>';
+      statusElement.innerHTML = '<p class="text-red-500">❌ Desconectado</p>';
     }
   };
 
@@ -385,130 +317,51 @@ function connectToGame(gameId: string): void {
       statusElement.innerHTML = '<p class="text-red-500">❌ Error de conexión</p>';
     }
   };
-  
-  // Controles de teclado mejorados
-  const keys = { w: false, s: false };
-  let lastMoveTime = 0;
-  
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key.toLowerCase() === 'w' && !keys.w) {
-      keys.w = true;
-      e.preventDefault();
-    }
-    if (e.key.toLowerCase() === 's' && !keys.s) {
-      keys.s = true;
-      e.preventDefault();
-    }
-  };
-  
-  const handleKeyUp = (e: KeyboardEvent) => {
-    if (e.key.toLowerCase() === 'w') {
-      keys.w = false;
-      e.preventDefault();
-    }
-    if (e.key.toLowerCase() === 's') {
-      keys.s = false;
-      e.preventDefault();
-    }
-  };
-  
-  document.addEventListener('keydown', handleKeyDown);
-  document.addEventListener('keyup', handleKeyUp);
-  
-  // Enviar movimientos con mejor control
-  const moveInterval = setInterval(() => {
-    if (socket.readyState === WebSocket.OPEN && playerNumber) {
-      const now = Date.now();
-      if (now - lastMoveTime > 30) { // Limitar a ~33 FPS
-        if (keys.w) {
-          socket.send(JSON.stringify({ tipo: 'mover', y: -8 })); // Increase speed
-          lastMoveTime = now;
-        }
-        if (keys.s) {
-          socket.send(JSON.stringify({ tipo: 'mover', y: 8 })); // Increase speed
-          lastMoveTime = now;
-        }
+
+  // Configurar controles del teclado
+  document.addEventListener('keydown', (e) => {
+    if (socket.readyState === WebSocket.OPEN) {
+      if (e.key === 'w' || e.key === 'W') {
+        socket.send(JSON.stringify({ tipo: 'mover', y: -5 }));
+      } else if (e.key === 's' || e.key === 'S') {
+        socket.send(JSON.stringify({ tipo: 'mover', y: 5 }));
       }
     }
-  }, 16); // ~60 FPS
-  
-  // Limpiar eventos cuando se cierre la conexión
-  socket.addEventListener('close', () => {
-    document.removeEventListener('keydown', handleKeyDown);
-    document.removeEventListener('keyup', handleKeyUp);
-    clearInterval(moveInterval);
   });
-  
-  // Dibujar estado inicial del canvas
+
+  // Dibujar canvas inicial
   drawInitialCanvas(ctx);
 }
 
-function updatePlayerRole(playerNumber: number, gameMode: string = 'pvp'): void {
+function updatePlayerDisplay(player1: PlayerInfo, player2: PlayerInfo, playerNumber: number, gameMode: string): void {
   const playerCardsContainer = document.getElementById('player-cards');
   const playerRoleElement = document.getElementById('player-role');
-  const score1Title = document.getElementById('score1-title');
-  const score2Title = document.getElementById('score2-title');
+  const score1TitleElement = document.getElementById('score1-title');
+  const score2TitleElement = document.getElementById('score2-title');
   
-  if (!playerCardsContainer || !playerRoleElement) return;
+  if (playerCardsContainer) {
+    const playerCardsHtml = PlayerDisplay.generatePlayerCards(player1, player2, 'online');
+    playerCardsContainer.innerHTML = playerCardsHtml;
+  }
   
-  // Configuración de jugadores según el modo de juego
-  const isPvE = gameMode === 'pve';
-  const opponentInfo = isPvE ? 
-    { type: 'IA', icon: '🤖', description: 'Inteligencia Artificial' } : 
-    { type: 'Jugador Online', icon: '👤', description: 'Jugador humano' };
+  if (playerRoleElement) {
+    const currentPlayer = playerNumber === 1 ? player1 : player2;
+    const opponent = playerNumber === 1 ? player2 : player1;
+    const playerRoleHtml = PlayerDisplay.generatePlayerRoleInfo(currentPlayer, opponent, 'online');
+    playerRoleElement.innerHTML = playerRoleHtml;
+  }
   
-  const playerConfig = {
-    1: {
-      you: { color: 'yellow', bgColor: 'bg-yellow-600', side: 'Izquierdo', controls: 'W (arriba) / S (abajo)' },
-      opponent: { color: 'blue', bgColor: 'bg-blue-600', side: 'Derecho', ...opponentInfo }
-    },
-    2: {
-      you: { color: 'blue', bgColor: 'bg-blue-600', side: 'Derecho', controls: 'W (arriba) / S (abajo)' },
-      opponent: { color: 'yellow', bgColor: 'bg-yellow-600', side: 'Izquierdo', ...opponentInfo }
-    }
-  };
-  
-  const config = playerConfig[playerNumber as keyof typeof playerConfig];
-  
-  if (config) {
-    playerCardsContainer.innerHTML = `
-      <div class="${config.you.bgColor} rounded-lg p-3">
-        <h3 class="text-lg font-bold text-white">📱 Tú (${getCurrentUser()?.username || "Usuario"})</h3>
-        <p class="text-sm text-${config.you.color}-200">${config.you.color === 'yellow' ? 'Amarilla' : 'Azul'} - Lado ${config.you.side}</p>
-        <p class="text-xs text-${config.you.color}-200">Controles: ${config.you.controls}</p>
-      </div>
-      <div class="${config.opponent.bgColor} rounded-lg p-3">
-        <h3 class="text-lg font-bold text-white">${config.opponent.icon} ${config.opponent.type}</h3>
-        <p class="text-sm text-${config.opponent.color}-200">${config.opponent.color === 'yellow' ? 'Amarilla' : 'Azul'} - Lado ${config.opponent.side}</p>
-        <p class="text-xs text-${config.opponent.color}-200">${config.opponent.description}</p>
-      </div>
-    `;
-    
-    playerRoleElement.innerHTML = `
-      <div class="text-green-400 font-bold">
-        ✅ Eres el ${getCurrentUser()?.username || "Usuario"} vs ${config.opponent.type} (Pala ${config.you.color === 'yellow' ? 'Amarilla' : 'Azul'} - Lado ${config.you.side})
-      </div>
-    `;
-    
-    // Actualizar títulos del marcador
-    if (score1Title && score2Title) {
-      if (playerNumber === 1) {
-                  score1Title.innerHTML = `🟡 ${getCurrentUser()?.username || "Usuario"} (Tú)`;
-                  score2Title.innerHTML = isPvE ? '🔵 IA (Oponente)' : '🔵 Oponente';
-      } else {
-        score1Title.innerHTML = isPvE ? '🟡 IA (Oponente)' : '🟡 Oponente';
-        score2Title.innerHTML = `🔵 ${getCurrentUser()?.username || "Usuario"} (Tú)`;
-      }
-    }
+  if (score1TitleElement && score2TitleElement) {
+    const scoreTitles = PlayerDisplay.generateScoreTitles(player1, player2, playerNumber);
+    score1TitleElement.innerHTML = scoreTitles.player1Title;
+    score2TitleElement.innerHTML = scoreTitles.player2Title;
   }
 }
 
 function drawInitialCanvas(ctx: CanvasRenderingContext2D): void {
-  // Limpiar canvas
   ctx.fillStyle = 'black';
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   
-  // Línea central
   ctx.strokeStyle = 'white';
   ctx.setLineDash([5, 5]);
   ctx.beginPath();
@@ -516,19 +369,16 @@ function drawInitialCanvas(ctx: CanvasRenderingContext2D): void {
   ctx.lineTo(ctx.canvas.width / 2, ctx.canvas.height);
   ctx.stroke();
   
-  // Mensaje de espera
   ctx.fillStyle = 'white';
   ctx.font = '24px Arial';
   ctx.textAlign = 'center';
   ctx.fillText('Esperando jugadores...', ctx.canvas.width / 2, ctx.canvas.height / 2);
 }
 
-function drawGame(ctx: CanvasRenderingContext2D, gameState: any): void {
-  // Limpiar canvas
+function drawGame(ctx: CanvasRenderingContext2D, gameData: any): void {
   ctx.fillStyle = 'black';
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   
-  // Línea central
   ctx.strokeStyle = 'white';
   ctx.setLineDash([5, 5]);
   ctx.beginPath();
@@ -536,41 +386,89 @@ function drawGame(ctx: CanvasRenderingContext2D, gameState: any): void {
   ctx.lineTo(ctx.canvas.width / 2, ctx.canvas.height);
   ctx.stroke();
   
-  // Palas
-  ctx.fillStyle = 'yellow'; // Pala jugador 1
-  ctx.fillRect(gameState.palas.jugador1.x, gameState.palas.jugador1.y, gameState.palaAncho, gameState.palaAlto);
-  ctx.fillStyle = 'blue'; // Pala jugador 2
-  ctx.fillRect(gameState.palas.jugador2.x, gameState.palas.jugador2.y, gameState.palaAncho, gameState.palaAlto);
+  ctx.fillStyle = 'white';
+  ctx.setLineDash([]);
   
-  // Pelota
-  ctx.fillStyle = 'red';
+  ctx.fillRect(
+    gameData.palas.jugador1.x,
+    gameData.palas.jugador1.y,
+    gameData.palaAncho,
+    gameData.palaAlto
+  );
+  
+  ctx.fillRect(
+    gameData.palas.jugador2.x,
+    gameData.palas.jugador2.y,
+    gameData.palaAncho,
+    gameData.palaAlto
+  );
+  
   ctx.beginPath();
-  ctx.arc(gameState.pelota.x, gameState.pelota.y, gameState.pelota.radio, 0, Math.PI * 2);
+  ctx.arc(gameData.pelota.x, gameData.pelota.y, gameData.pelota.radio, 0, 2 * Math.PI);
   ctx.fill();
 }
 
-function updateScore(gameState: any): void {
-  const score1 = document.getElementById('score1');
-  const score2 = document.getElementById('score2');
-  if (score1) score1.textContent = gameState.puntuacion.jugador1.toString();
-  if (score2) score2.textContent = gameState.puntuacion.jugador2.toString();
-}
-
-function showWinnerModal(message: string, gameState: any): void {
-  const modal = document.getElementById('winner-modal');
-  const winnerMessage = document.getElementById('winner-message');
-  const finalScore = document.getElementById('final-score');
+function updateScore(gameData: any): void {
+  const score1Element = document.getElementById('score1');
+  const score2Element = document.getElementById('score2');
   
-  if (modal && winnerMessage && finalScore) {
-    winnerMessage.textContent = message;
-    finalScore.textContent = `Puntuación Final: ${gameState?.puntuacion?.jugador1 || 0} - ${gameState?.puntuacion?.jugador2 || 0}`;
-    modal.classList.remove('hidden');
+  if (score1Element) {
+    score1Element.textContent = gameData.puntuacion.jugador1.toString();
+  }
+  if (score2Element) {
+    score2Element.textContent = gameData.puntuacion.jugador2.toString();
   }
 }
 
-function hideWinnerModal(): void {
-  const modal = document.getElementById('winner-modal');
-  if (modal) {
-    modal.classList.add('hidden');
-  }
+function showWinnerModal(message: string, gameData: any, player1Info: PlayerInfo | null, player2Info: PlayerInfo | null): void {
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+  
+  const player1Name = player1Info?.displayName || 'Jugador 1';
+  const player2Name = player2Info?.displayName || 'Jugador 2';
+  
+  // Asegurar que gameData tenga puntuaciones válidas
+  const puntuacion1 = gameData?.puntuacion?.jugador1 || 0;
+  const puntuacion2 = gameData?.puntuacion?.jugador2 || 0;
+  
+  console.log('📊 Datos del juego final:', gameData);
+  console.log('🏆 Puntuaciones:', { jugador1: puntuacion1, jugador2: puntuacion2 });
+  
+  modal.innerHTML = `
+    u003cdiv class="bg-white rounded-lg p-8 max-w-md w-full mx-4"u003e
+      u003ch2 class="text-2xl font-bold mb-4 text-center text-gray-800"u003e🏆 Juego Terminadou003c/h2u003e
+      u003cp class="text-center mb-6 text-gray-600"u003e${message}u003c/pu003e
+      u003cdiv class="text-center mb-6"u003e
+        u003cp class="text-lg font-semibold mb-2 text-gray-800"u003ePuntuación Final:u003c/pu003e
+        u003cdiv class="bg-gray-100 rounded-lg p-4"u003e
+          u003cp class="text-xl font-bold text-yellow-600 mb-2"u003e
+            🟡 ${player1Name}: ${puntuacion1}
+          u003c/pu003e
+          u003cp class="text-xl font-bold text-blue-600"u003e
+            🔵 ${player2Name}: ${puntuacion2}
+          u003c/pu003e
+        u003c/divu003e
+      u003c/divu003e
+      u003cdiv class="flex justify-center space-x-4"u003e
+        u003cbutton id="play-again" class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors"u003e
+          Jugar de Nuevo
+        u003c/buttonu003e
+        u003cbutton id="back-to-lobby" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"u003e
+          Volver al Lobby
+        u003c/buttonu003e
+      u003c/divu003e
+    u003c/divu003e
+  `;
+  
+  document.body.appendChild(modal);
+  
+  document.getElementById('play-again')?.addEventListener('click', () => {
+    document.body.removeChild(modal);
+    navigateTo('/game-online');
+  });
+  
+  document.getElementById('back-to-lobby')?.addEventListener('click', () => {
+    document.body.removeChild(modal);
+    navigateTo('/play');
+  });
 }
