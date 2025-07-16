@@ -14,6 +14,7 @@ import { renderGameLocal } from './pages/gameLocal';
 import { renderGameOnline } from './pages/gameOnline';
 import { renderGameObserver } from './pages/gameObserver';
 import { renderGameSelect } from './pages/gameSelect';
+import { renderGameLobby } from './pages/gameLobby';
 import { renderGameAI } from './pages/gameAI';
 import { renderGameMultiplayer } from './pages/gameMultiplayer';
 
@@ -38,6 +39,7 @@ const routes: { [key: string]: () => void } = {
   
   // Nuevas rutas de juego
   '/game-selection': renderGameSelection,
+  '/game-lobby': renderGameLobby,
   '/game-local': renderGameLocal,
   '/game-online': renderGameOnline,
   '/game-observer': renderGameObserver,
