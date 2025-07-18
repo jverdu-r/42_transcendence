@@ -16,6 +16,8 @@ services:
     depends_on:
       - db-service
       - vault
+    volumes:
+      - db_data:/app/data
     networks:
       - transcendence_net
     restart: on-failure

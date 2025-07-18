@@ -1,15 +1,24 @@
 import Fastify from 'fastify';
+import fs from 'fs';
+import path from 'path';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import { openDb, initializeDb } from './database';
 import redis from './redis-client';
+import multipart from '@fastify/multipart';
+import { pipeline } from 'stream';
+import util from 'util';
+import { FastifyRequest } from 'fastify';
+import { MultipartFile } from '@fastify/multipart';
 
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
 
 const fastify = Fastify({ logger: true });
+
+fastify.register(multipart);
 
 // Habilitar CORS
 fastify.register(require('@fastify/cors'), {
@@ -18,13 +27,29 @@ fastify.register(require('@fastify/cors'), {
   allowedHeaders: ['Content-Type', 'Authorization']
 });
 
+// Asegurar que las carpetas existen
+const dataPath = path.join(__dirname, '../data');
+const avatarPath = path.join(dataPath, 'avatars');
+if (!fs.existsSync(dataPath)) fs.mkdirSync(dataPath, { recursive: true });
+if (!fs.existsSync(avatarPath)) fs.mkdirSync(avatarPath, { recursive: true });
+
+// Rutas estáticas
+fastify.register(require('@fastify/static'), {
+  root: dataPath,
+  prefix: '/downloads/'
+});
+
+fastify.register(require('@fastify/static'), {
+  root: avatarPath,
+  prefix: '/avatars/',
+  decorateReply: false // evita conflicto
+});
+
 // Middleware para verificar JWT
 async function verifyToken(request: any, reply: any) {
   const token = request.headers.authorization?.replace('Bearer ', '');
-  
-  if (!token) {
-    return reply.code(401).send({ message: 'Token requerido' });
-  }
+
+  if (!token) return reply.code(401).send({ message: 'Token requerido' });
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
@@ -34,17 +59,7 @@ async function verifyToken(request: any, reply: any) {
   }
 }
 
-// Inicializar la base de datos al arrancar
-async function initializeDatabase() {
-  try {
-    await initializeDb();
-    console.log('Base de datos inicializada correctamente');
-  } catch (error) {
-    console.error('Error al inicializar la base de datos:', error);
-  }
-}
-
-fastify.post('/auth/register', async (request, reply) => {
+fastify.post('/api/auth/register', async (request, reply) => {
   const { username, email, password } = request.body as any;
   
   if (!username || !email || !password) {
@@ -116,328 +131,177 @@ fastify.post('/auth/login', async (request, reply) => {
     return reply.code(500).send({ message: 'Error interno del servidor' });
   }
 });
+ 
+// Endpoint para obtener estadísticas del usuario y generar archivo de historial
 
-// Endpoint para obtener estadísticas del usuario
-fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, reply) => {
+ fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, reply) => {
   try {
     const db = await openDb();
     const userId = (request as any).user.user_id;
-    
-    // Obtener estadísticas del usuario
-    const totalGamesResult = await db.get(
-      'SELECT COUNT(*) as total FROM games WHERE player1_id = ? OR player2_id = ?',
-      [userId, userId]
-    );
-    
-    const winsResult = await db.get(`
-      SELECT COUNT(*) as wins FROM games 
-      WHERE status = 'completed' AND (
-        (player1_id = ? AND score1 > score2) OR 
-        (player2_id = ? AND score2 > score1)
-      )
-    `, [userId, userId]);
-    
-    const lossesResult = await db.get(`
-      SELECT COUNT(*) as losses FROM games 
-      WHERE status = 'completed' AND (
-        (player1_id = ? AND score1 < score2) OR 
-        (player2_id = ? AND score2 < score1)
-      )
-    `, [userId, userId]);
-    
-    // Obtener el historial de partidas recientes
-    const recentGames = await db.all(`
+
+    const matches = await db.all(`
       SELECT 
         g.id,
-        g.score1,
-        g.score2,
-        g.start_time,
-        g.end_time,
+        g.finished_at,
         g.status,
-        u1.username as player1_username,
-        u2.username as player2_username,
-        g.player1_id,
-        g.player2_id
+        p1.user_id AS player1_id,
+        p2.user_id AS player2_id,
+        u1.username AS player1_name,
+        u2.username AS player2_name,
+        SUM(CASE WHEN s.team_name = p1.team_name THEN 1 ELSE 0 END) AS score1,
+        SUM(CASE WHEN s.team_name = p2.team_name THEN 1 ELSE 0 END) AS score2
       FROM games g
-      LEFT JOIN users u1 ON g.player1_id = u1.id
-      LEFT JOIN users u2 ON g.player2_id = u2.id
-      WHERE (g.player1_id = ? OR g.player2_id = ?) AND g.status = 'completed'
-      ORDER BY g.end_time DESC
-      LIMIT 10
+      LEFT JOIN participants p1 ON p1.game_id = g.id AND p1.user_id = ?
+      LEFT JOIN participants p2 ON p2.game_id = g.id AND p2.user_id != ?
+      LEFT JOIN users u1 ON u1.id = p1.user_id
+      LEFT JOIN users u2 ON u2.id = p2.user_id
+      LEFT JOIN scores s ON s.game_id = g.id
+      WHERE g.status = 'completed' AND (p1.user_id IS NOT NULL OR p2.user_id IS NOT NULL)
+      GROUP BY g.id
+      ORDER BY g.finished_at DESC
     `, [userId, userId]);
-    
-    // Obtener posición en el ranking (simplificado por número de victorias)
-    const rankingResult = await db.get(`
-      SELECT COUNT(*) + 1 as ranking FROM (
-        SELECT 
-          user_id,
-          COUNT(*) as wins
-        FROM (
-          SELECT player1_id as user_id FROM games 
-          WHERE status = 'completed' AND score1 > score2
-          UNION ALL
-          SELECT player2_id as user_id FROM games 
-          WHERE status = 'completed' AND score2 > score1
-        ) wins_subquery
-        GROUP BY user_id
-        HAVING wins > ?
-      )
-    `, [winsResult.wins]);
-    
-    await db.close();
-    
-    const totalGames = totalGamesResult.total;
-    const wins = winsResult.wins;
-    const losses = lossesResult.losses;
-    const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
-    
-    // Calcular ELO simplificado (base 1000 + 50 por victoria - 25 por derrota)
-    const elo = 1000 + (wins * 50) - (losses * 25);
-    
-    // Procesar historial de partidas
-    const matchHistory = recentGames.map(game => {
-      const isPlayer1 = game.player1_id === userId;
-      const isWin = isPlayer1 ? game.score1 > game.score2 : game.score2 > game.score1;
-      const opponentName = isPlayer1 ? game.player2_username : game.player1_username;
-      const userScore = isPlayer1 ? game.score1 : game.score2;
-      const opponentScore = isPlayer1 ? game.score2 : game.score1;
-      
-      return {
-        id: game.id,
-        result: isWin ? 'win' : 'loss',
-        opponent: opponentName,
+
+    let wins = 0;
+    let losses = 0;
+    let pointsFor = 0;
+    let pointsAgainst = 0;
+
+    const matchHistory: any[] = [];
+    const matchHistoryText: string[] = [];
+
+    for (const match of matches) {
+      const isPlayer1 = match.player1_id === userId;
+      const userScore = isPlayer1 ? match.score1 : match.score2;
+      const opponentScore = isPlayer1 ? match.score2 : match.score1;
+      const opponent = isPlayer1 ? match.player2_name : match.player1_name;
+      const result = userScore > opponentScore ? 'win' : 'loss';
+
+      if (result === 'win') wins++;
+      else losses++;
+
+      pointsFor += userScore;
+      pointsAgainst += opponentScore;
+
+      const entry = {
+        id: match.id,
+        result,
+        opponent: opponent || 'Desconocido',
         score: `${userScore}-${opponentScore}`,
-        date: game.end_time
+        date: match.finished_at
       };
-    });
-    
+
+      matchHistory.push(entry);
+      matchHistoryText.push(`Partida ${entry.id} | Resultado: ${entry.result} | Oponente: ${entry.opponent} | Marcador: ${entry.score} | Fecha: ${entry.date}`);
+    }
+
+    const totalGames = wins + losses;
+    const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
+    const elo = 1000 + (pointsFor - pointsAgainst);
+
+    // Ranking por ELO
+    const allElo = await db.all(`
+      SELECT u.id AS user_id,
+        SUM(CASE WHEN p.user_id = u.id AND g.status = 'completed' AND s.team_name = p.team_name THEN 1 ELSE 0 END) as points_for,
+        SUM(CASE WHEN p.user_id = u.id AND g.status = 'completed' AND s.team_name != p.team_name THEN 1 ELSE 0 END) as points_against
+      FROM users u
+      LEFT JOIN participants p ON p.user_id = u.id
+      LEFT JOIN games g ON g.id = p.game_id
+      LEFT JOIN scores s ON s.game_id = g.id
+      GROUP BY u.id
+    `);
+
+    const eloList = allElo.map(user => ({
+      user_id: user.user_id,
+      elo: 1000 + ((user.points_for || 0) - (user.points_against || 0))
+    })).sort((a, b) => b.elo - a.elo);
+
+    const ranking = eloList.findIndex(u => u.user_id === userId) + 1;
+
+    // Escribir historial completo a archivo
+    const filePath = path.resolve('/app/data/historial_partidas.txt');
+    fs.writeFileSync(filePath, matchHistoryText.join('\n'));
+
+    await db.close();
+
     return reply.send({
       totalGames,
       wins,
       losses,
       winRate,
       elo,
-      ranking: rankingResult.ranking,
-      matchHistory
+      ranking,
+      matchHistory: matchHistory.slice(0, 5) // solo las últimas 5 para mostrar
     });
-    
   } catch (err) {
     console.error('Error obteniendo estadísticas:', err);
     return reply.code(500).send({ message: 'Error interno del servidor' });
   }
 });
 
-// Endpoint para obtener el ranking global
-fastify.get('/auth/ranking', async (request, reply) => {
+// Endpoint para subir el avatar
+
+const pump = util.promisify(pipeline);
+
+fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request, reply) => {
+  const userId = (request as any).user.user_id;
+
+  const mpRequest = request as FastifyRequest & {
+    file: () => Promise<MultipartFile>;
+  };
+
+  const data = await mpRequest.file();
+
+  if (!data) {
+    return reply.code(400).send({ message: 'No se ha enviado ningún archivo' });
+  }
+
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(data.mimetype)) {
+    return reply.code(400).send({ message: 'Tipo de archivo no permitido' });
+  }
+
+  if (data.file.truncated) {
+    return reply.code(400).send({ message: 'Archivo demasiado grande (máx 2MB)' });
+  }
+
+  const ext = data.filename.split('.').pop();
+  const saveDir = '/app/data/avatars';
+  const filename = `avatar_${userId}.${ext}`;
+  const filepath = path.join(saveDir, filename);
+
+  // Asegura que la carpeta exista
+  if (!fs.existsSync(saveDir)) {
+    fs.mkdirSync(saveDir, { recursive: true });
+  }
+
   try {
+    await pump(data.file, fs.createWriteStream(filepath));
+
+    // Guardar ruta del avatar en base de datos
     const db = await openDb();
-    
-    // Obtener el ranking de todos los usuarios
-    const rankings = await db.all(`
-      SELECT 
-        u.id,
-        u.username,
-        COALESCE(user_stats.wins, 0) as wins,
-        COALESCE(user_stats.losses, 0) as losses,
-        COALESCE(user_stats.total_games, 0) as total_games,
-        COALESCE(user_stats.elo, 1000) as elo,
-        COALESCE(user_stats.win_rate, 0) as win_rate
-      FROM users u
-      LEFT JOIN (
-        SELECT 
-          user_id,
-          SUM(wins) as wins,
-          SUM(losses) as losses,
-          SUM(total_games) as total_games,
-          (1000 + (SUM(wins) * 50) - (SUM(losses) * 25)) as elo,
-          CASE 
-            WHEN SUM(total_games) > 0 THEN ROUND((SUM(wins) * 100.0) / SUM(total_games))
-            ELSE 0 
-          END as win_rate
-        FROM (
-          SELECT 
-            player1_id as user_id,
-            COUNT(*) as total_games,
-            SUM(CASE WHEN score1 > score2 THEN 1 ELSE 0 END) as wins,
-            SUM(CASE WHEN score1 < score2 THEN 1 ELSE 0 END) as losses
-          FROM games 
-          WHERE status = 'completed'
-          GROUP BY player1_id
-          
-          UNION ALL
-          
-          SELECT 
-            player2_id as user_id,
-            COUNT(*) as total_games,
-            SUM(CASE WHEN score2 > score1 THEN 1 ELSE 0 END) as wins,
-            SUM(CASE WHEN score2 < score1 THEN 1 ELSE 0 END) as losses
-          FROM games 
-          WHERE status = 'completed'
-          GROUP BY player2_id
-        ) combined_stats
-        GROUP BY user_id
-      ) user_stats ON u.id = user_stats.user_id
-      ORDER BY elo DESC, wins DESC, total_games DESC
-      LIMIT 20
-    `);
-    
+    await db.run(`
+      INSERT INTO user_profiles (user_id, avatar_url)
+      VALUES (?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET avatar_url = excluded.avatar_url
+    `, [userId, `/avatars/${filename}`]);
+
     await db.close();
-    
-    // Formatear los datos para el frontend
-    const formattedRankings = rankings.map((user, index) => ({
-      rank: index + 1,
-      id: user.id,
-      username: user.username,
-      wins: user.wins,
-      losses: user.losses,
-      totalGames: user.total_games,
-      elo: user.elo,
-      winRate: user.win_rate,
-      points: user.elo // Usar ELO como puntos
-    }));
-    
-    return reply.send(formattedRankings);
-    
+
+    return reply.send({ message: '✅ Avatar subido correctamente', avatar_url: `/avatars/${filename}` });
   } catch (err) {
-    console.error('Error obteniendo ranking:', err);
-    return reply.code(500).send({ message: 'Error interno del servidor' });
+    console.error('Error guardando avatar:', err);
+    return reply.code(500).send({ message: 'Error subiendo avatar' });
   }
 });
 
 // Endpoint para obtener configuraciones del usuario
-fastify.get('/auth/settings', { preHandler: verifyToken }, async (request, reply) => {
-  try {
-    const db = await openDb();
-    const userId = (request as any).user.user_id;
-    
-    // Obtener todas las configuraciones del usuario
-    const settings = await db.all('SELECT setting_key, setting_value FROM user_settings WHERE user_id = ?', [userId]);
-    
-    await db.close();
-    
-    // Convertir a objeto
-    const settingsObj = settings.reduce((acc, setting) => {
-      acc[setting.setting_key] = setting.setting_value;
-      return acc;
-    }, {} as any);
-    
-    // Valores por defecto
-    const defaultSettings = {
-      language: 'es',
-      sound_effects: 'true',
-      ...settingsObj
-    };
-    
-    return reply.send(defaultSettings);
-    
-  } catch (err) {
-    console.error('Error obteniendo configuraciones:', err);
-    return reply.code(500).send({ message: 'Error interno del servidor' });
-  }
-});
+
 
 // Endpoint para actualizar configuraciones del usuario
-fastify.put('/auth/settings', { preHandler: verifyToken }, async (request, reply) => {
-  try {
-    const db = await openDb();
-    const userId = (request as any).user.user_id;
-    const settings = request.body as any;
-    
-    // Actualizar o insertar cada configuración
-    for (const [key, value] of Object.entries(settings)) {
-      await db.run(`
-        INSERT OR REPLACE INTO user_settings (user_id, setting_key, setting_value, updated_at)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-      `, [userId, key, value]);
-    }
-    
-    await db.close();
-    
-    return reply.send({ message: 'Configuraciones actualizadas exitosamente' });
-    
-  } catch (err) {
-    console.error('Error actualizando configuraciones:', err);
-    return reply.code(500).send({ message: 'Error interno del servidor' });
-  }
-});
+
 
 // Endpoint para actualizar perfil del usuario
-fastify.put('/auth/profile', { preHandler: verifyToken }, async (request, reply) => {
-  try {
-    const db = await openDb();
-    const userId = (request as any).user.user_id;
-    const { username, email, currentPassword, newPassword } = request.body as any;
-    
-    // Obtener usuario actual
-    const currentUser = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
-    
-    if (!currentUser) {
-      await db.close();
-      return reply.code(404).send({ message: 'Usuario no encontrado' });
-    }
-    
-    // Si se proporciona una nueva contraseña, verificar la actual
-    if (newPassword && currentPassword) {
-      const isCurrentPasswordValid = await bcrypt.compare(currentPassword, currentUser.password_hash);
-      if (!isCurrentPasswordValid) {
-        await db.close();
-        return reply.code(400).send({ message: 'Contraseña actual incorrecta' });
-      }
-    }
-    
-    // Preparar campos a actualizar
-    const fieldsToUpdate = [];
-    const values = [];
-    
-    if (username && username !== currentUser.username) {
-      // Verificar que el username no exista
-      const existingUser = await db.get('SELECT id FROM users WHERE username = ? AND id != ?', [username, userId]);
-      if (existingUser) {
-        await db.close();
-        return reply.code(409).send({ message: 'El nombre de usuario ya existe' });
-      }
-      fieldsToUpdate.push('username = ?');
-      values.push(username);
-    }
-    
-    if (email && email !== currentUser.email) {
-      // Verificar que el email no exista
-      const existingUser = await db.get('SELECT id FROM users WHERE email = ? AND id != ?', [email, userId]);
-      if (existingUser) {
-        await db.close();
-        return reply.code(409).send({ message: 'El email ya existe' });
-      }
-      fieldsToUpdate.push('email = ?');
-      values.push(email);
-    }
-    
-    if (newPassword && currentPassword) {
-      const hash = await bcrypt.hash(newPassword, 10);
-      fieldsToUpdate.push('password_hash = ?');
-      values.push(hash);
-    }
-    
-    // Actualizar si hay campos que cambiar
-    if (fieldsToUpdate.length > 0) {
-      values.push(userId);
-      await db.run(`UPDATE users SET ${fieldsToUpdate.join(', ')} WHERE id = ?`, values);
-    }
-    
-    // Obtener usuario actualizado
-    const updatedUser = await db.get('SELECT id, username, email FROM users WHERE id = ?', [userId]);
-    
-    await db.close();
-    
-    return reply.send({
-      message: 'Perfil actualizado exitosamente',
-      user: updatedUser
-    });
-    
-  } catch (err) {
-    console.error('Error actualizando perfil:', err);
-    return reply.code(500).send({ message: 'Error interno del servidor' });
-  }
-});
+
 
 // Endpoint para eliminar cuenta
 fastify.delete('/auth/profile', { preHandler: verifyToken }, async (request, reply) => {
@@ -531,7 +395,7 @@ fastify.post('/auth/google', async (request, reply) => {
 });
 
 // Inicializar base de datos antes de arrancar el servidor
-initializeDatabase().then(() => {
+initializeDb().then(() => {
   fastify.listen({ port: 8000, host: '0.0.0.0' }, err => {
     if (err) {
       fastify.log.error(err);
@@ -539,3 +403,4 @@ initializeDatabase().then(() => {
     }
   });
 });
+
