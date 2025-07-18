@@ -37,7 +37,6 @@ const translations: Translations = {
             loginButton: 'Iniciar sesión',
             createAccountButton: 'Crear una cuenta',
             or: 'O',
-            continueWithGoogle: 'Continuar con Google',
             noAccountYet: '¿Aún no tienes una cuenta?'
         },
         register: {
@@ -187,7 +186,6 @@ const translations: Translations = {
             loginButton: 'Login',
             createAccountButton: 'Create an Account',
             or: 'Or',
-            continueWithGoogle: 'Continue with Google',
             noAccountYet: 'Don\'t have an account yet?'
         },
         register: {
@@ -337,7 +335,6 @@ const translations: Translations = {
             loginButton: 'Iniciar sesión',
             createAccountButton: 'Crear unha conta',
             or: 'Ou',
-            continueWithGoogle: 'Continuar con Google',
             noAccountYet: 'Aínda non tes unha conta?'
         },
         register: {
@@ -487,7 +484,6 @@ const translations: Translations = {
             loginButton: '登录',
             createAccountButton: '创建账户',
             or: '或',
-            continueWithGoogle: '使用Google继续',
             noAccountYet: '还没有账户？'
         },
         register: {

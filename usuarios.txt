@@ -1,0 +1,7 @@
+- Manu con correo ardeiro@outlook.com y contraseña Temp.2
+- Ardeiro con correo ardeiro@gmail.com y contraseña Temp.1
+- HAL7000 con correo manuel.ardeiro@gmail.com y contraseña Temp.3
+- Verdu con correo jorge.verdu.ruiz@gmail.com y contraseña pass.11
+- David con correo david.aparicio247@hotmail.com y contraseña pass.22
+- ManuFern con correo manufern@student.42madrid.com y contraseña pass.33
+- Diego con correo diegorubiomorato@gmail.com y contraseña pass.44

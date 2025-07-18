@@ -87,7 +87,7 @@ stop:
 
 shell:
 	@bash -c '\
-		read -p "=> Enter service [sqlite/redis]: " service; \
+		read -p "=> Enter service: " service; \
 		$(COMPOSE) exec -it $$service /bin/bash || $(COMPOSE) exec -it $$service /bin/sh'
 
 # LIMPIEZA______________________________________________________________________
