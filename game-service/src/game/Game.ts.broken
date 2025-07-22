@@ -1,0 +1,320 @@
+import { Ball, Paddle, GameDimensions, Score, GameConfig, Player, GameMode, GameStatus, PlayerInput } from '../types/game.js';
+import { GameUtils } from '../utils/gameUtils.js';
+import { AIPlayer } from './AIPlayer.js';
+import { v4 as uuidv4 } from 'uuid';
+
+export class Game {
+  private id: string;
+  private name: string;
+  private dimensions: GameDimensions;
+  private ball: Ball;
+  private paddles: { [key: number]: Paddle } = {};
+  private score: Score;
+  private players: Player[] = [];
+  private status: GameStatus;
+  private rallyCount: number = 0;
+  private maxRally: number = 0;
+  private config: GameConfig;
+  private mode: GameMode;
+  private intervalId: NodeJS.Timeout | null = null;
+  private aiPlayer: AIPlayer | null;
+  private gameStartTime: number = Date.now();
+  private lastBallReset: number = Date.now();
+  private speedMultiplier: number = 1;
+
+  constructor(name: string, dimensions: GameDimensions, config: GameConfig, mode: GameMode = 'pvp') {
+    this.id = uuidv4();
+    this.name = name;
+    this.dimensions = dimensions;
+    this.config = config;
+    this.mode = mode;
+    this.aiPlayer = null;
+    this.status = 'waiting';
+    this.score = { player1: 0, player2: 0 };
+    this.ball = {
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      radius: 10,
+      speed: 0
+    };
+    this.initializeGame();
+  }
+
+  private initializeGame(): void {
+    this.ball = {
+      x: this.dimensions.width / 2,
+      y: this.dimensions.height / 2,
+      vx: Math.random() > 0.5 ? this.config.ballSpeed : -this.config.ballSpeed,
+      vy: (Math.random() - 0.5) * this.config.ballSpeed,
+      radius: 10,
+      speed: this.config.ballSpeed
+    };
+
+    this.paddles = {
+      1: { 
+        x: 30, 
+        y: this.dimensions.height / 2 - 50, 
+        width: 15, 
+        height: 100, 
+        speed: this.config.paddleSpeed 
+      },
+      2: { 
+        x: this.dimensions.width - 45, 
+        y: this.dimensions.height / 2 - 50, 
+        width: 15, 
+        height: 100, 
+        speed: this.config.paddleSpeed 
+      }
+    };
+
+    this.score = { player1: 0, player2: 0 };
+    this.players = [];
+    this.status = 'waiting';
+    this.rallyCount = 0;
+    this.maxRally = 0;
+    this.intervalId = null;
+    this.aiPlayer = null;
+    this.gameStartTime = Date.now();
+    this.lastBallReset = Date.now();
+    this.speedMultiplier = 1;
+  }
+
+  public addPlayer(player: Player): void {
+    if (this.players.length >= 2) {
+      throw new Error('Game is full');
+    }
+    
+    this.players.push(player);
+    
+    // If PvE mode and this is the first player, create AI for player 2
+    if (this.mode === 'pve' && this.players.length === 1) {
+      const aiPlayer: Player = {
+        id: uuidv4(),
+        number: 2,
+        isAI: true,
+        isConnected: true,
+        name: `AI (${this.config.aiDifficulty})`
+      };
+      
+      this.players.push(aiPlayer);
+      this.aiPlayer = new AIPlayer(aiPlayer, this.dimensions, this.config.aiDifficulty);
+    }
+    
+    console.log(`🎮 Player ${player.name} (${player.number}) joined game ${this.id}`);
+  }
+
+  public removePlayer(playerId: string): void {
+    this.players = this.players.filter(player => player.id !== playerId);
+    
+    if (this.players.length === 0) {
+      this.stop();
+    }
+    
+    console.log(`👋 Player ${playerId} left game ${this.id}`);
+  }
+
+  public getPlayers(): Player[] {
+    return this.players;
+  }
+
+  public getId(): string {
+    return this.id;
+  }
+
+  public getName(): string {
+
+  public setName(name: string): void {
+    this.name = name;
+  }
+    return this.name;
+  }
+
+  }
+
+  public getStatus(): GameStatus {
+    return this.status;
+  }
+
+  public getScore(): Score {
+    return this.score;
+  }
+
+  public getGameState(): any {
+    return {
+      id: this.id,
+      name: this.name,
+      ball: this.ball,
+      paddles: this.paddles,
+      score: this.score,
+      players: this.players,
+      status: this.status,
+      rallyCount: this.rallyCount,
+      maxRally: this.maxRally,
+      gameTime: Date.now() - this.gameStartTime,
+      mode: this.mode
+    };
+  }
+
+  public start(): void {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+    }
+    
+    this.status = 'playing';
+    this.gameStartTime = Date.now();
+    
+    // Start game loop at 60 FPS
+    this.intervalId = setInterval(() => {
+      this.updateGame();
+    }, 1000 / 60);
+    
+    console.log(`🚀 Game ${this.id} started`);
+  }
+
+  public stop(): void {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    
+    this.status = 'paused';
+    console.log(`⏸️ Game ${this.id} stopped`);
+  }
+
+  public finish(): void {
+    this.stop();
+    this.status = 'finished';
+    console.log(`🏁 Game ${this.id} finished`);
+  }
+
+  private updateGame(): void {
+    if (this.status !== 'playing') return;
+
+    // Update AI if present
+    if (this.aiPlayer && this.mode === 'pve') {
+      const aiMove = this.aiPlayer.update(this.ball, this.paddles[2]);
+      if (aiMove !== 'stop') {
+        this.movePaddle(2, aiMove);
+      }
+    }
+
+    // Update ball position
+    this.ball.x += this.ball.vx * this.speedMultiplier;
+    this.ball.y += this.ball.vy * this.speedMultiplier;
+
+    // Handle wall collisions
+    GameUtils.handleWallCollision(this.ball, this.dimensions);
+
+    // Check paddle collisions
+    this.checkPaddleCollisions();
+
+    // Check for scoring
+    this.checkScoring();
+
+    // Check win condition
+    this.checkWinCondition();
+
+    // Update rally count
+    this.updateRally();
+  }
+
+  private checkPaddleCollisions(): void {
+    // Check collision with player 1 paddle
+    if (GameUtils.checkCollision(this.ball, this.paddles[1])) {
+      GameUtils.handlePaddleCollision(this.ball, this.paddles[1]);
+      this.rallyCount++;
+      this.increaseSpeed();
+    }
+
+    // Check collision with player 2 paddle
+    if (GameUtils.checkCollision(this.ball, this.paddles[2])) {
+      GameUtils.handlePaddleCollision(this.ball, this.paddles[2]);
+      this.rallyCount++;
+      this.increaseSpeed();
+    }
+  }
+
+  private checkScoring(): void {
+    const outOfBounds = GameUtils.isBallOutOfBounds(this.ball, this.dimensions);
+    
+    if (outOfBounds.left) {
+      this.score.player2++;
+      this.resetBall();
+      console.log(`🎯 Player 2 scores! Score: ${this.score.player1} - ${this.score.player2}`);
+    } else if (outOfBounds.right) {
+      this.score.player1++;
+      this.resetBall();
+      console.log(`🎯 Player 1 scores! Score: ${this.score.player1} - ${this.score.player2}`);
+    }
+  }
+
+  private checkWinCondition(): void {
+    if (this.score.player1 >= this.config.maxScore || this.score.player2 >= this.config.maxScore) {
+      this.finish();
+      const winner = this.score.player1 >= this.config.maxScore ? 1 : 2;
+      console.log(`🏆 Player ${winner} wins game ${this.id}!`);
+    }
+  }
+
+  private updateRally(): void {
+    if (this.rallyCount > this.maxRally) {
+      this.maxRally = this.rallyCount;
+    }
+  }
+
+  private resetBall(): void {
+    this.lastBallReset = Date.now();
+    this.rallyCount = 0;
+    this.speedMultiplier = 1;
+    GameUtils.resetBall(this.ball, this.dimensions, this.config.ballSpeed);
+  }
+
+  private increaseSpeed(): void {
+    this.speedMultiplier = Math.min(this.speedMultiplier * 1.02, 1.5);
+  }
+
+  public movePaddle(playerNumber: 1 | 2, direction: 'up' | 'down'): void {
+    const paddle = this.paddles[playerNumber];
+    if (paddle) {
+      GameUtils.updatePaddlePosition(paddle, direction, this.dimensions);
+    }
+  }
+
+  public handlePlayerInput(input: PlayerInput): void {
+    if (this.status !== 'playing') return;
+
+    const player = this.players.find(p => p.id === input.playerId);
+    if (!player || player.isAI) return;
+
+    if (input.type === 'move' && input.direction && input.direction !== 'stop') {
+      this.movePaddle(player.number, input.direction);
+    }
+  }
+
+  public canStart(): boolean {
+    return this.players.length >= 2 && this.status === 'waiting';
+  }
+
+  public getGameStats(): any {
+    return {
+      gameId: this.id,
+      duration: Date.now() - this.gameStartTime,
+      totalRallies: this.score.player1 + this.score.player2,
+      maxRally: this.maxRally,
+      winner: this.score.player1 > this.score.player2 ? 1 : 
+              this.score.player2 > this.score.player1 ? 2 : null,
+      finalScore: this.score,
+      players: this.players,
+      mode: this.mode
+    };
+  }
+
+  public cleanup(): void {
+    this.stop();
+    this.players = [];
+    this.aiPlayer = null;
+    console.log(`🧹 Game ${this.id} cleaned up`);
+  }
+}
