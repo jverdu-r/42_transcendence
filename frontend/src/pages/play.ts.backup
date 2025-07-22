@@ -9,7 +9,7 @@ export function renderPlay(): void {
   }
 
   content.innerHTML = `
-    <div class="w-full max-w-5xl mx-auto text-center">
+    <div class="w-full max-w-4xl mx-auto text-center">
       <div class="mb-8">
         <h1 class="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
           🎮 Selecciona tu modo de juego
@@ -19,27 +19,7 @@ export function renderPlay(): void {
         </p>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <!-- Juego Local -->
-        <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors cursor-pointer transform hover:scale-105" 
-             id="local-game-card">
-          <div class="text-6xl mb-4">🏠</div>
-          <h2 class="text-xl font-bold text-yellow-400 mb-2">Juego Local</h2>
-          <p class="text-gray-300 mb-4">
-            Juega contra un amigo en el mismo dispositivo. 
-            Perfecto para partidas rápidas cara a cara.
-          </p>
-          <div class="text-sm text-gray-400 mb-3">
-            <div>👥 2 Jugadores</div>
-            <div>🎮 Mismo dispositivo</div>
-            <div>⚡ Partida instantánea</div>
-            <div>🕹️ Jugador 1: W/S - Jugador 2: ↑/↓</div>
-          </div>
-          <button class="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded transition-colors w-full">
-            Jugar Local
-          </button>
-        </div>
-
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <!-- Juego vs IA -->
         <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors cursor-pointer transform hover:scale-105" 
              id="ai-game-card">
@@ -47,10 +27,10 @@ export function renderPlay(): void {
           <h2 class="text-xl font-bold text-green-400 mb-2">vs Inteligencia Artificial</h2>
           <p class="text-gray-300 mb-4">
             Enfréntate a la IA con físicas realistas del Pong original. 
-            Elige tu nivel de desafío.
+            Elige entre 3 niveles de dificultad diferentes.
           </p>
           <div class="text-sm text-gray-400 mb-3">
-            <div>🎯 3 Dificultades disponibles</div>
+            <div>🎯 3 Dificultades (Fácil, Medio, Difícil)</div>
             <div>🧠 IA adaptativa</div>
             <div>⚡ Físicas mejoradas</div>
             <div>📊 Entrena tus habilidades</div>
@@ -127,29 +107,21 @@ export function renderPlay(): void {
       <!-- Información sobre las mejoras -->
       <div class="bg-gradient-to-r from-blue-900 to-purple-900 rounded-lg p-6">
         <h3 class="text-xl font-bold mb-4 text-yellow-400">⚡ Físicas Mejoradas del Pong Original</h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
           <div>
             <h4 class="font-semibold text-green-400 mb-2">🎯 Rebotes Realistas</h4>
             <ul class="text-sm text-gray-300 space-y-1">
-              <li>• Ángulo basado en punto de contacto</li>
-              <li>• Velocidad variable según posición</li>
+              <li>• Ángulo de rebote basado en el punto de contacto</li>
+              <li>• Velocidad variable según la posición en la pala</li>
               <li>• Incremento progresivo de velocidad</li>
             </ul>
           </div>
           <div>
             <h4 class="font-semibold text-blue-400 mb-2">🚀 Mecánicas Clásicas</h4>
             <ul class="text-sm text-gray-300 space-y-1">
-              <li>• Física de pelota fiel al original</li>
-              <li>• Rebotes en paredes superior/inferior</li>
+              <li>• Física de la pelota fiel al original</li>
+              <li>• Rebotes en paredes superior e inferior</li>
               <li>• Sistema de puntuación clásico</li>
-            </ul>
-          </div>
-          <div>
-            <h4 class="font-semibold text-yellow-400 mb-2">⏰ Nuevas Características</h4>
-            <ul class="text-sm text-gray-300 space-y-1">
-              <li>• Cuenta atrás antes de iniciar</li>
-              <li>• Partidas inmediatas sin botones</li>
-              <li>• Selector de dificultad para IA</li>
             </ul>
           </div>
         </div>
@@ -161,10 +133,6 @@ export function renderPlay(): void {
   loadGameStats();
 
   // Set up event listeners for main game modes
-  document.getElementById('local-game-card')?.addEventListener('click', () => {
-    navigateTo('/unified-game-local');
-  });
-
   document.getElementById('ai-game-card')?.addEventListener('click', () => {
     navigateTo('/unified-game-ai');
   });

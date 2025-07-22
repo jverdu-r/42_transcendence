@@ -6,10 +6,8 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "node --watch --loader ts-node/esm --no-warnings src/server.ts",
-    "dev:refactored": "node --watch --loader ts-node/esm --no-warnings src/server-refactored.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "start:refactored": "node dist/server-refactored.js",
     "test": "node --loader ts-node/esm src/test/gameEngine.test.ts"
   },
   "dependencies": {
