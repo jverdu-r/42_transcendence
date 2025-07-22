@@ -10,6 +10,8 @@ import { renderRegister } from './pages/register';
 import { renderNavbar } from './components/navbar';
 import { isAuthenticated } from './auth';
 import { renderGameSelection } from './pages/gameSelection';
+
+// Old game pages - keeping for backward compatibility
 import { renderGameLocal } from './pages/gameLocal';
 import { renderGameOnline } from './pages/gameOnline';
 import { renderGameObserver } from './pages/gameObserver';
@@ -18,6 +20,10 @@ import { renderGameLobby } from './pages/gameLobby';
 import { renderGameAI } from './pages/gameAI';
 import { renderGameMultiplayer } from './pages/gameMultiplayer';
 
+// New unified game pages
+import { renderUnifiedGameLocal } from './pages/unifiedGameLocal';
+import { renderUnifiedGameAI } from './pages/unifiedGameAI';
+import { renderUnifiedGameOnline } from './pages/unifiedGameOnline';
 
 // Define tus rutas
 const routes: { [key: string]: () => void } = {
@@ -37,7 +43,12 @@ const routes: { [key: string]: () => void } = {
   '/login': renderLoginPage,
   '/register': renderRegister,
   
-  // Nuevas rutas de juego
+  // Nuevas rutas de juego unificadas
+  '/unified-game-local': renderUnifiedGameLocal,
+  '/unified-game-ai': renderUnifiedGameAI,
+  '/unified-game-online': renderUnifiedGameOnline,
+  
+  // Rutas de juego legacy (para compatibilidad)
   '/game-selection': renderGameSelection,
   '/game-lobby': renderGameLobby,
   '/game-local': renderGameLocal,
@@ -154,4 +165,3 @@ export async function navigateTo(path: string): Promise<void> {
     window.history.pushState({}, fullPath, fullPath);
   }
 }
-
