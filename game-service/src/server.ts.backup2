@@ -3,10 +3,10 @@ import fastifyWebsocket from '@fastify/websocket';
 import fastifyCors from '@fastify/cors';
 import { v4 as uuidv4 } from 'uuid';
 import { WebSocket } from 'ws';
-import { GameManager } from './game/index.js';;
-import { AIPlayer } from './game/index.js';;
-import { GameUtils } from './utils/index.js';;
-import type { IPlayer as Player, IGameMessage as GameMessage, IPlayerInput as PlayerInput, GameMode } from './interfaces/index.js';;
+import { GameManager } from './game/GameManager.js';
+import { AIPlayer } from './game/AIPlayer.js';
+import { GameUtils } from './utils/gameUtils.js';
+import { Player, GameMessage, PlayerInput, GameMode } from './types/game.js';
 
 const fastify = Fastify({
   logger: {
@@ -102,47 +102,6 @@ fastify.register(async function (fastify) {
 
     connection.socket.on('error', (error) => {
       fastify.log.error(`❌ WebSocket error for client ${clientId}:`, error);
-    });
-  });
-});
-
-// WebSocket route for specific games
-fastify.register(async function (fastify) {
-  fastify.get('/pong/:gameId', { websocket: true }, (connection, request: any) => {
-    const gameId = request.params.gameId;
-    const clientId = uuidv4();
-    connections.set(clientId, connection.socket);
-    
-    fastify.log.info(`🔗 Client connected to game ${gameId}: ${clientId}`);
-    
-    sendToClient(clientId, {
-      type: 'connection',
-      data: { clientId, gameId, message: `Connected to game ${gameId}` }
-    });
-
-    connection.socket.on('message', async (message) => {
-      try {
-        const data = JSON.parse(message.toString());
-        fastify.log.info(`📨 Message from ${clientId} in game ${gameId}:`, data);
-        
-        await handleClientMessage(clientId, { ...data, gameId });
-      } catch (error) {
-        fastify.log.error('Error processing message:', error);
-        sendToClient(clientId, {
-          type: 'error',
-          data: { message: 'Invalid message format' }
-        });
-      }
-    });
-
-    connection.socket.on('close', () => {
-      fastify.log.info(`🔌 Client disconnected from game ${gameId}: ${clientId}`);
-      handleClientDisconnect(clientId);
-      connections.delete(clientId);
-    });
-
-    connection.socket.on('error', (error) => {
-      fastify.log.error(`❌ WebSocket error for client ${clientId} in game ${gameId}:`, error);
     });
   });
 });
@@ -322,7 +281,7 @@ async function handlePlayerMove(clientId: string, data: any): Promise<void> {
       gameId
     };
     
-    game.handlePlayerInput(playerId, input);
+    game.handlePlayerInput(input);
     
     fastify.log.debug(`🎮 Player move: ${clientId} -> ${direction}`);
   } catch (error) {
@@ -485,7 +444,43 @@ fastify.get('/stats', async (request, reply) => {
   };
 });
 
-// REST API Routes
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  fastify.log.info('🛑 Received SIGTERM, shutting down gracefully...');
+  gameManager.cleanup();
+  fastify.close(() => {
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  fastify.log.info('🛑 Received SIGINT, shutting down gracefully...');
+  gameManager.cleanup();
+  fastify.close(() => {
+    process.exit(0);
+  });
+});
+
+// Start the server
+const start = async () => {
+  try {
+    const port = process.env.PORT || 8000;
+    const host = process.env.HOST || '0.0.0.0';
+    
+    await fastify.listen({ port: Number(port), host });
+    fastify.log.info(`🎮 Game Service running on ${host}:${port}`);
+    fastify.log.info(`🔗 WebSocket endpoint: ws://${host}:${port}/ws`);
+    fastify.log.info(`❤️ Health check: http://${host}:${port}/health`);
+    fastify.log.info(`📊 Stats endpoint: http://${host}:${port}/stats`);
+  } catch (err) {
+    fastify.log.error('❌ Error starting server:', err);
+    process.exit(1);
+  }
+};
+
+start();
+
+// HTTP Routes for game management
 // Get all games
 fastify.get('/', async (request, reply) => {
   try {
@@ -536,7 +531,10 @@ fastify.get('/:gameId', async (request: any, reply) => {
       tipoJuego: 'pong'
     };
     
-    reply.send(formattedGame);
+    reply.send({ 
+      success: true, 
+      game: formattedGame 
+    });
   } catch (error) {
     fastify.log.error('Error getting game:', error);
     reply.status(500).send({ 
@@ -549,27 +547,33 @@ fastify.get('/:gameId', async (request: any, reply) => {
 // Create new game
 fastify.post('/', async (request: any, reply) => {
   try {
-    const { nombre, gameMode = 'pvp', maxPlayers = 2, playerName } = request.body;
+    const { playerName, gameMode = 'pvp', aiDifficulty = 'medium' } = request.body;
     
-    // Use provided playerName or default
-    const finalPlayerName = playerName || 'Jugador1';
+    if (!playerName) {
+      return reply.status(400).send({ 
+        success: false, 
+        error: 'Player name is required' 
+      });
+    }
     
-    const gameId = gameManager.createGame(finalPlayerName, gameMode);
+    const gameId = gameManager.createGame(playerName, gameMode);
     const game = gameManager.getGame(gameId);
     
     if (game) {
       const formattedGame = {
         id: game.getId(),
-        nombre: nombre || game.getName(),
+        nombre: game.getName(),
         jugadores: game.getPlayers().map(p => ({ nombre: p.name, numero: p.number })),
         jugadoresConectados: game.getPlayers().length,
-        capacidadMaxima: maxPlayers,
+        capacidadMaxima: 2,
         estado: game.getStatus(),
-        tipoJuego: 'pong',
-        gameMode: gameMode
+        tipoJuego: 'pong'
       };
       
-      reply.send(formattedGame);
+      reply.send({ 
+        success: true, 
+        game: formattedGame 
+      });
     } else {
       reply.status(500).send({ 
         success: false, 
@@ -610,14 +614,12 @@ fastify.post('/:gameId/join', async (request: any, reply) => {
           jugadoresConectados: game.getPlayers().length,
           capacidadMaxima: 2,
           estado: game.getStatus(),
-          tipoJuego: 'pong',
-          playerNumber: game.getPlayers().length // Return the player number
+          tipoJuego: 'pong'
         };
         
-        reply.send({
-          success: true,
-          game: formattedGame,
-          playerNumber: game.getPlayers().length
+        reply.send({ 
+          success: true, 
+          game: formattedGame 
         });
       } else {
         reply.status(404).send({ 
@@ -628,7 +630,7 @@ fastify.post('/:gameId/join', async (request: any, reply) => {
     } else {
       reply.status(400).send({ 
         success: false, 
-        error: 'Failed to join game (may be full or not found)' 
+        error: 'Failed to join game' 
       });
     }
   } catch (error) {
@@ -640,39 +642,3 @@ fastify.post('/:gameId/join', async (request: any, reply) => {
   }
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  fastify.log.info('🛑 Received SIGTERM, shutting down gracefully...');
-  gameManager.cleanup();
-  fastify.close(() => {
-    process.exit(0);
-  });
-});
-
-process.on('SIGINT', () => {
-  fastify.log.info('🛑 Received SIGINT, shutting down gracefully...');
-  gameManager.cleanup();
-  fastify.close(() => {
-    process.exit(0);
-  });
-});
-
-// Start the server
-const start = async () => {
-  try {
-    const port = process.env.PORT || 8000;
-    const host = process.env.HOST || '0.0.0.0';
-    
-    await fastify.listen({ port: Number(port), host });
-    fastify.log.info(`🎮 Game Service running on ${host}:${port}`);
-    fastify.log.info(`🔗 WebSocket endpoint: ws://${host}:${port}/ws`);
-    fastify.log.info(`🎯 Game WebSocket: ws://${host}:${port}/pong/{gameId}`);
-    fastify.log.info(`❤️ Health check: http://${host}:${port}/health`);
-    fastify.log.info(`📊 Stats endpoint: http://${host}:${port}/stats`);
-  } catch (err) {
-    fastify.log.error('❌ Error starting server:', err);
-    process.exit(1);
-  }
-};
-
-start();
