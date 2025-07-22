@@ -12,6 +12,7 @@ import { pipeline } from 'stream';
 import util from 'util';
 import { FastifyRequest } from 'fastify';
 import { MultipartFile } from '@fastify/multipart';
+import sharp from 'sharp';
 
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
@@ -21,8 +22,10 @@ const fastify = Fastify({ logger: true });
 fastify.register(multipart);
 
 // Habilitar CORS
+
 fastify.register(require('@fastify/cors'), {
   origin: true,
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 });
@@ -59,7 +62,7 @@ async function verifyToken(request: any, reply: any) {
   }
 }
 
-fastify.post('/api/auth/register', async (request, reply) => {
+fastify.post('/auth/register', async (request, reply) => {
   const { username, email, password } = request.body as any;
   
   if (!username || !email || !password) {
@@ -115,15 +118,19 @@ fastify.post('/auth/login', async (request, reply) => {
       email: user.email,
       exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hora
     }, JWT_SECRET);
+    
+    // Obtener avatar_url
+    const profile = await db.get('SELECT avatar_url FROM user_profiles WHERE user_id = ?', [user.id]);
 
     await db.close();
-    
+
     return reply.send({ 
       token,
       user: {
         id: user.id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        avatar_url: profile?.avatar_url || null
       }
     });
   } catch (err) {
@@ -134,92 +141,108 @@ fastify.post('/auth/login', async (request, reply) => {
  
 // Endpoint para obtener estadísticas del usuario y generar archivo de historial
 
- fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, reply) => {
+fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, reply) => {
   try {
     const db = await openDb();
     const userId = (request as any).user.user_id;
 
-    const matches = await db.all(`
+    const games = await db.all(`
       SELECT 
-        g.id,
+        g.id AS game_id,
         g.finished_at,
         g.status,
-        p1.user_id AS player1_id,
-        p2.user_id AS player2_id,
-        u1.username AS player1_name,
-        u2.username AS player2_name,
-        SUM(CASE WHEN s.team_name = p1.team_name THEN 1 ELSE 0 END) AS score1,
-        SUM(CASE WHEN s.team_name = p2.team_name THEN 1 ELSE 0 END) AS score2
+        p.user_id AS player_id,
+        p.team_name AS player_team,
+        u.username AS player_name
       FROM games g
-      LEFT JOIN participants p1 ON p1.game_id = g.id AND p1.user_id = ?
-      LEFT JOIN participants p2 ON p2.game_id = g.id AND p2.user_id != ?
-      LEFT JOIN users u1 ON u1.id = p1.user_id
-      LEFT JOIN users u2 ON u2.id = p2.user_id
-      LEFT JOIN scores s ON s.game_id = g.id
-      WHERE g.status = 'completed' AND (p1.user_id IS NOT NULL OR p2.user_id IS NOT NULL)
-      GROUP BY g.id
-      ORDER BY g.finished_at DESC
-    `, [userId, userId]);
-
-    let wins = 0;
-    let losses = 0;
-    let pointsFor = 0;
-    let pointsAgainst = 0;
-
-    const matchHistory: any[] = [];
-    const matchHistoryText: string[] = [];
-
-    for (const match of matches) {
-      const isPlayer1 = match.player1_id === userId;
-      const userScore = isPlayer1 ? match.score1 : match.score2;
-      const opponentScore = isPlayer1 ? match.score2 : match.score1;
-      const opponent = isPlayer1 ? match.player2_name : match.player1_name;
-      const result = userScore > opponentScore ? 'win' : 'loss';
-
-      if (result === 'win') wins++;
-      else losses++;
-
-      pointsFor += userScore;
-      pointsAgainst += opponentScore;
-
-      const entry = {
-        id: match.id,
-        result,
-        opponent: opponent || 'Desconocido',
-        score: `${userScore}-${opponentScore}`,
-        date: match.finished_at
-      };
-
-      matchHistory.push(entry);
-      matchHistoryText.push(`Partida ${entry.id} | Resultado: ${entry.result} | Oponente: ${entry.opponent} | Marcador: ${entry.score} | Fecha: ${entry.date}`);
-    }
-
-    const totalGames = wins + losses;
-    const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
-    const elo = 1000 + (pointsFor - pointsAgainst);
-
-    // Ranking por ELO
-    const allElo = await db.all(`
-      SELECT u.id AS user_id,
-        SUM(CASE WHEN p.user_id = u.id AND g.status = 'completed' AND s.team_name = p.team_name THEN 1 ELSE 0 END) as points_for,
-        SUM(CASE WHEN p.user_id = u.id AND g.status = 'completed' AND s.team_name != p.team_name THEN 1 ELSE 0 END) as points_against
-      FROM users u
-      LEFT JOIN participants p ON p.user_id = u.id
-      LEFT JOIN games g ON g.id = p.game_id
-      LEFT JOIN scores s ON s.game_id = g.id
-      GROUP BY u.id
+      JOIN participants p ON p.game_id = g.id
+      JOIN users u ON u.id = p.user_id
+      WHERE g.status = 'completed'
     `);
 
-    const eloList = allElo.map(user => ({
-      user_id: user.user_id,
-      elo: 1000 + ((user.points_for || 0) - (user.points_against || 0))
-    })).sort((a, b) => b.elo - a.elo);
+    const scores = await db.all(`
+      SELECT 
+        s.game_id,
+        s.team_name,
+        s.point_number
+      FROM scores s
+    `);
+
+    const scoreMap = new Map<string, number>();
+    for (const s of scores) {
+      scoreMap.set(`${s.game_id}_${s.team_name}`, s.point_number);
+    }
+
+    const userGames = new Map<number, {
+      matches: any[],
+      pointsFor: number,
+      pointsAgainst: number
+    }>();
+
+    for (const g of games) {
+      const rivals = games.filter(m => m.game_id === g.game_id && m.player_id !== g.player_id);
+      const rival = rivals[0];
+
+      const userScore = scoreMap.get(`${g.game_id}_${g.player_team}`) ?? 0;
+      const rivalScore = rival ? scoreMap.get(`${rival.game_id}_${rival.player_team}`) ?? 0 : 0;
+
+      if (!userGames.has(g.player_id)) {
+        userGames.set(g.player_id, {
+          matches: [],
+          pointsFor: 0,
+          pointsAgainst: 0
+        });
+      }
+
+      const result = userScore > rivalScore ? 'win' : 'loss';
+
+      userGames.get(g.player_id)!.pointsFor += userScore;
+      userGames.get(g.player_id)!.pointsAgainst += rivalScore;
+
+      userGames.get(g.player_id)!.matches.push({
+        id: g.game_id,
+        result,
+        opponent: rival ? rival.player_name : 'Bot AI',
+        score: `${userScore}-${rivalScore}`,
+        date: g.finished_at
+      });
+    }
+
+    const eloList = Array.from(userGames.entries()).map(([uid, data]) => ({
+      user_id: uid,
+      elo: 1000 + data.pointsFor - data.pointsAgainst
+    }));
+
+    const allUsers = await db.all(`SELECT id FROM users`);
+    for (const u of allUsers) {
+      if (!userGames.has(u.id)) {
+        eloList.push({ user_id: u.id, elo: 1000 });
+        userGames.set(u.id, { matches: [], pointsFor: 0, pointsAgainst: 0 });
+      }
+    }
+
+    eloList.sort((a, b) => b.elo - a.elo);
 
     const ranking = eloList.findIndex(u => u.user_id === userId) + 1;
+    const userData = userGames.get(userId)!;
 
-    // Escribir historial completo a archivo
+    const wins = userData.matches.filter(m => m.result === 'win').length;
+    const losses = userData.matches.filter(m => m.result === 'loss').length;
+    const totalGames = wins + losses;
+    const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
+    const elo = 1000 + userData.pointsFor - userData.pointsAgainst;
+
+    const matchHistory = userData.matches
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
     const filePath = path.resolve('/app/data/historial_partidas.txt');
+    const matchHistoryText = matchHistory.map(entry =>
+      `Partida ${entry.id} | Resultado: ${entry.result} | Oponente: ${entry.opponent} | Marcador: ${entry.score} | Fecha: ${entry.date}`
+    );
     fs.writeFileSync(filePath, matchHistoryText.join('\n'));
+
+    // 🔥 Consultar avatar_url del usuario
+    const profile = await db.get('SELECT avatar_url FROM user_profiles WHERE user_id = ?', [userId]);
 
     await db.close();
 
@@ -230,12 +253,26 @@ fastify.post('/auth/login', async (request, reply) => {
       winRate,
       elo,
       ranking,
-      matchHistory: matchHistory.slice(0, 5) // solo las últimas 5 para mostrar
+      matchHistory: matchHistory.slice(0, 10),
+      avatar_url: profile?.avatar_url || null
     });
   } catch (err) {
     console.error('Error obteniendo estadísticas:', err);
     return reply.code(500).send({ message: 'Error interno del servidor' });
   }
+});
+
+fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, async (request, reply) => {
+  const filePath = path.resolve('/app/data/historial_partidas.txt');
+
+  if (!fs.existsSync(filePath)) {
+    return reply.code(404).send({ message: 'Historial no disponible' });
+  }
+
+  return reply
+    .header('Content-Type', 'text/plain')
+    .header('Content-Disposition', 'attachment; filename="historial_partidas.txt"')
+    .send(fs.createReadStream(filePath));
 });
 
 // Endpoint para subir el avatar

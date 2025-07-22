@@ -4,6 +4,13 @@ import { navigateTo } from '../router';
 import { getTranslation } from '../i18n';
 import { getCurrentUser } from '../auth';
 
+interface User {
+  id: number;
+  username: string;
+  email: string;
+  avatar_url?: string;
+}
+
 interface UserStats {
   totalGames: number;
   wins: number;
@@ -25,7 +32,7 @@ async function getUserStats(): Promise<UserStats | null> {
   if (!token) return null;
 
   try {
-    const response = await fetch('http://10.11.200.131:9000/api/auth/profile/stats', {
+    const response = await fetch('http://localhost:9000/api/auth/profile/stats', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -41,7 +48,12 @@ async function getUserStats(): Promise<UserStats | null> {
 }
 
 export async function renderProfilePage(): Promise<void> {
-  const user = getCurrentUser();
+  const maybeUser = getCurrentUser();
+  if (!maybeUser) {
+    navigateTo('/login');
+    return;
+  }
+  const user: User = maybeUser;
   if (!user) {
     navigateTo('/login');
     return;
@@ -73,9 +85,13 @@ export async function renderProfilePage(): Promise<void> {
       <div class="max-w-6xl w-full">
         <div class="bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl p-6 sm:p-8 border border-[#003566] shadow-2xl mb-8">
           <div class="flex flex-col lg:flex-row items-center gap-8">
-            <div class="w-32 h-32 rounded-full bg-gradient-to-r from-[#ffc300] to-[#ffd60a] flex items-center justify-center text-[#000814] text-4xl font-bold">
-              ${user.username.charAt(0).toUpperCase()}
-            </div>
+            ${
+              user.avatar_url
+                ? `<img src="http://localhost:9000${user.avatar_url}" alt="Avatar" class="w-32 h-32 rounded-full object-cover border-2 border-[#ffc300]" />`
+                : `<div class="w-32 h-32 rounded-full bg-gradient-to-r from-[#ffc300] to-[#ffd60a] flex items-center justify-center text-[#000814] text-4xl font-bold">
+                    ${user.username.charAt(0).toUpperCase()}
+                  </div>`
+            }
             <div class="text-center lg:text-left flex-grow">
               <h1 class="text-3xl sm:text-4xl font-display font-extrabold text-[#ffc300] mb-2">
                 ${user.username}
@@ -129,10 +145,10 @@ export async function renderProfilePage(): Promise<void> {
               <h2 class="text-2xl font-display font-bold text-[#ffc300]">
                 ${getTranslation('profile', 'matchHistoryTitle')}
               </h2>
-              <a href="http://10.11.200.131:9000/downloads/historial_partidas.txt" download
+              <button id="download-history"
                 class="text-sm text-blue-400 hover:underline">
                 Descargar historial
-              </a>
+              </button>
             </div>
             <div class="space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
               ${userStats.matchHistory.length > 0 ? userStats.matchHistory.map(match => `
@@ -178,13 +194,20 @@ export async function renderProfilePage(): Promise<void> {
         formData.append('file', file);
 
         const token = localStorage.getItem('jwt');
-        const res = await fetch('http://10.11.200.131:9000/api/auth/profile/avatar', {
+        const res = await fetch('http://localhost:9000/api/auth/profile/avatar', {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
           body: formData
         });
 
         if (res.ok) {
+          const data = await res.json();
+          const user: User | null = getCurrentUser();
+          if (user) {
+            user.avatar_url = data.avatar_url;
+            localStorage.setItem('user', JSON.stringify(user));
+            renderProfilePage(); // Recarga perfil para que se vea
+          }
           alert('✅ Avatar subido correctamente');
         } else {
           alert('❌ Error al subir avatar');
@@ -196,6 +219,53 @@ export async function renderProfilePage(): Promise<void> {
     const editProfile = document.getElementById('edit-profile');
     if (editProfile) {
       editProfile.addEventListener('click', () => navigateTo('/settings'));
+    }
+  
+    // Descargar historial
+    const downloadBtn = document.getElementById('download-history') as HTMLButtonElement;
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', async () => {
+        const token = localStorage.getItem('jwt');
+        if (!token) {
+          alert('Debes iniciar sesión para descargar el historial');
+          return;
+        }
+
+        downloadBtn.textContent = 'Descargando...';
+        downloadBtn.disabled = true;
+
+        try {
+          const response = await fetch('http://localhost:9000/api/auth/profile/download-historial', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+
+          if (!response.ok) {
+            throw new Error('No se pudo descargar el historial');
+          }
+
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'historial_partidas.txt';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+
+          downloadBtn.textContent = '✔ Descargado';
+        } catch (err) {
+          console.error(err);
+          alert('❌ Error al descargar el historial');
+          downloadBtn.textContent = 'Descargar historial';
+        } finally {
+          setTimeout(() => {
+            downloadBtn.textContent = 'Descargar historial';
+            downloadBtn.disabled = false;
+          }, 2000);
+        }
+      });
     }
   }
 }
