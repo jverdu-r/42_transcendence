@@ -88,46 +88,67 @@ fastify.register(async function (fastify) {
       activeGames.set(gameId, game);
     }
 
-    // Add player to game
-    const playerNumber = game.players.length + 1;
-    if (playerNumber <= 2) {
-      const player = {
-        id: clientId,
-        nombre: username,
-        numero: playerNumber,
-        isConnected: true
-      };
-      
-      game.players.push(player);
-      playerToClient.set(clientId, clientId);
-      clientToPlayer.set(clientId, clientId);
-      
-      // Send welcome message
-      sendToClient(clientId, {
-        tipo: 'bienvenida',
-        numero: playerNumber,
-        jugadores: game.players,
-        gameId: gameId
-      });
-      
-      // Notify all players about player update
-      broadcastToGame(gameId, {
-        tipo: 'jugadores_actualizados',
-        jugadores: game.players
-      });
-      
-      // If we have 2 players, start countdown
-      if (game.players.length === 2) {
-        game.status = 'starting';
-        startCountdown(gameId);
-      }
+    // Check if player already exists by username
+    const existingPlayer = game.players.find((p: any) => p.nombre === username);
+    let playerNumber;
+    let isNewPlayer = false;
+    
+    if (existingPlayer) {
+      // Reconnecting player
+      playerNumber = existingPlayer.numero;
+      existingPlayer.id = clientId;
+      existingPlayer.isConnected = true;
+      fastify.log.info(`🔄 Player ${username} reconnected to game ${gameId}`);
     } else {
-      sendToClient(clientId, {
-        tipo: 'error',
-        mensaje: 'La partida está llena'
-      });
-      connection.socket.close();
-      return;
+      // New player
+      playerNumber = game.players.length + 1;
+      if (playerNumber <= 2) {
+        const player = {
+          id: clientId,
+          nombre: username,
+          numero: playerNumber,
+          isConnected: true
+        };
+        
+        game.players.push(player);
+        isNewPlayer = true;
+        fastify.log.info(`➕ New player ${username} joined game ${gameId} as player ${playerNumber}`);
+      } else {
+        sendToClient(clientId, {
+          type: 'error',
+          message: 'La partida está llena'
+        });
+        connection.socket.close();
+        return;
+      }
+    }
+    
+    // Update mappings
+    playerToClient.set(clientId, clientId);
+    clientToPlayer.set(clientId, clientId);
+    
+    // Send welcome message
+    sendToClient(clientId, {
+      type: 'game_joined',
+      gameId: gameId,
+      playerNumber: playerNumber,
+      playersConnected: game.players.length,
+      playerName: username
+    });
+    
+    // Notify all players about player update
+    broadcastToGame(gameId, {
+      type: 'player_joined',
+      playersConnected: game.players.length,
+      playerName: username,
+      playerNumber: playerNumber
+    });
+    
+    // If we have 2 unique players and game isn't already starting, start countdown
+    if (game.players.length === 2 && game.status === 'waiting' && isNewPlayer) {
+      game.status = 'starting';
+      fastify.log.info(`🚀 Starting countdown for game ${gameId} with ${game.players.length} players`);
+      setTimeout(() => startCountdown(gameId), 500); // Small delay to ensure all messages are sent
     }
 
     connection.socket.on('message', async (message) => {
@@ -158,10 +179,15 @@ function startCountdown(gameId: string): void {
   
   let countdown = 3;
   
+  // Notificar inicio de cuenta atrás
+  broadcastToGame(gameId, {
+    type: 'countdown_start'
+  });
+  
   const countdownInterval = setInterval(() => {
     broadcastToGame(gameId, {
-      tipo: 'cuenta_atras',
-      valor: countdown
+      type: 'countdown_update',
+      count: countdown
     });
     
     countdown--;
@@ -180,7 +206,7 @@ function startGame(gameId: string): void {
   game.status = 'playing';
   
   broadcastToGame(gameId, {
-    tipo: 'juego_iniciado',
+    type: 'gameStarted',
     gameId: gameId
   });
   
@@ -204,8 +230,40 @@ function startGameLoop(gameId: string): void {
     
     // Broadcast game state
     broadcastToGame(gameId, {
-      tipo: 'estado',
-      juego: currentGame.gameState
+      type: 'gameState',
+      data: {
+        gameState: {
+          ball: {
+            x: currentGame.gameState.pelota.x,
+            y: currentGame.gameState.pelota.y,
+            vx: currentGame.gameState.pelota.vx,
+            vy: currentGame.gameState.pelota.vy,
+            radius: currentGame.gameState.pelota.radio
+          },
+          paddles: {
+            left: {
+              x: currentGame.gameState.palas.jugador1.x,
+              y: currentGame.gameState.palas.jugador1.y,
+              width: currentGame.gameState.palaAncho,
+              height: currentGame.gameState.palaAlto
+            },
+            right: {
+              x: currentGame.gameState.palas.jugador2.x,
+              y: currentGame.gameState.palas.jugador2.y,
+              width: currentGame.gameState.palaAncho,
+              height: currentGame.gameState.palaAlto
+            }
+          },
+          score: {
+            left: currentGame.gameState.puntuacion.jugador1,
+            right: currentGame.gameState.puntuacion.jugador2
+          },
+          gameRunning: true,
+          canvas: { width: 800, height: 600 },
+          maxScore: 5,
+          rallieCount: 0
+        }
+      }
     });
     
     // Check for game end
@@ -273,13 +331,19 @@ function endGame(gameId: string): void {
   
   game.status = 'finished';
   
-  const winner = game.gameState.puntuacion.jugador1 > game.gameState.puntuacion.jugador2 ? 1 : 2;
+  const winnerPlayer = game.gameState.puntuacion.jugador1 > game.gameState.puntuacion.jugador2 ? 1 : 2;
+  const winnerName = game.players.find((p: any) => p.numero === winnerPlayer)?.nombre || `Jugador ${winnerPlayer}`;
   
   broadcastToGame(gameId, {
-    tipo: 'juego_finalizado',
-    ganador: winner,
-    juego: game.gameState,
-    mensaje: `¡Fin de la partida! Jugador ${winner} gana!`
+    type: 'gameEnded',
+    data: {
+      winner: winnerName,
+      score: {
+        left: game.gameState.puntuacion.jugador1,
+        right: game.gameState.puntuacion.jugador2
+      },
+      message: `¡Fin de la partida! ${winnerName} gana!`
+    }
   });
 }
 
@@ -287,11 +351,11 @@ function handleGameMessage(clientId: string, gameId: string, data: any): void {
   const game = activeGames.get(gameId);
   if (!game) return;
   
-  switch (data.tipo) {
-    case 'mover':
-      handlePlayerMove(clientId, gameId, data);
+  switch (data.type) {
+    case 'playerMove':
+      handlePlayerMove(clientId, gameId, data.data);
       break;
-    case 'listo':
+    case 'ready':
       // Handle ready state if needed
       break;
   }
@@ -305,11 +369,12 @@ function handlePlayerMove(clientId: string, gameId: string, data: any): void {
   if (!player) return;
   
   const paddle = player.numero === 1 ? game.gameState.palas.jugador1 : game.gameState.palas.jugador2;
+  const speed = 8;
   
-  if (data.direccion === 'up' || data.y < 0) {
-    paddle.y = Math.max(0, paddle.y - 8);
-  } else if (data.direccion === 'down' || data.y > 0) {
-    paddle.y = Math.min(400 - game.gameState.palaAlto, paddle.y + 8);
+  if (data.direction === 'up' && paddle.y > 0) {
+    paddle.y = Math.max(0, paddle.y - speed);
+  } else if (data.direction === 'down' && paddle.y < 600 - game.gameState.palaAlto) {
+    paddle.y = Math.min(600 - game.gameState.palaAlto, paddle.y + speed);
   }
 }
 
@@ -330,8 +395,10 @@ function handleClientDisconnect(clientId: string, gameId: string): void {
   } else {
     // Notify remaining players
     broadcastToGame(gameId, {
-      tipo: 'jugador_desconectado',
-      mensaje: 'Un jugador se ha desconectado'
+      type: 'playerLeft',
+      data: {
+        message: 'Un jugador se ha desconectado'
+      }
     });
   }
   

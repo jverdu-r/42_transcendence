@@ -1,5 +1,6 @@
 import { UnifiedGameRenderer } from '../components/UnifiedGameRenderer';
 import { navigateTo } from '../router';
+import { getCurrentUser } from '../auth';
 import './gameLobby.css';
 
 interface GameLobbyState {
@@ -39,13 +40,24 @@ class GameLobby {
 
     private async connectToGameService(): Promise<void> {
         try {
+            const gameId = sessionStorage.getItem('currentGameId');
+            if (!gameId) {
+                console.error('No game ID found in session storage');
+                navigateTo('/unified-game-online');
+                return;
+            }
+            
+            // Get username from authenticated user
+            const currentUser = getCurrentUser();
+            const username = encodeURIComponent(currentUser?.username || 'Usuario');
+            
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/api/game-service/ws`;
+            const wsUrl = `${protocol}//${window.location.hostname}:8002/pong/${gameId}?username=${username}`;
             this.ws = new WebSocket(wsUrl);
 
             this.ws.onopen = () => {
                 console.log('Connected to game service');
-                this.joinExistingGame();
+                // No need to send a join message, the connection itself handles joining
             };
 
             this.ws.onmessage = (event) => {
@@ -66,13 +78,6 @@ class GameLobby {
         }
     }
 
-    private joinExistingGame(): void {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({
-                type: 'join_game'
-            }));
-        }
-    }
 
     private handleWebSocketMessage(event: MessageEvent): void {
         try {
@@ -135,8 +140,16 @@ class GameLobby {
         // Clear the lobby UI
         this.container.innerHTML = '';
 
+        // Create canvas element for the game
+        const canvas = document.createElement('canvas');
+        canvas.style.border = '2px solid #fff';
+        canvas.style.display = 'block';
+        canvas.style.margin = '0 auto';
+        this.container.appendChild(canvas);
+        
         // Initialize the game renderer
-        this.renderer = new UnifiedGameRenderer(this.container, 'online', {
+        this.renderer = new UnifiedGameRenderer(canvas, 'online');
+        this.renderer.setCallbacks({
             onScoreUpdate: (score: { left: number; right: number }) => {
                 console.log('Score updated:', score);
             },
@@ -146,16 +159,31 @@ class GameLobby {
             }
         });
 
-        try {
-            // Connect the renderer to the online game
-            const connected = await this.renderer.connectToOnlineGame(this.state.gameId!, this.state.playerNumber!);
-            if (connected) {
-                console.log('Successfully connected to online game');
-            } else {
-                console.error('Failed to connect to online game');
-            }
-        } catch (error) {
-            console.error('Error connecting to online game:', error);
+        // Don't create a new WebSocket connection, the game is already started
+        // Just start the renderer's game loop
+        console.log('Game renderer initialized, starting game...');
+        this.renderer.startGame();
+        
+        // Forward WebSocket messages from lobby to renderer
+        if (this.ws) {
+            const originalOnMessage = this.ws.onmessage;
+            const ws = this.ws; // Store reference to avoid null check issues
+            this.ws.onmessage = (event) => {
+                // First handle lobby messages
+                if (originalOnMessage) {
+                    originalOnMessage.call(ws, event);
+                }
+                
+                // Then forward game state messages to renderer
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'gameState' && this.renderer) {
+                        this.renderer.updateGameState(data.data.gameState);
+                    }
+                } catch (error) {
+                    console.error('Error forwarding message to renderer:', error);
+                }
+            };
         }
     }
 
