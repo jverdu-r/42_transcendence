@@ -179,18 +179,15 @@ function initGameObserver(): void {
   loadGames();
 }
 
-// Functions needed by router
+// Functions expected by the router
 export function startSpectatorAutoRefresh(): void {
-  // This could be used for auto-refreshing the games list
-  console.log('Spectator auto-refresh started');
+    console.log('Spectator auto-refresh started');
 }
 
 export function stopSpectatorAutoRefresh(): void {
-  // This could be used to stop auto-refreshing
-  console.log('Spectator auto-refresh stopped');
+    console.log('Spectator auto-refresh stopped');
 }
 
 export function cleanupSpectator(): void {
-  // Clean up any WebSocket connections or timers
-  console.log('Spectator cleanup performed');
+    console.log('Spectator cleanup performed');
 }
