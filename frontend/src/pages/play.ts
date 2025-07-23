@@ -1,4 +1,5 @@
 import { navigateTo } from '../router';
+import { getCurrentUser } from '../auth';
 
 export function renderPlay(): void {
   const content = document.getElementById('page-content');
@@ -257,10 +258,10 @@ function updateStatsDisplay(stats: {
 }
 
 function getCurrentUserName(): string {
-  // Simple function to get current user name
+  // Use the getCurrentUser function from auth.ts
   try {
-    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    return user.username || 'Jugador';
+    const user = getCurrentUser();
+    return user?.username || 'Jugador';
   } catch {
     return 'Jugador';
   }

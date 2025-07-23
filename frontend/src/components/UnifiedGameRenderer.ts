@@ -184,7 +184,9 @@ export class UnifiedGameRenderer {
             this.playerNumber = playerNumber;
             
             // Connect to WebSocket
-            const wsUrl = `ws://localhost:9002/pong/${gameId}`;
+            const currentUser = getCurrentUser();
+            const username = currentUser?.username || 'Usuario';
+            const wsUrl = `ws://localhost:8002/pong/${gameId}?username=${encodeURIComponent(username)}`;
             this.websocket = new WebSocket(wsUrl);
             
             this.websocket.onopen = () => {
@@ -248,11 +250,14 @@ export class UnifiedGameRenderer {
         this.gameState.gameRunning = true;
         this.callbacks.onStatusUpdate?.('🎮 ¡Juego iniciado!');
         
+        // Draw the initial game state
+        this.draw();
+        
         // Start game loop based on mode
         if (this.gameMode === 'local' || this.gameMode === 'ai') {
             this.gameLoop();
         }
-        // For online mode, the server handles the game loop
+        // For online mode, the server handles the game loop and sends us state updates
     }
     
     public pauseGame(): void {
