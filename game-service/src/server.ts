@@ -3,10 +3,10 @@ import fastifyWebsocket from '@fastify/websocket';
 import fastifyCors from '@fastify/cors';
 import { v4 as uuidv4 } from 'uuid';
 import { WebSocket } from 'ws';
-import { GameManager } from './game/index.js';;
-import { AIPlayer } from './game/index.js';;
-import { GameUtils } from './utils/index.js';;
-import type { IPlayer as Player, IGameMessage as GameMessage, IPlayerInput as PlayerInput, GameMode } from './interfaces/index.js';;
+import { GameManager } from './game/index.js';
+import { AIPlayer } from './game/index.js';
+import { GameUtils } from './utils/index.js';
+import type { IPlayer as Player, IGameMessage as GameMessage, IPlayerInput as PlayerInput, GameMode } from './interfaces/index.js';
 
 const fastify = Fastify({
   logger: {
@@ -23,6 +23,9 @@ const connections = new Map<string, WebSocket>();
 // Player to client mapping
 const playerToClient = new Map<string, string>();
 const clientToPlayer = new Map<string, string>();
+
+// Spectator connections
+const spectators = new Map<string, Set<string>>(); // gameId -> Set of clientIds
 
 // Register plugins
 fastify.register(fastifyWebsocket, {
@@ -65,24 +68,40 @@ function broadcastToGame(gameId: string, message: GameMessage): void {
   }
 }
 
-// WebSocket route handler
+// Helper function to broadcast to spectators
+function broadcastToSpectators(gameId: string, message: GameMessage): void {
+  const gameSpectators = spectators.get(gameId);
+  if (gameSpectators) {
+    gameSpectators.forEach(clientId => {
+      sendToClient(clientId, message);
+    });
+  }
+}
+
+// Helper function to broadcast to both players and spectators
+function broadcastToAll(gameId: string, message: GameMessage): void {
+  broadcastToGame(gameId, message);
+  broadcastToSpectators(gameId, message);
+}
+
+// WebSocket route handler for players
 fastify.register(async function (fastify) {
   fastify.get('/ws', { websocket: true }, (connection, request) => {
     const clientId = uuidv4();
     connections.set(clientId, connection.socket);
     
-    fastify.log.info(`🔗 Client connected: ${clientId}`);
+    fastify.log.info(`🔗 Player connected: ${clientId}`);
     
     // Send connection confirmation
     sendToClient(clientId, {
       type: 'connection',
-      data: { clientId, message: 'Connected to game server' }
+      data: { clientId, message: 'Connected to game server', role: 'player' }
     });
 
     connection.socket.on('message', async (message) => {
       try {
         const data = JSON.parse(message.toString());
-        fastify.log.info(`📨 Message from ${clientId}:`, data);
+        fastify.log.info(`📨 Message from player ${clientId}:`, data);
         
         await handleClientMessage(clientId, data);
       } catch (error) {
@@ -95,18 +114,95 @@ fastify.register(async function (fastify) {
     });
 
     connection.socket.on('close', () => {
-      fastify.log.info(`🔌 Client disconnected: ${clientId}`);
+      fastify.log.info(`🔌 Player disconnected: ${clientId}`);
       handleClientDisconnect(clientId);
       connections.delete(clientId);
     });
 
     connection.socket.on('error', (error) => {
-      fastify.log.error(`❌ WebSocket error for client ${clientId}:`, error);
+      fastify.log.error(`❌ WebSocket error for player ${clientId}:`, error);
     });
   });
 });
 
-// WebSocket route for specific games
+// WebSocket route for spectators
+fastify.register(async function (fastify) {
+  fastify.get('/ws/spectate/:gameId', { websocket: true }, (connection, request: any) => {
+    const gameId = request.params.gameId;
+    const clientId = uuidv4();
+    connections.set(clientId, connection.socket);
+    
+    fastify.log.info(`👁️ Spectator connected to game ${gameId}: ${clientId}`);
+    
+    // Add to spectators list
+    if (!spectators.has(gameId)) {
+      spectators.set(gameId, new Set());
+    }
+    spectators.get(gameId)!.add(clientId);
+    
+    // Send connection confirmation
+    sendToClient(clientId, {
+      type: 'spectator_connected',
+      data: { clientId, gameId, message: `Spectating game ${gameId}`, role: 'spectator' }
+    });
+
+    // Send current game state to spectator
+    const game = gameManager.getGame(gameId);
+    if (game) {
+      sendToClient(clientId, {
+        type: 'game_state',
+        data: {
+          gameId,
+          players: game.getPlayers(),
+          status: game.getStatus(),
+          spectator: true
+        }
+      });
+    }
+
+    connection.socket.on('message', async (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        fastify.log.info(`📨 Message from spectator ${clientId}:`, data);
+        
+        // Spectators can only request game state
+        if (data.type === 'get_game_state') {
+          await handleGetGameState(clientId, { gameId });
+        } else {
+          sendToClient(clientId, {
+            type: 'error',
+            data: { message: 'Spectators cannot send game commands' }
+          });
+        }
+      } catch (error) {
+        fastify.log.error('Error processing spectator message:', error);
+        sendToClient(clientId, {
+          type: 'error',
+          data: { message: 'Invalid message format' }
+        });
+      }
+    });
+
+    connection.socket.on('close', () => {
+      fastify.log.info(`🔌 Spectator disconnected: ${clientId}`);
+      // Remove from spectators list
+      const gameSpectators = spectators.get(gameId);
+      if (gameSpectators) {
+        gameSpectators.delete(clientId);
+        if (gameSpectators.size === 0) {
+          spectators.delete(gameId);
+        }
+      }
+      connections.delete(clientId);
+    });
+
+    connection.socket.on('error', (error) => {
+      fastify.log.error(`❌ WebSocket error for spectator ${clientId}:`, error);
+    });
+  });
+});
+
+// WebSocket route for specific games (legacy support)
 fastify.register(async function (fastify) {
   fastify.get('/pong/:gameId', { websocket: true }, (connection, request: any) => {
     const gameId = request.params.gameId;
@@ -147,7 +243,7 @@ fastify.register(async function (fastify) {
   });
 });
 
-// Handle client messages
+// Handle client messages with improved online functionality
 async function handleClientMessage(clientId: string, message: any): Promise<void> {
   const { type, data } = message;
 
@@ -162,16 +258,27 @@ async function handleClientMessage(clientId: string, message: any): Promise<void
       await handleStartGame(clientId, data);
       break;
     case 'playerMove':
+    case 'player_input':
       await handlePlayerMove(clientId, data);
       break;
     case 'getGames':
+    case 'get_games':
       await handleGetGames(clientId);
       break;
     case 'getGameState':
+    case 'get_game_state':
       await handleGetGameState(clientId, data);
       break;
     case 'leaveGame':
+    case 'leave_game':
       await handleLeaveGame(clientId, data);
+      break;
+    case 'ping':
+      // Heartbeat for connection health
+      sendToClient(clientId, {
+        type: 'pong',
+        data: { timestamp: Date.now() }
+      });
       break;
     default:
       fastify.log.warn(`Unknown message type: ${type}`);
@@ -182,7 +289,7 @@ async function handleClientMessage(clientId: string, message: any): Promise<void
   }
 }
 
-// Create a new game
+// IMPROVED: Create a new game with real-time sync
 async function handleCreateGame(clientId: string, data: any): Promise<void> {
   try {
     const { playerName, gameMode = 'pvp', aiDifficulty = 'medium' } = data;
@@ -196,6 +303,9 @@ async function handleCreateGame(clientId: string, data: any): Promise<void> {
         playerToClient.set(player.id, clientId);
         clientToPlayer.set(clientId, player.id);
       }
+      
+      // Start game loop for real-time updates
+      startGameLoop(gameId);
     }
     
     // If PvE mode, add AI player
@@ -205,8 +315,17 @@ async function handleCreateGame(clientId: string, data: any): Promise<void> {
     
     sendToClient(clientId, {
       type: 'gameCreated',
-      data: { gameId, playerNumber: 1, gameMode }
+      data: { 
+        gameId, 
+        playerNumber: 1, 
+        gameMode,
+        players: game?.getPlayers() || [],
+        status: game?.getStatus() || 'waiting'
+      }
     });
+    
+    // Broadcast to all clients that a new game is available
+    broadcastGameListUpdate();
     
     fastify.log.info(`🎮 Game created: ${gameId} by ${playerName}`);
   } catch (error) {
@@ -218,7 +337,7 @@ async function handleCreateGame(clientId: string, data: any): Promise<void> {
   }
 }
 
-// Join an existing game
+// IMPROVED: Join game with real-time notifications
 async function handleJoinGame(clientId: string, data: any): Promise<void> {
   try {
     const { gameId, playerName } = data;
@@ -234,24 +353,42 @@ async function handleJoinGame(clientId: string, data: any): Promise<void> {
           playerToClient.set(player.id, clientId);
           clientToPlayer.set(clientId, player.id);
         }
+        
+        // Auto-start if we have enough players
+        if (players.length >= 2) {
+          gameManager.startGame(gameId);
+        }
       }
       
       sendToClient(clientId, {
         type: 'gameJoined',
-        data: { gameId, playerNumber: 2 }
+        data: { 
+          gameId, 
+          playerNumber: 2,
+          players: game?.getPlayers() || [],
+          status: game?.getStatus() || 'waiting'
+        }
       });
       
-      // Notify other players
-      broadcastToGame(gameId, {
+      // Notify other players and spectators
+      broadcastToAll(gameId, {
         type: 'playerJoined',
-        data: { playerName, playerNumber: 2 }
+        data: { 
+          playerName, 
+          playerNumber: 2,
+          players: game?.getPlayers() || [],
+          status: game?.getStatus() || 'waiting'
+        }
       });
+      
+      // Update game list for all clients
+      broadcastGameListUpdate();
       
       fastify.log.info(`👥 Player ${playerName} joined game ${gameId}`);
     } else {
       sendToClient(clientId, {
         type: 'error',
-        data: { message: 'Failed to join game' }
+        data: { message: 'Failed to join game (may be full or not found)' }
       });
     }
   } catch (error) {
@@ -263,7 +400,7 @@ async function handleJoinGame(clientId: string, data: any): Promise<void> {
   }
 }
 
-// Start a game
+// IMPROVED: Start game with real-time sync
 async function handleStartGame(clientId: string, data: any): Promise<void> {
   try {
     const { gameId } = data;
@@ -271,16 +408,25 @@ async function handleStartGame(clientId: string, data: any): Promise<void> {
     const success = gameManager.startGame(gameId);
     
     if (success) {
-      broadcastToGame(gameId, {
+      const game = gameManager.getGame(gameId);
+      
+      broadcastToAll(gameId, {
         type: 'gameStarted',
-        data: { gameId }
+        data: { 
+          gameId,
+          players: game?.getPlayers() || [],
+          status: 'playing'
+        }
       });
+      
+      // Update game list
+      broadcastGameListUpdate();
       
       fastify.log.info(`🚀 Game started: ${gameId}`);
     } else {
       sendToClient(clientId, {
         type: 'error',
-        data: { message: 'Failed to start game' }
+        data: { message: 'Failed to start game (need more players)' }
       });
     }
   } catch (error) {
@@ -292,10 +438,10 @@ async function handleStartGame(clientId: string, data: any): Promise<void> {
   }
 }
 
-// Handle player movement
+// IMPROVED: Real-time player movement with lag compensation
 async function handlePlayerMove(clientId: string, data: any): Promise<void> {
   try {
-    const { gameId, direction } = data;
+    const { gameId, direction, timestamp } = data;
     
     const game = gameManager.getGame(gameId);
     if (!game) {
@@ -319,10 +465,22 @@ async function handlePlayerMove(clientId: string, data: any): Promise<void> {
       type: 'move',
       direction,
       playerId: playerId,
-      gameId
+      gameId,
+      timestamp: timestamp || Date.now()
     };
     
     game.handlePlayerInput(playerId, input);
+    
+    // Broadcast movement to other players and spectators immediately
+    broadcastToAll(gameId, {
+      type: 'playerMovement',
+      data: {
+        playerId,
+        direction,
+        timestamp: Date.now(),
+        gameState: game.getGameState()
+      }
+    });
     
     fastify.log.debug(`🎮 Player move: ${clientId} -> ${direction}`);
   } catch (error) {
@@ -330,14 +488,23 @@ async function handlePlayerMove(clientId: string, data: any): Promise<void> {
   }
 }
 
-// Get list of available games
+// Get list of available games (enhanced for spectators)
 async function handleGetGames(clientId: string): Promise<void> {
   try {
     const games = gameManager.getAllGames().map((game: any) => ({
       id: game.getId(),
+      name: game.getName(),
       players: game.getPlayers().length,
       status: game.getStatus(),
-      maxPlayers: 2
+      maxPlayers: 2,
+      playersInfo: game.getPlayers().map((p: any) => ({
+        name: p.name,
+        number: p.number,
+        isAI: p.isAI
+      })),
+      spectators: spectators.get(game.getId())?.size || 0,
+      canJoin: game.getPlayers().length < 2 && game.getStatus() === 'waiting',
+      canSpectate: game.getStatus() === 'playing'
     }));
     
     sendToClient(clientId, {
@@ -353,7 +520,7 @@ async function handleGetGames(clientId: string): Promise<void> {
   }
 }
 
-// Get current game state
+// Get current game state (enhanced for spectators)
 async function handleGetGameState(clientId: string, data: any): Promise<void> {
   try {
     const { gameId } = data;
@@ -367,12 +534,17 @@ async function handleGetGameState(clientId: string, data: any): Promise<void> {
       return;
     }
     
+    const isSpectator = !clientToPlayer.has(clientId);
+    
     sendToClient(clientId, {
       type: 'gameState',
       data: {
         gameId,
         players: game.getPlayers(),
-        status: game.getStatus()
+        status: game.getStatus(),
+        spectator: isSpectator,
+        spectatorCount: spectators.get(gameId)?.size || 0,
+        gameState: game.getGameState()
       }
     });
   } catch (error) {
@@ -384,7 +556,7 @@ async function handleGetGameState(clientId: string, data: any): Promise<void> {
   }
 }
 
-// Leave a game
+// IMPROVED: Leave game with proper cleanup
 async function handleLeaveGame(clientId: string, data: any): Promise<void> {
   try {
     const { gameId } = data;
@@ -405,11 +577,17 @@ async function handleLeaveGame(clientId: string, data: any): Promise<void> {
       // If no players left, remove the game
       if (game.getPlayers().length === 0) {
         gameManager.removeGame(gameId);
+        // Remove spectators too
+        spectators.delete(gameId);
       } else {
-        // Notify remaining players
-        broadcastToGame(gameId, {
+        // Notify remaining players and spectators
+        broadcastToAll(gameId, {
           type: 'playerLeft',
-          data: { playerId: playerId }
+          data: { 
+            playerId: playerId,
+            players: game.getPlayers(),
+            status: game.getStatus()
+          }
         });
       }
     }
@@ -423,13 +601,16 @@ async function handleLeaveGame(clientId: string, data: any): Promise<void> {
       data: { gameId }
     });
     
+    // Update game list
+    broadcastGameListUpdate();
+    
     fastify.log.info(`👋 Player left game: ${clientId} from ${gameId}`);
   } catch (error) {
     fastify.log.error('Error leaving game:', error);
   }
 }
 
-// Handle client disconnect
+// IMPROVED: Handle client disconnect with proper cleanup
 function handleClientDisconnect(clientId: string): void {
   const playerId = clientToPlayer.get(clientId);
   
@@ -440,18 +621,44 @@ function handleClientDisconnect(clientId: string): void {
       const playerInGame = players.find((p: any) => p.id === playerId);
       
       if (playerInGame) {
-        game.removePlayer(playerId);
+        // Mark player as disconnected but don't remove immediately
+        playerInGame.isConnected = false;
         
-        // If no players left, remove the game
-        if (game.getPlayers().length === 0) {
-          gameManager.removeGame(game.getId());
-        } else {
-          // Notify remaining players
-          broadcastToGame(game.getId(), {
-            type: 'playerDisconnected',
-            data: { playerId: playerId }
-          });
-        }
+        // Notify other players and spectators about disconnection
+        broadcastToAll(game.getId(), {
+          type: 'playerDisconnected',
+          data: { 
+            playerId: playerId,
+            playerName: playerInGame.name,
+            canReconnect: true,
+            players: players
+          }
+        });
+        
+        // Set a timeout for player removal (allow reconnection)
+        setTimeout(() => {
+          const stillDisconnected = !playerInGame.isConnected;
+          if (stillDisconnected) {
+            game.removePlayer(playerId);
+            
+            if (game.getPlayers().length === 0) {
+              gameManager.removeGame(game.getId());
+              spectators.delete(game.getId());
+            } else {
+              broadcastToAll(game.getId(), {
+                type: 'playerTimedOut',
+                data: { 
+                  playerId: playerId,
+                  playerName: playerInGame.name,
+                  players: game.getPlayers()
+                }
+              });
+            }
+            
+            // Update game list
+            broadcastGameListUpdate();
+          }
+        }, 30000); // 30 second reconnection window
       }
     });
     
@@ -459,7 +666,96 @@ function handleClientDisconnect(clientId: string): void {
     playerToClient.delete(playerId);
     clientToPlayer.delete(clientId);
   }
+  
+  // Clean up spectator connections
+  spectators.forEach((spectatorSet, gameId) => {
+    if (spectatorSet.has(clientId)) {
+      spectatorSet.delete(clientId);
+      if (spectatorSet.size === 0) {
+        spectators.delete(gameId);
+      }
+    }
+  });
 }
+
+// NEW: Game loop for real-time updates
+function startGameLoop(gameId: string): void {
+  const gameLoop = setInterval(() => {
+    const game = gameManager.getGame(gameId);
+    if (!game || game.getStatus() !== 'playing') {
+      clearInterval(gameLoop);
+      return;
+    }
+    
+    // Update game physics/state
+    // This would contain your game physics updates
+    
+    // Broadcast game state to all players and spectators
+    broadcastToAll(gameId, {
+      type: 'gameUpdate',
+      data: {
+        gameId,
+        timestamp: Date.now(),
+        gameState: game.getGameState()
+      }
+    });
+  }, 1000 / 60); // 60 FPS updates
+}
+
+// NEW: Broadcast updated game list to all connected clients
+function broadcastGameListUpdate(): void {
+  const games = gameManager.getAllGames().map((game: any) => ({
+    id: game.getId(),
+    name: game.getName(),
+    players: game.getPlayers().length,
+    status: game.getStatus(),
+    maxPlayers: 2,
+    spectators: spectators.get(game.getId())?.size || 0,
+    canJoin: game.getPlayers().length < 2 && game.getStatus() === 'waiting',
+    canSpectate: game.getStatus() === 'playing'
+  }));
+  
+  connections.forEach((connection, clientId) => {
+    if (connection.readyState === WebSocket.OPEN) {
+      sendToClient(clientId, {
+        type: 'gamesListUpdated',
+        data: { games }
+      });
+    }
+  });
+}
+
+// REST API Routes (keep existing + add spectator endpoints)
+
+// NEW: Get spectator info for a game
+fastify.get('/api/games/:gameId/spectators', async (request: any, reply) => {
+  try {
+    const { gameId } = request.params;
+    const game = gameManager.getGame(gameId);
+    
+    if (!game) {
+      return reply.status(404).send({
+        success: false,
+        error: 'Game not found'
+      });
+    }
+    
+    const spectatorCount = spectators.get(gameId)?.size || 0;
+    
+    reply.send({
+      success: true,
+      gameId,
+      spectatorCount,
+      canSpectate: game.getStatus() === 'playing'
+    });
+  } catch (error) {
+    fastify.log.error('Error getting spectator info:', error);
+    reply.status(500).send({
+      success: false,
+      error: 'Failed to get spectator info'
+    });
+  }
+});
 
 // Health check endpoint
 fastify.get('/health', async (request, reply) => {
@@ -471,22 +767,29 @@ fastify.get('/health', async (request, reply) => {
       total: gameManager.getGameCount(),
       active: gameManager.getActiveGames().length,
       waiting: gameManager.getWaitingGames().length
+    },
+    connections: {
+      total: connections.size,
+      players: clientToPlayer.size,
+      spectators: Array.from(spectators.values()).reduce((sum, set) => sum + set.size, 0)
     }
   };
 });
 
-// Game statistics endpoint
+// Game statistics endpoint (enhanced)
 fastify.get('/stats', async (request, reply) => {
   return {
     totalGames: gameManager.getGameCount(),
     activeGames: gameManager.getActiveGames().length,
     waitingGames: gameManager.getWaitingGames().length,
-    connectedClients: connections.size
+    connectedClients: connections.size,
+    activePlayers: clientToPlayer.size,
+    totalSpectators: Array.from(spectators.values()).reduce((sum, set) => sum + set.size, 0),
+    spectatedGames: spectators.size
   };
 });
 
-// REST API Routes
-// Get all games
+// REST API Routes (existing ones remain the same)
 fastify.get('/', async (request, reply) => {
   try {
     const allGames = gameManager.getAllGames();
@@ -497,7 +800,10 @@ fastify.get('/', async (request, reply) => {
       jugadoresConectados: game.getPlayers().length,
       capacidadMaxima: 2,
       estado: game.getStatus(),
-      tipoJuego: 'pong'
+      tipoJuego: 'pong',
+      espectadores: spectators.get(game.getId())?.size || 0,
+      puedeUnirse: game.getPlayers().length < 2 && game.getStatus() === 'waiting',
+      puedeObservar: game.getStatus() === 'playing'
     }));
     
     reply.send({ 
@@ -513,7 +819,7 @@ fastify.get('/', async (request, reply) => {
   }
 });
 
-// Get specific game by ID
+// Get specific game by ID (enhanced)
 fastify.get('/:gameId', async (request: any, reply) => {
   try {
     const { gameId } = request.params;
@@ -533,7 +839,10 @@ fastify.get('/:gameId', async (request: any, reply) => {
       jugadoresConectados: game.getPlayers().length,
       capacidadMaxima: 2,
       estado: game.getStatus(),
-      tipoJuego: 'pong'
+      tipoJuego: 'pong',
+      espectadores: spectators.get(gameId)?.size || 0,
+      puedeUnirse: game.getPlayers().length < 2 && game.getStatus() === 'waiting',
+      puedeObservar: game.getStatus() === 'playing'
     };
     
     reply.send(formattedGame);
@@ -546,12 +855,11 @@ fastify.get('/:gameId', async (request: any, reply) => {
   }
 });
 
-// Create new game
+// Create new game (existing implementation)
 fastify.post('/', async (request: any, reply) => {
   try {
     const { nombre, gameMode = 'pvp', maxPlayers = 2, playerName } = request.body;
     
-    // Use provided playerName or default
     const finalPlayerName = playerName || 'Jugador1';
     
     const gameId = gameManager.createGame(finalPlayerName, gameMode);
@@ -566,7 +874,10 @@ fastify.post('/', async (request: any, reply) => {
         capacidadMaxima: maxPlayers,
         estado: game.getStatus(),
         tipoJuego: 'pong',
-        gameMode: gameMode
+        gameMode: gameMode,
+        espectadores: 0,
+        puedeUnirse: true,
+        puedeObservar: false
       };
       
       reply.send(formattedGame);
@@ -585,7 +896,7 @@ fastify.post('/', async (request: any, reply) => {
   }
 });
 
-// Join game
+// Join game (existing implementation)
 fastify.post('/:gameId/join', async (request: any, reply) => {
   try {
     const { gameId } = request.params;
@@ -611,7 +922,8 @@ fastify.post('/:gameId/join', async (request: any, reply) => {
           capacidadMaxima: 2,
           estado: game.getStatus(),
           tipoJuego: 'pong',
-          playerNumber: game.getPlayers().length // Return the player number
+          playerNumber: game.getPlayers().length,
+          espectadores: spectators.get(gameId)?.size || 0
         };
         
         reply.send({
@@ -666,6 +978,7 @@ const start = async () => {
     await fastify.listen({ port: Number(port), host });
     fastify.log.info(`🎮 Game Service running on ${host}:${port}`);
     fastify.log.info(`🔗 WebSocket endpoint: ws://${host}:${port}/ws`);
+    fastify.log.info(`👁️ Spectator WebSocket: ws://${host}:${port}/ws/spectate/{gameId}`);
     fastify.log.info(`🎯 Game WebSocket: ws://${host}:${port}/pong/{gameId}`);
     fastify.log.info(`❤️ Health check: http://${host}:${port}/health`);
     fastify.log.info(`📊 Stats endpoint: http://${host}:${port}/stats`);

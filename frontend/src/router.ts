@@ -25,6 +25,9 @@ import { renderUnifiedGameLocal } from './pages/unifiedGameLocal';
 import { renderUnifiedGameAI } from './pages/unifiedGameAI';
 import { renderUnifiedGameOnline } from './pages/unifiedGameOnline';
 
+// Spectator page
+import { renderGameSpectator, startSpectatorAutoRefresh, stopSpectatorAutoRefresh, cleanupSpectator } from './pages/gameSpectator';
+
 // Define tus rutas
 const routes: { [key: string]: () => void } = {
   '/home': renderHomePage,
@@ -47,6 +50,13 @@ const routes: { [key: string]: () => void } = {
   '/unified-game-local': renderUnifiedGameLocal,
   '/unified-game-ai': renderUnifiedGameAI,
   '/unified-game-online': renderUnifiedGameOnline,
+  
+  // Spectator route
+  '/spectator': () => {
+    cleanupCurrentPage();
+    renderGameSpectator();
+    startSpectatorAutoRefresh();
+  },
   
   // Rutas de juego legacy (para compatibilidad)
   '/game-selection': renderGameSelection,
@@ -90,6 +100,9 @@ export async function navigateTo(path: string): Promise<void> {
     console.error('Elemento con id "app-root" no encontrado. No se puede navegar.');
     return;
   }
+  
+  // Cleanup previous page
+  cleanupCurrentPage();
   
   // Separar la ruta de los parámetros de consulta
   const [routePath, queryString] = path.split('?');
@@ -165,3 +178,21 @@ export async function navigateTo(path: string): Promise<void> {
     window.history.pushState({}, fullPath, fullPath);
   }
 }
+
+function cleanupCurrentPage(): void {
+  // Stop spectator auto-refresh if leaving spectator page
+  stopSpectatorAutoRefresh();
+  cleanupSpectator();
+}
+
+// Event listeners for cleanup
+window.addEventListener('beforeunload', cleanupCurrentPage);
+window.addEventListener('popstate', (event) => {
+  cleanupCurrentPage();
+  navigateTo(window.location.pathname + window.location.search);
+});
+
+// Handle browser back/forward buttons
+window.addEventListener('popstate', () => {
+  navigateTo(window.location.pathname + window.location.search);
+});

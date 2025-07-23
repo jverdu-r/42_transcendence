@@ -1,5 +1,5 @@
 /**
- * WebSocket message interfaces
+ * WebSocket message interfaces - Enhanced for online multiplayer and spectator mode
  */
 import type { GameMode, MovementDirection, InputType } from './game-interfaces.js';
 
@@ -19,7 +19,14 @@ export interface IGameMessage {
     | 'gamesList' 
     | 'playerLeft' 
     | 'gameLeft' 
-    | 'playerDisconnected';
+    | 'playerDisconnected'
+    | 'spectator_connected'
+    | 'game_state'
+    | 'pong'
+    | 'playerMovement'
+    | 'playerTimedOut'
+    | 'gameUpdate'
+    | 'gamesListUpdated';
   data?: any;
   gameId?: string;
   playerId?: string;
@@ -30,6 +37,7 @@ export interface IPlayerInput {
   direction?: MovementDirection;
   playerId: string;
   gameId: string;
+  timestamp?: number;
 }
 
 export interface ICreateGameData {
@@ -50,6 +58,7 @@ export interface IStartGameData {
 export interface IPlayerMoveData {
   gameId: string;
   direction: MovementDirection;
+  timestamp?: number;
 }
 
 export interface IGetGameStateData {
@@ -64,6 +73,7 @@ export interface IConnectionData {
   clientId: string;
   gameId?: string;
   message: string;
+  role?: 'player' | 'spectator';
 }
 
 export interface IErrorData {
