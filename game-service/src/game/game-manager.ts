@@ -1,20 +1,22 @@
 /**
- * Game session management and lifecycle
+ * Enhanced Game session management with spectator support
  */
 import { Game } from './game.js';
-import type { IPlayer, IGameConfig, IGameDimensions, GameMode } from '../interfaces/index.js';
+import type { IPlayer, IGameConfig, IGameDimensions, GameMode, PlayerNumber } from '../interfaces/index.js';
 import { GameConfig } from '../config/index.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export class GameManager {
   private games: Map<string, Game>;
   private waitingPlayers: Map<string, IPlayer>;
+  private gameSpectators: Map<string, Set<string>>; // gameId -> Set of spectatorIds
   private defaultConfig: IGameConfig;
   private defaultDimensions: IGameDimensions;
 
   constructor() {
     this.games = new Map();
     this.waitingPlayers = new Map();
+    this.gameSpectators = new Map();
     this.defaultConfig = GameConfig.getDefaultConfig();
     this.defaultDimensions = GameConfig.getDefaultDimensions();
   }
@@ -55,7 +57,7 @@ export class GameManager {
     try {
       const player: IPlayer = {
         id: uuidv4(),
-        number: 2,
+        number: (game.getPlayers().length + 1) as PlayerNumber,
         isAI: false,
         isConnected: true,
         name: playerName,
@@ -123,6 +125,8 @@ export class GameManager {
 
     game.stop();
     this.games.delete(gameId);
+    // Remove spectators too
+    this.gameSpectators.delete(gameId);
     console.log(`🗑️ Game removed: ${gameId}`);
     return true;
   }
@@ -147,10 +151,114 @@ export class GameManager {
     return this.getAllGames().filter(game => game.getStatus() === 'waiting');
   }
 
+  // NEW: Spectator management methods
+  public addSpectator(gameId: string, spectatorId: string): boolean {
+    const game = this.games.get(gameId);
+    if (!game) {
+      console.log(`❌ Cannot add spectator: Game ${gameId} not found`);
+      return false;
+    }
+
+    if (!this.gameSpectators.has(gameId)) {
+      this.gameSpectators.set(gameId, new Set());
+    }
+
+    this.gameSpectators.get(gameId)!.add(spectatorId);
+    console.log(`👁️ Spectator ${spectatorId} added to game ${gameId}`);
+    return true;
+  }
+
+  public removeSpectator(gameId: string, spectatorId: string): boolean {
+    const spectators = this.gameSpectators.get(gameId);
+    if (!spectators) {
+      return false;
+    }
+
+    const removed = spectators.delete(spectatorId);
+    if (spectators.size === 0) {
+      this.gameSpectators.delete(gameId);
+    }
+
+    if (removed) {
+      console.log(`👁️ Spectator ${spectatorId} removed from game ${gameId}`);
+    }
+    return removed;
+  }
+
+  public getSpectators(gameId: string): string[] {
+    const spectators = this.gameSpectators.get(gameId);
+    return spectators ? Array.from(spectators) : [];
+  }
+
+  public getSpectatorCount(gameId: string): number {
+    const spectators = this.gameSpectators.get(gameId);
+    return spectators ? spectators.size : 0;
+  }
+
+  public getAllSpectators(): Map<string, Set<string>> {
+    return new Map(this.gameSpectators);
+  }
+
+  public canSpectate(gameId: string): boolean {
+    const game = this.games.get(gameId);
+    return game ? game.getStatus() === 'playing' : false;
+  }
+
+  public canJoin(gameId: string): boolean {
+    const game = this.games.get(gameId);
+    return game ? (game.getPlayers().length < 2 && game.getStatus() === 'waiting') : false;
+  }
+
+  // NEW: Enhanced game info for both players and spectators
+  public getGameInfo(gameId: string) {
+    const game = this.games.get(gameId);
+    if (!game) {
+      return null;
+    }
+
+    return {
+      id: game.getId(),
+      name: game.getName(),
+      players: game.getPlayers(),
+      spectators: this.getSpectatorCount(gameId),
+      status: game.getStatus(),
+      canJoin: this.canJoin(gameId),
+      canSpectate: this.canSpectate(gameId),
+      gameState: game.getGameState()
+    };
+  }
+
+  // NEW: Get games suitable for spectating
+  public getSpectableGames(): Game[] {
+    return this.getAllGames().filter(game => this.canSpectate(game.getId()));
+  }
+
+  // NEW: Get games suitable for joining
+  public getJoinableGames(): Game[] {
+    return this.getAllGames().filter(game => this.canJoin(game.getId()));
+  }
+
   public cleanup(): void {
     this.games.forEach(game => game.stop());
     this.games.clear();
     this.waitingPlayers.clear();
+    this.gameSpectators.clear();
     console.log('🧹 GameManager cleaned up');
+  }
+
+  // NEW: Statistics for monitoring
+  public getStatistics() {
+    const totalSpectators = Array.from(this.gameSpectators.values())
+      .reduce((sum, set) => sum + set.size, 0);
+
+    return {
+      totalGames: this.getGameCount(),
+      activeGames: this.getActiveGames().length,
+      waitingGames: this.getWaitingGames().length,
+      spectableGames: this.getSpectableGames().length,
+      joinableGames: this.getJoinableGames().length,
+      totalSpectators,
+      gamesWithSpectators: this.gameSpectators.size
+    };
   }
 }

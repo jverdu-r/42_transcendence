@@ -19,7 +19,7 @@ export function renderPlay(): void {
         </p>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <!-- Juego Local -->
         <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors cursor-pointer transform hover:scale-105" 
              id="local-game-card">
@@ -96,7 +96,7 @@ export function renderPlay(): void {
             <div>🎯 Aprende de otros jugadores</div>
           </div>
           <button class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition-colors w-full">
-            Observar Partidas
+          <h2 class="text-xl font-bold text-purple-400 mb-2">👁️ Modo Espectador</h2>
           </button>
         </div>
       </div>
@@ -174,7 +174,7 @@ export function renderPlay(): void {
   });
 
   document.getElementById('observer-game-card')?.addEventListener('click', () => {
-    navigateTo('/game-observer');
+            navigateTo('/spectator');
   });
 }
 

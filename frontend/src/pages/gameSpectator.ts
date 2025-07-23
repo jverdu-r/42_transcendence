@@ -1,10 +1,9 @@
 /**
- * Simplified Online Game Page
+ * Simple Game Spectator Page
  */
 import { navigateTo } from '../router';
-import { getCurrentUser } from '../auth';
 
-export function renderUnifiedGameOnline(): void {
+export function renderGameSpectator(): void {
     const pageContent = document.getElementById('page-content');
     
     if (!pageContent) {
@@ -15,26 +14,25 @@ export function renderUnifiedGameOnline(): void {
     pageContent.innerHTML = `
         <div class="w-full max-w-6xl mx-auto">
             <div class="text-center mb-8">
-                <h1 class="text-4xl font-bold text-white mb-4">🌐 Juego Online - Multijugador</h1>
-                <p class="text-lg text-gray-300">Próximamente - Juega contra otros jugadores en tiempo real</p>
+                <h1 class="text-4xl font-bold text-white mb-4">👁️ Modo Espectador</h1>
+                <p class="text-lg text-gray-300">Próximamente - Observa partidas en tiempo real</p>
             </div>
 
             <div class="bg-gray-800 rounded-lg p-8 text-center">
                 <div class="text-6xl mb-4">🚧</div>
-                <h2 class="text-2xl font-bold text-green-400 mb-4">En Desarrollo</h2>
+                <h2 class="text-2xl font-bold text-yellow-400 mb-4">En Desarrollo</h2>
                 <p class="text-gray-300 mb-6">
-                    El modo multijugador online está siendo implementado con funcionalidades avanzadas.
-                    Pronto podrás jugar contra otros jugadores en tiempo real.
+                    El modo espectador está siendo implementado.
+                    Pronto podrás observar partidas en vivo de otros jugadores.
                 </p>
                 <div class="space-y-4">
                     <div class="text-left max-w-md mx-auto">
                         <h3 class="text-lg font-semibold text-white mb-2">Características planificadas:</h3>
                         <ul class="text-gray-300 space-y-1">
-                            <li>• Multijugador en tiempo real</li>
-                            <li>• Sistema de lobby mejorado</li>
-                            <li>• Reconexión automática</li>
-                            <li>• Sincronización perfecta</li>
-                            <li>• Sistema de espectadores</li>
+                            <li>• Ver partidas en tiempo real</li>
+                            <li>• Lista de juegos disponibles</li>
+                            <li>• Estadísticas en vivo</li>
+                            <li>• Múltiples espectadores por partida</li>
                         </ul>
                     </div>
                 </div>
@@ -54,10 +52,14 @@ export function renderUnifiedGameOnline(): void {
 }
 
 // Export stub functions for compatibility
-export function initializeOnlineMode(): void {
-    console.log('Online mode initialization not implemented yet');
+export function startSpectatorAutoRefresh(): void {
+    console.log('Spectator auto-refresh not implemented yet');
 }
 
-export function cleanupOnlineMode(): void {
-    console.log('Online mode cleanup not implemented yet');
+export function stopSpectatorAutoRefresh(): void {
+    console.log('Spectator auto-refresh not implemented yet');
+}
+
+export function cleanupSpectator(): void {
+    console.log('Spectator cleanup not implemented yet');
 }
