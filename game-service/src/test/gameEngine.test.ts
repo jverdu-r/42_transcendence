@@ -40,6 +40,8 @@ const testPaddle: IPaddle = {
   width: 10,
   height: 60,
   speed: 8,
+  vx: 0,
+  vy: 0,
 };
 
 const collision = GameUtils.checkCollision(testBall, testPaddle);

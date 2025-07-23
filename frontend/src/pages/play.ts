@@ -1,4 +1,5 @@
 import { navigateTo } from '../router';
+import { getCurrentUser } from '../auth';
 
 export function renderPlay(): void {
   const content = document.getElementById('page-content');
@@ -9,7 +10,7 @@ export function renderPlay(): void {
   }
 
   content.innerHTML = `
-    <div class="w-full max-w-5xl mx-auto text-center">
+    <div class="w-full max-w-6xl mx-auto text-center">
       <div class="mb-8">
         <h1 class="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
           🎮 Selecciona tu modo de juego
@@ -19,21 +20,22 @@ export function renderPlay(): void {
         </p>
       </div>
 
+      <!-- Grid ajustado a 4 columnas para mejor distribución -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <!-- Juego Local -->
-        <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors cursor-pointer transform hover:scale-105" 
+        <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-yellow-400" 
              id="local-game-card">
           <div class="text-6xl mb-4">🏠</div>
           <h2 class="text-xl font-bold text-yellow-400 mb-2">Juego Local</h2>
-          <p class="text-gray-300 mb-4">
+          <p class="text-gray-300 mb-4 text-sm">
             Juega contra un amigo en el mismo dispositivo. 
             Perfecto para partidas rápidas cara a cara.
           </p>
-          <div class="text-sm text-gray-400 mb-3">
+          <div class="text-xs text-gray-400 mb-4 space-y-1">
             <div>👥 2 Jugadores</div>
             <div>🎮 Mismo dispositivo</div>
             <div>⚡ Partida instantánea</div>
-            <div>🕹️ Jugador 1: W/S - Jugador 2: ↑/↓</div>
+            <div>🕹️ W/S vs ↑/↓</div>
           </div>
           <button class="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded transition-colors w-full">
             Jugar Local
@@ -41,19 +43,19 @@ export function renderPlay(): void {
         </div>
 
         <!-- Juego vs IA -->
-        <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors cursor-pointer transform hover:scale-105" 
+        <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-green-400" 
              id="ai-game-card">
           <div class="text-6xl mb-4">🤖</div>
           <h2 class="text-xl font-bold text-green-400 mb-2">vs Inteligencia Artificial</h2>
-          <p class="text-gray-300 mb-4">
+          <p class="text-gray-300 mb-4 text-sm">
             Enfréntate a la IA con físicas realistas del Pong original. 
             Elige tu nivel de desafío.
           </p>
-          <div class="text-sm text-gray-400 mb-3">
-            <div>🎯 3 Dificultades disponibles</div>
+          <div class="text-xs text-gray-400 mb-4 space-y-1">
+            <div>🎯 3 Dificultades</div>
             <div>🧠 IA adaptativa</div>
             <div>⚡ Físicas mejoradas</div>
-            <div>📊 Entrena tus habilidades</div>
+            <div>📊 Entrena habilidades</div>
           </div>
           <button class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-colors w-full">
             Jugar vs IA
@@ -61,15 +63,15 @@ export function renderPlay(): void {
         </div>
 
         <!-- Juego Online -->
-        <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors cursor-pointer transform hover:scale-105" 
+        <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-blue-400" 
              id="online-game-card">
           <div class="text-6xl mb-4">🌐</div>
           <h2 class="text-xl font-bold text-blue-400 mb-2">Juego Online</h2>
-          <p class="text-gray-300 mb-4">
+          <p class="text-gray-300 mb-4 text-sm">
             Conéctate con jugadores de todo el mundo.
             Crea o únete a partidas online multijugador.
           </p>
-          <div class="text-sm text-gray-400 mb-3">
+          <div class="text-xs text-gray-400 mb-4 space-y-1">
             <div>🌍 Multijugador global</div>
             <div>🏆 Partidas competitivas</div>
             <div>💬 Chat en tiempo real</div>
@@ -81,22 +83,22 @@ export function renderPlay(): void {
         </div>
 
         <!-- Visor de Partidas -->
-        <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors cursor-pointer transform hover:scale-105" 
+        <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-purple-400" 
              id="observer-game-card">
           <div class="text-6xl mb-4">👁️</div>
-          <h2 class="text-xl font-bold text-purple-400 mb-2">Visor de Partidas</h2>
-          <p class="text-gray-300 mb-4">
+          <h2 class="text-xl font-bold text-purple-400 mb-2">Modo Espectador</h2>
+          <p class="text-gray-300 mb-4 text-sm">
             Observa partidas en vivo de otros jugadores.
             Aprende estrategias y disfruta del espectáculo.
           </p>
-          <div class="text-sm text-gray-400 mb-3">
+          <div class="text-xs text-gray-400 mb-4 space-y-1">
             <div>📺 Visualización en tiempo real</div>
             <div>🍿 Modo espectador</div>
             <div>📊 Estadísticas de partida</div>
-            <div>🎯 Aprende de otros jugadores</div>
+            <div>🎯 Aprende de otros</div>
           </div>
           <button class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition-colors w-full">
-            Observar Partidas
+            Ver Partidas
           </button>
         </div>
       </div>
@@ -174,7 +176,7 @@ export function renderPlay(): void {
   });
 
   document.getElementById('observer-game-card')?.addEventListener('click', () => {
-    navigateTo('/game-observer');
+    navigateTo('/spectator');
   });
 }
 
@@ -256,10 +258,10 @@ function updateStatsDisplay(stats: {
 }
 
 function getCurrentUserName(): string {
-  // Simple function to get current user name
+  // Use the getCurrentUser function from auth.ts
   try {
-    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    return user.username || 'Jugador';
+    const user = getCurrentUser();
+    return user?.username || 'Jugador';
   } catch {
     return 'Jugador';
   }
