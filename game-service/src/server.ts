@@ -3,10 +3,6 @@ import fastifyWebsocket from '@fastify/websocket';
 import fastifyCors from '@fastify/cors';
 import { v4 as uuidv4 } from 'uuid';
 import { WebSocket } from 'ws';
-import { GameManager } from './game/index.js';
-import { AIPlayer } from './game/index.js';
-import { GameUtils } from './utils/index.js';
-import type { IPlayer as Player, IGameMessage as GameMessage, IPlayerInput as PlayerInput, GameMode } from './interfaces/index.js';
 
 const fastify = Fastify({
   logger: {
@@ -14,18 +10,12 @@ const fastify = Fastify({
   }
 });
 
-// Game Manager instance
-const gameManager = new GameManager();
-
-// WebSocket connections
-const connections = new Map<string, WebSocket>();
-
-// Player to client mapping
-const playerToClient = new Map<string, string>();
-const clientToPlayer = new Map<string, string>();
-
-// Spectator connections
-const spectators = new Map<string, Set<string>>(); // gameId -> Set of clientIds
+// Simple in-memory game management
+const activeGames = new Map();
+const connections = new Map();
+const playerToClient = new Map();
+const clientToPlayer = new Map();
+const spectators = new Map();
 
 // Register plugins
 fastify.register(fastifyWebsocket, {
@@ -45,715 +35,421 @@ fastify.register(fastifyCors, {
   credentials: true
 });
 
-// Helper function to send message to specific client
-function sendToClient(clientId: string, message: GameMessage): void {
+// Helper functions
+function sendToClient(clientId: string, message: any): void {
   const connection = connections.get(clientId);
   if (connection && connection.readyState === WebSocket.OPEN) {
     connection.send(JSON.stringify(message));
   }
 }
 
-// Helper function to broadcast to all clients in a game
-function broadcastToGame(gameId: string, message: GameMessage): void {
-  const game = gameManager.getGame(gameId);
-  if (game) {
-    game.getPlayers().forEach((player: Player) => {
-      if (player.isConnected) {
-        const clientId = playerToClient.get(player.id);
-        if (clientId) {
-          sendToClient(clientId, message);
-        }
+function broadcastToGame(gameId: string, message: any): void {
+  const game = activeGames.get(gameId);
+  if (game && game.players) {
+    game.players.forEach((player: any) => {
+      const clientId = playerToClient.get(player.id);
+      if (clientId) {
+        sendToClient(clientId, message);
       }
     });
   }
 }
 
-// Helper function to broadcast to spectators
-function broadcastToSpectators(gameId: string, message: GameMessage): void {
-  const gameSpectators = spectators.get(gameId);
-  if (gameSpectators) {
-    gameSpectators.forEach(clientId => {
-      sendToClient(clientId, message);
-    });
-  }
-}
-
-// Helper function to broadcast to both players and spectators
-function broadcastToAll(gameId: string, message: GameMessage): void {
-  broadcastToGame(gameId, message);
-  broadcastToSpectators(gameId, message);
-}
-
-// WebSocket route handler for players
-fastify.register(async function (fastify) {
-  fastify.get('/ws', { websocket: true }, (connection, request) => {
-    const clientId = uuidv4();
-    connections.set(clientId, connection.socket);
-    
-    fastify.log.info(`🔗 Player connected: ${clientId}`);
-    
-    // Send connection confirmation
-    sendToClient(clientId, {
-      type: 'connection',
-      data: { clientId, message: 'Connected to game server', role: 'player' }
-    });
-
-    connection.socket.on('message', async (message) => {
-      try {
-        const data = JSON.parse(message.toString());
-        fastify.log.info(`📨 Message from player ${clientId}:`, data);
-        
-        await handleClientMessage(clientId, data);
-      } catch (error) {
-        fastify.log.error('Error processing message:', error);
-        sendToClient(clientId, {
-          type: 'error',
-          data: { message: 'Invalid message format' }
-        });
-      }
-    });
-
-    connection.socket.on('close', () => {
-      fastify.log.info(`🔌 Player disconnected: ${clientId}`);
-      handleClientDisconnect(clientId);
-      connections.delete(clientId);
-    });
-
-    connection.socket.on('error', (error) => {
-      fastify.log.error(`❌ WebSocket error for player ${clientId}:`, error);
-    });
-  });
-});
-
-// WebSocket route for spectators
-fastify.register(async function (fastify) {
-  fastify.get('/ws/spectate/:gameId', { websocket: true }, (connection, request: any) => {
-    const gameId = request.params.gameId;
-    const clientId = uuidv4();
-    connections.set(clientId, connection.socket);
-    
-    fastify.log.info(`👁️ Spectator connected to game ${gameId}: ${clientId}`);
-    
-    // Add to spectators list
-    if (!spectators.has(gameId)) {
-      spectators.set(gameId, new Set());
-    }
-    spectators.get(gameId)!.add(clientId);
-    
-    // Send connection confirmation
-    sendToClient(clientId, {
-      type: 'spectator_connected',
-      data: { clientId, gameId, message: `Spectating game ${gameId}`, role: 'spectator' }
-    });
-
-    // Send current game state to spectator
-    const game = gameManager.getGame(gameId);
-    if (game) {
-      sendToClient(clientId, {
-        type: 'game_state',
-        data: {
-          gameId,
-          players: game.getPlayers(),
-          status: game.getStatus(),
-          spectator: true
-        }
-      });
-    }
-
-    connection.socket.on('message', async (message) => {
-      try {
-        const data = JSON.parse(message.toString());
-        fastify.log.info(`📨 Message from spectator ${clientId}:`, data);
-        
-        // Spectators can only request game state
-        if (data.type === 'get_game_state') {
-          await handleGetGameState(clientId, { gameId });
-        } else {
-          sendToClient(clientId, {
-            type: 'error',
-            data: { message: 'Spectators cannot send game commands' }
-          });
-        }
-      } catch (error) {
-        fastify.log.error('Error processing spectator message:', error);
-        sendToClient(clientId, {
-          type: 'error',
-          data: { message: 'Invalid message format' }
-        });
-      }
-    });
-
-    connection.socket.on('close', () => {
-      fastify.log.info(`🔌 Spectator disconnected: ${clientId}`);
-      // Remove from spectators list
-      const gameSpectators = spectators.get(gameId);
-      if (gameSpectators) {
-        gameSpectators.delete(clientId);
-        if (gameSpectators.size === 0) {
-          spectators.delete(gameId);
-        }
-      }
-      connections.delete(clientId);
-    });
-
-    connection.socket.on('error', (error) => {
-      fastify.log.error(`❌ WebSocket error for spectator ${clientId}:`, error);
-    });
-  });
-});
-
-// WebSocket route for specific games (legacy support)
+// WebSocket route for game lobbies
 fastify.register(async function (fastify) {
   fastify.get('/pong/:gameId', { websocket: true }, (connection, request: any) => {
     const gameId = request.params.gameId;
     const clientId = uuidv4();
+    const username = new URL(request.url, 'http://localhost').searchParams.get('username') || 'Usuario';
+    
     connections.set(clientId, connection.socket);
     
-    fastify.log.info(`🔗 Client connected to game ${gameId}: ${clientId}`);
+    fastify.log.info(`🔗 Client ${username} connected to game ${gameId}: ${clientId}`);
     
-    sendToClient(clientId, {
-      type: 'connection',
-      data: { clientId, gameId, message: `Connected to game ${gameId}` }
-    });
+    // Get or create game
+    let game = activeGames.get(gameId);
+    if (!game) {
+      game = {
+        id: gameId,
+        players: [],
+        status: 'waiting',
+        gameState: {
+          palas: {
+            jugador1: { x: 20, y: 160 },
+            jugador2: { x: 560, y: 160 }
+          },
+          pelota: { x: 300, y: 200, vx: 3, vy: 2, radio: 8 },
+          puntuacion: { jugador1: 0, jugador2: 0 },
+          palaAncho: 10,
+          palaAlto: 80
+        },
+        createdAt: Date.now()
+      };
+      activeGames.set(gameId, game);
+    }
+
+    // Add player to game
+    const playerNumber = game.players.length + 1;
+    if (playerNumber <= 2) {
+      const player = {
+        id: clientId,
+        nombre: username,
+        numero: playerNumber,
+        isConnected: true
+      };
+      
+      game.players.push(player);
+      playerToClient.set(clientId, clientId);
+      clientToPlayer.set(clientId, clientId);
+      
+      // Send welcome message
+      sendToClient(clientId, {
+        tipo: 'bienvenida',
+        numero: playerNumber,
+        jugadores: game.players,
+        gameId: gameId
+      });
+      
+      // Notify all players about player update
+      broadcastToGame(gameId, {
+        tipo: 'jugadores_actualizados',
+        jugadores: game.players
+      });
+      
+      // If we have 2 players, start countdown
+      if (game.players.length === 2) {
+        game.status = 'starting';
+        startCountdown(gameId);
+      }
+    } else {
+      sendToClient(clientId, {
+        tipo: 'error',
+        mensaje: 'La partida está llena'
+      });
+      connection.socket.close();
+      return;
+    }
 
     connection.socket.on('message', async (message) => {
       try {
         const data = JSON.parse(message.toString());
-        fastify.log.info(`📨 Message from ${clientId} in game ${gameId}:`, data);
+        fastify.log.info(`📨 Message from ${clientId}:`, data);
         
-        await handleClientMessage(clientId, { ...data, gameId });
+        handleGameMessage(clientId, gameId, data);
       } catch (error) {
         fastify.log.error('Error processing message:', error);
-        sendToClient(clientId, {
-          type: 'error',
-          data: { message: 'Invalid message format' }
-        });
       }
     });
 
     connection.socket.on('close', () => {
-      fastify.log.info(`🔌 Client disconnected from game ${gameId}: ${clientId}`);
-      handleClientDisconnect(clientId);
-      connections.delete(clientId);
+      fastify.log.info(`🔌 Client disconnected: ${clientId}`);
+      handleClientDisconnect(clientId, gameId);
     });
 
     connection.socket.on('error', (error) => {
-      fastify.log.error(`❌ WebSocket error for client ${clientId} in game ${gameId}:`, error);
+      fastify.log.error(`❌ WebSocket error for client ${clientId}:`, error);
     });
   });
 });
 
-// Handle client messages with improved online functionality
-async function handleClientMessage(clientId: string, message: any): Promise<void> {
-  const { type, data } = message;
-
-  switch (type) {
-    case 'createGame':
-      await handleCreateGame(clientId, data);
-      break;
-    case 'joinGame':
-      await handleJoinGame(clientId, data);
-      break;
-    case 'startGame':
-      await handleStartGame(clientId, data);
-      break;
-    case 'playerMove':
-    case 'player_input':
-      await handlePlayerMove(clientId, data);
-      break;
-    case 'getGames':
-    case 'get_games':
-      await handleGetGames(clientId);
-      break;
-    case 'getGameState':
-    case 'get_game_state':
-      await handleGetGameState(clientId, data);
-      break;
-    case 'leaveGame':
-    case 'leave_game':
-      await handleLeaveGame(clientId, data);
-      break;
-    case 'ping':
-      // Heartbeat for connection health
-      sendToClient(clientId, {
-        type: 'pong',
-        data: { timestamp: Date.now() }
-      });
-      break;
-    default:
-      fastify.log.warn(`Unknown message type: ${type}`);
-      sendToClient(clientId, {
-        type: 'error',
-        data: { message: `Unknown message type: ${type}` }
-      });
-  }
-}
-
-// IMPROVED: Create a new game with real-time sync
-async function handleCreateGame(clientId: string, data: any): Promise<void> {
-  try {
-    const { playerName, gameMode = 'pvp', aiDifficulty = 'medium' } = data;
-    
-    const gameId = gameManager.createGame(playerName, gameMode as GameMode);
-    const game = gameManager.getGame(gameId);
-    
-    if (game) {
-      const player = game.getPlayers()[0]; // First player
-      if (player) {
-        playerToClient.set(player.id, clientId);
-        clientToPlayer.set(clientId, player.id);
-      }
-      
-      // Start game loop for real-time updates
-      startGameLoop(gameId);
-    }
-    
-    // If PvE mode, add AI player
-    if (gameMode === 'pve') {
-      gameManager.joinGame(gameId, `AI (${aiDifficulty})`);
-    }
-    
-    sendToClient(clientId, {
-      type: 'gameCreated',
-      data: { 
-        gameId, 
-        playerNumber: 1, 
-        gameMode,
-        players: game?.getPlayers() || [],
-        status: game?.getStatus() || 'waiting'
-      }
-    });
-    
-    // Broadcast to all clients that a new game is available
-    broadcastGameListUpdate();
-    
-    fastify.log.info(`🎮 Game created: ${gameId} by ${playerName}`);
-  } catch (error) {
-    fastify.log.error('Error creating game:', error);
-    sendToClient(clientId, {
-      type: 'error',
-      data: { message: 'Failed to create game' }
-    });
-  }
-}
-
-// IMPROVED: Join game with real-time notifications
-async function handleJoinGame(clientId: string, data: any): Promise<void> {
-  try {
-    const { gameId, playerName } = data;
-    
-    const success = gameManager.joinGame(gameId, playerName);
-    
-    if (success) {
-      const game = gameManager.getGame(gameId);
-      if (game) {
-        const players = game.getPlayers();
-        const player = players.find(p => p.name === playerName && !p.isAI);
-        if (player) {
-          playerToClient.set(player.id, clientId);
-          clientToPlayer.set(clientId, player.id);
-        }
-        
-        // Auto-start if we have enough players
-        if (players.length >= 2) {
-          gameManager.startGame(gameId);
-        }
-      }
-      
-      sendToClient(clientId, {
-        type: 'gameJoined',
-        data: { 
-          gameId, 
-          playerNumber: 2,
-          players: game?.getPlayers() || [],
-          status: game?.getStatus() || 'waiting'
-        }
-      });
-      
-      // Notify other players and spectators
-      broadcastToAll(gameId, {
-        type: 'playerJoined',
-        data: { 
-          playerName, 
-          playerNumber: 2,
-          players: game?.getPlayers() || [],
-          status: game?.getStatus() || 'waiting'
-        }
-      });
-      
-      // Update game list for all clients
-      broadcastGameListUpdate();
-      
-      fastify.log.info(`👥 Player ${playerName} joined game ${gameId}`);
-    } else {
-      sendToClient(clientId, {
-        type: 'error',
-        data: { message: 'Failed to join game (may be full or not found)' }
-      });
-    }
-  } catch (error) {
-    fastify.log.error('Error joining game:', error);
-    sendToClient(clientId, {
-      type: 'error',
-      data: { message: 'Failed to join game' }
-    });
-  }
-}
-
-// IMPROVED: Start game with real-time sync
-async function handleStartGame(clientId: string, data: any): Promise<void> {
-  try {
-    const { gameId } = data;
-    
-    const success = gameManager.startGame(gameId);
-    
-    if (success) {
-      const game = gameManager.getGame(gameId);
-      
-      broadcastToAll(gameId, {
-        type: 'gameStarted',
-        data: { 
-          gameId,
-          players: game?.getPlayers() || [],
-          status: 'playing'
-        }
-      });
-      
-      // Update game list
-      broadcastGameListUpdate();
-      
-      fastify.log.info(`🚀 Game started: ${gameId}`);
-    } else {
-      sendToClient(clientId, {
-        type: 'error',
-        data: { message: 'Failed to start game (need more players)' }
-      });
-    }
-  } catch (error) {
-    fastify.log.error('Error starting game:', error);
-    sendToClient(clientId, {
-      type: 'error',
-      data: { message: 'Failed to start game' }
-    });
-  }
-}
-
-// IMPROVED: Real-time player movement with lag compensation
-async function handlePlayerMove(clientId: string, data: any): Promise<void> {
-  try {
-    const { gameId, direction, timestamp } = data;
-    
-    const game = gameManager.getGame(gameId);
-    if (!game) {
-      sendToClient(clientId, {
-        type: 'error',
-        data: { message: 'Game not found' }
-      });
-      return;
-    }
-    
-    const playerId = clientToPlayer.get(clientId);
-    if (!playerId) {
-      sendToClient(clientId, {
-        type: 'error',
-        data: { message: 'Player not found' }
-      });
-      return;
-    }
-    
-    const input: PlayerInput = {
-      type: 'move',
-      direction,
-      playerId: playerId,
-      gameId,
-      timestamp: timestamp || Date.now()
-    };
-    
-    game.handlePlayerInput(playerId, input);
-    
-    // Broadcast movement to other players and spectators immediately
-    broadcastToAll(gameId, {
-      type: 'playerMovement',
-      data: {
-        playerId,
-        direction,
-        timestamp: Date.now(),
-        gameState: game.getGameState()
-      }
-    });
-    
-    fastify.log.debug(`🎮 Player move: ${clientId} -> ${direction}`);
-  } catch (error) {
-    fastify.log.error('Error handling player move:', error);
-  }
-}
-
-// Get list of available games (enhanced for spectators)
-async function handleGetGames(clientId: string): Promise<void> {
-  try {
-    const games = gameManager.getAllGames().map((game: any) => ({
-      id: game.getId(),
-      name: game.getName(),
-      players: game.getPlayers().length,
-      status: game.getStatus(),
-      maxPlayers: 2,
-      playersInfo: game.getPlayers().map((p: any) => ({
-        name: p.name,
-        number: p.number,
-        isAI: p.isAI
-      })),
-      spectators: spectators.get(game.getId())?.size || 0,
-      canJoin: game.getPlayers().length < 2 && game.getStatus() === 'waiting',
-      canSpectate: game.getStatus() === 'playing'
-    }));
-    
-    sendToClient(clientId, {
-      type: 'gamesList',
-      data: { games }
-    });
-  } catch (error) {
-    fastify.log.error('Error getting games:', error);
-    sendToClient(clientId, {
-      type: 'error',
-      data: { message: 'Failed to get games list' }
-    });
-  }
-}
-
-// Get current game state (enhanced for spectators)
-async function handleGetGameState(clientId: string, data: any): Promise<void> {
-  try {
-    const { gameId } = data;
-    
-    const game = gameManager.getGame(gameId);
-    if (!game) {
-      sendToClient(clientId, {
-        type: 'error',
-        data: { message: 'Game not found' }
-      });
-      return;
-    }
-    
-    const isSpectator = !clientToPlayer.has(clientId);
-    
-    sendToClient(clientId, {
-      type: 'gameState',
-      data: {
-        gameId,
-        players: game.getPlayers(),
-        status: game.getStatus(),
-        spectator: isSpectator,
-        spectatorCount: spectators.get(gameId)?.size || 0,
-        gameState: game.getGameState()
-      }
-    });
-  } catch (error) {
-    fastify.log.error('Error getting game state:', error);
-    sendToClient(clientId, {
-      type: 'error',
-      data: { message: 'Failed to get game state' }
-    });
-  }
-}
-
-// IMPROVED: Leave game with proper cleanup
-async function handleLeaveGame(clientId: string, data: any): Promise<void> {
-  try {
-    const { gameId } = data;
-    
-    const playerId = clientToPlayer.get(clientId);
-    if (!playerId) {
-      sendToClient(clientId, {
-        type: 'error',
-        data: { message: 'Player not found' }
-      });
-      return;
-    }
-    
-    const game = gameManager.getGame(gameId);
-    if (game) {
-      game.removePlayer(playerId);
-      
-      // If no players left, remove the game
-      if (game.getPlayers().length === 0) {
-        gameManager.removeGame(gameId);
-        // Remove spectators too
-        spectators.delete(gameId);
-      } else {
-        // Notify remaining players and spectators
-        broadcastToAll(gameId, {
-          type: 'playerLeft',
-          data: { 
-            playerId: playerId,
-            players: game.getPlayers(),
-            status: game.getStatus()
-          }
-        });
-      }
-    }
-    
-    // Clean up mappings
-    playerToClient.delete(playerId);
-    clientToPlayer.delete(clientId);
-    
-    sendToClient(clientId, {
-      type: 'gameLeft',
-      data: { gameId }
-    });
-    
-    // Update game list
-    broadcastGameListUpdate();
-    
-    fastify.log.info(`👋 Player left game: ${clientId} from ${gameId}`);
-  } catch (error) {
-    fastify.log.error('Error leaving game:', error);
-  }
-}
-
-// IMPROVED: Handle client disconnect with proper cleanup
-function handleClientDisconnect(clientId: string): void {
-  const playerId = clientToPlayer.get(clientId);
+function startCountdown(gameId: string): void {
+  const game = activeGames.get(gameId);
+  if (!game) return;
   
-  if (playerId) {
-    // Find games where this player is participating
-    gameManager.getAllGames().forEach((game: any) => {
-      const players = game.getPlayers();
-      const playerInGame = players.find((p: any) => p.id === playerId);
-      
-      if (playerInGame) {
-        // Mark player as disconnected but don't remove immediately
-        playerInGame.isConnected = false;
-        
-        // Notify other players and spectators about disconnection
-        broadcastToAll(game.getId(), {
-          type: 'playerDisconnected',
-          data: { 
-            playerId: playerId,
-            playerName: playerInGame.name,
-            canReconnect: true,
-            players: players
-          }
-        });
-        
-        // Set a timeout for player removal (allow reconnection)
-        setTimeout(() => {
-          const stillDisconnected = !playerInGame.isConnected;
-          if (stillDisconnected) {
-            game.removePlayer(playerId);
-            
-            if (game.getPlayers().length === 0) {
-              gameManager.removeGame(game.getId());
-              spectators.delete(game.getId());
-            } else {
-              broadcastToAll(game.getId(), {
-                type: 'playerTimedOut',
-                data: { 
-                  playerId: playerId,
-                  playerName: playerInGame.name,
-                  players: game.getPlayers()
-                }
-              });
-            }
-            
-            // Update game list
-            broadcastGameListUpdate();
-          }
-        }, 30000); // 30 second reconnection window
-      }
+  let countdown = 3;
+  
+  const countdownInterval = setInterval(() => {
+    broadcastToGame(gameId, {
+      tipo: 'cuenta_atras',
+      valor: countdown
     });
     
-    // Clean up mappings
-    playerToClient.delete(playerId);
-    clientToPlayer.delete(clientId);
-  }
-  
-  // Clean up spectator connections
-  spectators.forEach((spectatorSet, gameId) => {
-    if (spectatorSet.has(clientId)) {
-      spectatorSet.delete(clientId);
-      if (spectatorSet.size === 0) {
-        spectators.delete(gameId);
-      }
+    countdown--;
+    
+    if (countdown < 0) {
+      clearInterval(countdownInterval);
+      startGame(gameId);
     }
+  }, 1000);
+}
+
+function startGame(gameId: string): void {
+  const game = activeGames.get(gameId);
+  if (!game) return;
+  
+  game.status = 'playing';
+  
+  broadcastToGame(gameId, {
+    tipo: 'juego_iniciado',
+    gameId: gameId
   });
+  
+  // Start game loop
+  startGameLoop(gameId);
 }
 
-// NEW: Game loop for real-time updates
 function startGameLoop(gameId: string): void {
+  const game = activeGames.get(gameId);
+  if (!game) return;
+  
   const gameLoop = setInterval(() => {
-    const game = gameManager.getGame(gameId);
-    if (!game || game.getStatus() !== 'playing') {
+    const currentGame = activeGames.get(gameId);
+    if (!currentGame || currentGame.status !== 'playing') {
       clearInterval(gameLoop);
       return;
     }
     
-    // Update game physics/state
-    // This would contain your game physics updates
+    // Update game physics
+    updateGamePhysics(currentGame);
     
-    // Broadcast game state to all players and spectators
-    broadcastToAll(gameId, {
-      type: 'gameUpdate',
-      data: {
-        gameId,
-        timestamp: Date.now(),
-        gameState: game.getGameState()
-      }
+    // Broadcast game state
+    broadcastToGame(gameId, {
+      tipo: 'estado',
+      juego: currentGame.gameState
     });
-  }, 1000 / 60); // 60 FPS updates
+    
+    // Check for game end
+    if (currentGame.gameState.puntuacion.jugador1 >= 5 || currentGame.gameState.puntuacion.jugador2 >= 5) {
+      endGame(gameId);
+      clearInterval(gameLoop);
+    }
+  }, 1000 / 60); // 60 FPS
 }
 
-// NEW: Broadcast updated game list to all connected clients
-function broadcastGameListUpdate(): void {
-  const games = gameManager.getAllGames().map((game: any) => ({
-    id: game.getId(),
-    name: game.getName(),
-    players: game.getPlayers().length,
-    status: game.getStatus(),
-    maxPlayers: 2,
-    spectators: spectators.get(game.getId())?.size || 0,
-    canJoin: game.getPlayers().length < 2 && game.getStatus() === 'waiting',
-    canSpectate: game.getStatus() === 'playing'
-  }));
+function updateGamePhysics(game: any): void {
+  const state = game.gameState;
   
-  connections.forEach((connection, clientId) => {
-    if (connection.readyState === WebSocket.OPEN) {
-      sendToClient(clientId, {
-        type: 'gamesListUpdated',
-        data: { games }
-      });
-    }
+  // Move ball
+  state.pelota.x += state.pelota.vx;
+  state.pelota.y += state.pelota.vy;
+  
+  // Ball collision with top/bottom walls
+  if (state.pelota.y <= state.pelota.radio || state.pelota.y >= 400 - state.pelota.radio) {
+    state.pelota.vy = -state.pelota.vy;
+  }
+  
+  // Ball collision with paddles
+  const ballLeft = state.pelota.x - state.pelota.radio;
+  const ballRight = state.pelota.x + state.pelota.radio;
+  const ballTop = state.pelota.y - state.pelota.radio;
+  const ballBottom = state.pelota.y + state.pelota.radio;
+  
+  // Left paddle collision
+  if (ballLeft <= state.palas.jugador1.x + state.palaAncho &&
+      ballRight >= state.palas.jugador1.x &&
+      ballBottom >= state.palas.jugador1.y &&
+      ballTop <= state.palas.jugador1.y + state.palaAlto) {
+    state.pelota.vx = Math.abs(state.pelota.vx);
+  }
+  
+  // Right paddle collision
+  if (ballRight >= state.palas.jugador2.x &&
+      ballLeft <= state.palas.jugador2.x + state.palaAncho &&
+      ballBottom >= state.palas.jugador2.y &&
+      ballTop <= state.palas.jugador2.y + state.palaAlto) {
+    state.pelota.vx = -Math.abs(state.pelota.vx);
+  }
+  
+  // Score points
+  if (state.pelota.x < 0) {
+    state.puntuacion.jugador2++;
+    resetBall(state);
+  } else if (state.pelota.x > 600) {
+    state.puntuacion.jugador1++;
+    resetBall(state);
+  }
+}
+
+function resetBall(state: any): void {
+  state.pelota.x = 300;
+  state.pelota.y = 200;
+  state.pelota.vx = Math.random() > 0.5 ? 3 : -3;
+  state.pelota.vy = Math.random() * 4 - 2;
+}
+
+function endGame(gameId: string): void {
+  const game = activeGames.get(gameId);
+  if (!game) return;
+  
+  game.status = 'finished';
+  
+  const winner = game.gameState.puntuacion.jugador1 > game.gameState.puntuacion.jugador2 ? 1 : 2;
+  
+  broadcastToGame(gameId, {
+    tipo: 'juego_finalizado',
+    ganador: winner,
+    juego: game.gameState,
+    mensaje: `¡Fin de la partida! Jugador ${winner} gana!`
   });
 }
 
-// REST API Routes (keep existing + add spectator endpoints)
+function handleGameMessage(clientId: string, gameId: string, data: any): void {
+  const game = activeGames.get(gameId);
+  if (!game) return;
+  
+  switch (data.tipo) {
+    case 'mover':
+      handlePlayerMove(clientId, gameId, data);
+      break;
+    case 'listo':
+      // Handle ready state if needed
+      break;
+  }
+}
 
-// NEW: Get spectator info for a game
-fastify.get('/api/games/:gameId/spectators', async (request: any, reply) => {
+function handlePlayerMove(clientId: string, gameId: string, data: any): void {
+  const game = activeGames.get(gameId);
+  if (!game || game.status !== 'playing') return;
+  
+  const player = game.players.find((p: any) => p.id === clientId);
+  if (!player) return;
+  
+  const paddle = player.numero === 1 ? game.gameState.palas.jugador1 : game.gameState.palas.jugador2;
+  
+  if (data.direccion === 'up' || data.y < 0) {
+    paddle.y = Math.max(0, paddle.y - 8);
+  } else if (data.direccion === 'down' || data.y > 0) {
+    paddle.y = Math.min(400 - game.gameState.palaAlto, paddle.y + 8);
+  }
+}
+
+function handleClientDisconnect(clientId: string, gameId: string): void {
+  const game = activeGames.get(gameId);
+  if (!game) return;
+  
+  // Remove player from game
+  game.players = game.players.filter((p: any) => p.id !== clientId);
+  
+  // Clean up mappings
+  playerToClient.delete(clientId);
+  clientToPlayer.delete(clientId);
+  
+  // If no players left, remove game
+  if (game.players.length === 0) {
+    activeGames.delete(gameId);
+  } else {
+    // Notify remaining players
+    broadcastToGame(gameId, {
+      tipo: 'jugador_desconectado',
+      mensaje: 'Un jugador se ha desconectado'
+    });
+  }
+  
+  connections.delete(clientId);
+}
+
+// API Routes for game management
+fastify.get("/api/games", async (request, reply) => {
+  try {
+    const games = Array.from(activeGames.values()).map(game => ({
+      id: game.id,
+      nombre: `Partida ${game.id.substring(0, 8)}`,
+      jugadores: game.players.map((p: any) => ({ nombre: p.nombre, numero: p.numero })),
+      jugadoresConectados: game.players.length,
+      capacidadMaxima: 2,
+      estado: game.status,
+      enJuego: game.status === 'playing',
+      gameMode: 'pvp',
+      puntuacion: game.gameState ? {
+        jugador1: game.gameState.puntuacion.jugador1,
+        jugador2: game.gameState.puntuacion.jugador2
+      } : { jugador1: 0, jugador2: 0 },
+      tipoJuego: 'pong',
+      espectadores: 0,
+      puedeUnirse: game.players.length < 2 && game.status === 'waiting',
+      puedeObservar: game.status === 'playing',
+      createdAt: game.createdAt
+    }));
+    
+    reply.send({ success: true, games });
+  } catch (error) {
+    fastify.log.error("Error getting API games:", error);
+    reply.status(500).send({ success: false, error: "Failed to get games list" });
+  }
+});
+
+fastify.post("/api/games", async (request: any, reply) => {
+  try {
+    const { nombre, gameMode = "pvp", maxPlayers = 2, playerName } = request.body;
+    const finalPlayerName = playerName || "Jugador1";
+    
+    const gameId = uuidv4();
+    const game = {
+      id: gameId,
+      players: [],
+      status: 'waiting',
+      gameState: {
+        palas: {
+          jugador1: { x: 20, y: 160 },
+          jugador2: { x: 560, y: 160 }
+        },
+        pelota: { x: 300, y: 200, vx: 3, vy: 2, radio: 8 },
+        puntuacion: { jugador1: 0, jugador2: 0 },
+        palaAncho: 10,
+        palaAlto: 80
+      },
+      createdAt: Date.now()
+    };
+    
+    activeGames.set(gameId, game);
+    
+    const formattedGame = {
+      id: gameId,
+      nombre: nombre || `Partida de ${finalPlayerName}`,
+      jugadores: [],
+      jugadoresConectados: 0,
+      capacidadMaxima: maxPlayers,
+      estado: 'waiting',
+      enJuego: false,
+      gameMode: gameMode,
+      puntuacion: { jugador1: 0, jugador2: 0 },
+      tipoJuego: "pong",
+      espectadores: 0,
+      puedeUnirse: true,
+      puedeObservar: false,
+      createdAt: game.createdAt
+    };
+    
+    reply.send(formattedGame);
+  } catch (error) {
+    fastify.log.error("Error creating API game:", error);
+    reply.status(500).send({ success: false, error: "Failed to create game" });
+  }
+});
+
+fastify.get("/api/games/:gameId", async (request: any, reply) => {
   try {
     const { gameId } = request.params;
-    const game = gameManager.getGame(gameId);
+    const game = activeGames.get(gameId);
     
     if (!game) {
-      return reply.status(404).send({
-        success: false,
-        error: 'Game not found'
-      });
+      return reply.status(404).send({ success: false, error: "Game not found" });
     }
     
-    const spectatorCount = spectators.get(gameId)?.size || 0;
+    const formattedGame = {
+      id: game.id,
+      nombre: `Partida ${game.id.substring(0, 8)}`,
+      jugadores: game.players.map((p: any) => ({ nombre: p.nombre, numero: p.numero })),
+      jugadoresConectados: game.players.length,
+      capacidadMaxima: 2,
+      estado: game.status,
+      enJuego: game.status === 'playing',
+      gameMode: 'pvp',
+      puntuacion: {
+        jugador1: game.gameState.puntuacion.jugador1,
+        jugador2: game.gameState.puntuacion.jugador2
+      },
+      tipoJuego: "pong",
+      espectadores: 0,
+      puedeUnirse: game.players.length < 2 && game.status === 'waiting',
+      puedeObservar: game.status === 'playing',
+      createdAt: game.createdAt
+    };
     
-    reply.send({
-      success: true,
-      gameId,
-      spectatorCount,
-      canSpectate: game.getStatus() === 'playing'
-    });
+    reply.send(formattedGame);
   } catch (error) {
-    fastify.log.error('Error getting spectator info:', error);
-    reply.status(500).send({
-      success: false,
-      error: 'Failed to get spectator info'
-    });
+    fastify.log.error("Error getting API game:", error);
+    reply.status(500).send({ success: false, error: "Failed to get game" });
   }
 });
 
@@ -764,9 +460,9 @@ fastify.get('/health', async (request, reply) => {
     service: 'game-service',
     timestamp: new Date().toISOString(),
     games: {
-      total: gameManager.getGameCount(),
-      active: gameManager.getActiveGames().length,
-      waiting: gameManager.getWaitingGames().length
+      total: activeGames.size,
+      active: Array.from(activeGames.values()).filter(g => g.status === 'playing').length,
+      waiting: Array.from(activeGames.values()).filter(g => g.status === 'waiting').length
     },
     connections: {
       total: connections.size,
@@ -776,12 +472,12 @@ fastify.get('/health', async (request, reply) => {
   };
 });
 
-// Game statistics endpoint (enhanced)
+// Game statistics endpoint
 fastify.get('/stats', async (request, reply) => {
   return {
-    totalGames: gameManager.getGameCount(),
-    activeGames: gameManager.getActiveGames().length,
-    waitingGames: gameManager.getWaitingGames().length,
+    totalGames: activeGames.size,
+    activeGames: Array.from(activeGames.values()).filter(g => g.status === 'playing').length,
+    waitingGames: Array.from(activeGames.values()).filter(g => g.status === 'waiting').length,
     connectedClients: connections.size,
     activePlayers: clientToPlayer.size,
     totalSpectators: Array.from(spectators.values()).reduce((sum, set) => sum + set.size, 0),
@@ -789,173 +485,9 @@ fastify.get('/stats', async (request, reply) => {
   };
 });
 
-// REST API Routes (existing ones remain the same)
-fastify.get('/', async (request, reply) => {
-  try {
-    const allGames = gameManager.getAllGames();
-    const formattedGames = allGames.map(game => ({
-      id: game.getId(),
-      nombre: game.getName(),
-      jugadores: game.getPlayers().map(p => ({ nombre: p.name, numero: p.number })),
-      jugadoresConectados: game.getPlayers().length,
-      capacidadMaxima: 2,
-      estado: game.getStatus(),
-      tipoJuego: 'pong',
-      espectadores: spectators.get(game.getId())?.size || 0,
-      puedeUnirse: game.getPlayers().length < 2 && game.getStatus() === 'waiting',
-      puedeObservar: game.getStatus() === 'playing'
-    }));
-    
-    reply.send({ 
-      success: true, 
-      games: formattedGames 
-    });
-  } catch (error) {
-    fastify.log.error('Error getting games:', error);
-    reply.status(500).send({ 
-      success: false, 
-      error: 'Failed to get games list' 
-    });
-  }
-});
-
-// Get specific game by ID (enhanced)
-fastify.get('/:gameId', async (request: any, reply) => {
-  try {
-    const { gameId } = request.params;
-    const game = gameManager.getGame(gameId);
-    
-    if (!game) {
-      return reply.status(404).send({ 
-        success: false, 
-        error: 'Game not found' 
-      });
-    }
-    
-    const formattedGame = {
-      id: game.getId(),
-      nombre: game.getName(),
-      jugadores: game.getPlayers().map(p => ({ nombre: p.name, numero: p.number })),
-      jugadoresConectados: game.getPlayers().length,
-      capacidadMaxima: 2,
-      estado: game.getStatus(),
-      tipoJuego: 'pong',
-      espectadores: spectators.get(gameId)?.size || 0,
-      puedeUnirse: game.getPlayers().length < 2 && game.getStatus() === 'waiting',
-      puedeObservar: game.getStatus() === 'playing'
-    };
-    
-    reply.send(formattedGame);
-  } catch (error) {
-    fastify.log.error('Error getting game:', error);
-    reply.status(500).send({ 
-      success: false, 
-      error: 'Failed to get game' 
-    });
-  }
-});
-
-// Create new game (existing implementation)
-fastify.post('/', async (request: any, reply) => {
-  try {
-    const { nombre, gameMode = 'pvp', maxPlayers = 2, playerName } = request.body;
-    
-    const finalPlayerName = playerName || 'Jugador1';
-    
-    const gameId = gameManager.createGame(finalPlayerName, gameMode);
-    const game = gameManager.getGame(gameId);
-    
-    if (game) {
-      const formattedGame = {
-        id: game.getId(),
-        nombre: nombre || game.getName(),
-        jugadores: game.getPlayers().map(p => ({ nombre: p.name, numero: p.number })),
-        jugadoresConectados: game.getPlayers().length,
-        capacidadMaxima: maxPlayers,
-        estado: game.getStatus(),
-        tipoJuego: 'pong',
-        gameMode: gameMode,
-        espectadores: 0,
-        puedeUnirse: true,
-        puedeObservar: false
-      };
-      
-      reply.send(formattedGame);
-    } else {
-      reply.status(500).send({ 
-        success: false, 
-        error: 'Failed to create game' 
-      });
-    }
-  } catch (error) {
-    fastify.log.error('Error creating game:', error);
-    reply.status(500).send({ 
-      success: false, 
-      error: 'Failed to create game' 
-    });
-  }
-});
-
-// Join game (existing implementation)
-fastify.post('/:gameId/join', async (request: any, reply) => {
-  try {
-    const { gameId } = request.params;
-    const { playerName } = request.body;
-    
-    if (!playerName) {
-      return reply.status(400).send({ 
-        success: false, 
-        error: 'Player name is required' 
-      });
-    }
-    
-    const success = gameManager.joinGame(gameId, playerName);
-    
-    if (success) {
-      const game = gameManager.getGame(gameId);
-      if (game) {
-        const formattedGame = {
-          id: game.getId(),
-          nombre: game.getName(),
-          jugadores: game.getPlayers().map(p => ({ nombre: p.name, numero: p.number })),
-          jugadoresConectados: game.getPlayers().length,
-          capacidadMaxima: 2,
-          estado: game.getStatus(),
-          tipoJuego: 'pong',
-          playerNumber: game.getPlayers().length,
-          espectadores: spectators.get(gameId)?.size || 0
-        };
-        
-        reply.send({
-          success: true,
-          game: formattedGame,
-          playerNumber: game.getPlayers().length
-        });
-      } else {
-        reply.status(404).send({ 
-          success: false, 
-          error: 'Game not found' 
-        });
-      }
-    } else {
-      reply.status(400).send({ 
-        success: false, 
-        error: 'Failed to join game (may be full or not found)' 
-      });
-    }
-  } catch (error) {
-    fastify.log.error('Error joining game:', error);
-    reply.status(500).send({ 
-      success: false, 
-      error: 'Failed to join game' 
-    });
-  }
-});
-
 // Graceful shutdown
 process.on('SIGTERM', () => {
   fastify.log.info('🛑 Received SIGTERM, shutting down gracefully...');
-  gameManager.cleanup();
   fastify.close(() => {
     process.exit(0);
   });
@@ -963,7 +495,6 @@ process.on('SIGTERM', () => {
 
 process.on('SIGINT', () => {
   fastify.log.info('🛑 Received SIGINT, shutting down gracefully...');
-  gameManager.cleanup();
   fastify.close(() => {
     process.exit(0);
   });
@@ -978,7 +509,6 @@ const start = async () => {
     await fastify.listen({ port: Number(port), host });
     fastify.log.info(`🎮 Game Service running on ${host}:${port}`);
     fastify.log.info(`🔗 WebSocket endpoint: ws://${host}:${port}/ws`);
-    fastify.log.info(`👁️ Spectator WebSocket: ws://${host}:${port}/ws/spectate/{gameId}`);
     fastify.log.info(`🎯 Game WebSocket: ws://${host}:${port}/pong/{gameId}`);
     fastify.log.info(`❤️ Health check: http://${host}:${port}/health`);
     fastify.log.info(`📊 Stats endpoint: http://${host}:${port}/stats`);
