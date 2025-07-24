@@ -1,742 +1,586 @@
 import Fastify from 'fastify';
 import fastifyWebsocket from '@fastify/websocket';
+import fastifyCors from '@fastify/cors';
 import { v4 as uuidv4 } from 'uuid';
 import { WebSocket } from 'ws';
 
 const fastify = Fastify({
-  logger: true
+  logger: {
+    level: 'info'
+  }
 });
 
-// Registrar el plugin de WebSocket
+// Simple in-memory game management
+const activeGames = new Map();
+const connections = new Map();
+const playerToClient = new Map();
+const clientToPlayer = new Map();
+const spectators = new Map();
+
+// Register plugins
 fastify.register(fastifyWebsocket, {
   options: {
     maxPayload: 1048576,
-    verifyClient: (info) => {
-      console.log('WebSocket client attempting to connect:', info.origin);
+    verifyClient: (info: any) => {
+      fastify.log.info('WebSocket client attempting to connect', { origin: info.origin });
       return true;
     }
   }
 });
 
-// Configurar CORS
-fastify.register(require('@fastify/cors'), {
-  origin: ['http://localhost:3000', 'http://localhost:3001'],
+fastify.register(fastifyCors, {
+  origin: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 });
 
-// Interfaces para manejar conexiones
-interface ClientConnection {
-  id: string;
-  ws: WebSocket;
-  gameId?: string;
-  playerNumber?: 1 | 2;
-  isAI?: boolean;
-}
-
-interface GameConnections {
-  [gameId: string]: {
-    players: ClientConnection[];
-    gameState: GameState;
-  };
-}
-
-// Almacenar las conexiones de los clientes
-const connections: Map<string, ClientConnection> = new Map();
-const gameConnections: GameConnections = {};
-
-// Función para enviar mensaje a un cliente específico
+// Helper functions
 function sendToClient(clientId: string, message: any): void {
   const connection = connections.get(clientId);
-  if (connection && connection.ws.readyState === WebSocket.OPEN) {
-    connection.ws.send(JSON.stringify(message));
+  if (connection && connection.readyState === WebSocket.OPEN) {
+    connection.send(JSON.stringify(message));
   }
 }
 
-// Función para enviar mensaje a todos los clientes de un juego
-function sendToGameClients(gameId: string, message: any): void {
-  const gameConnection = gameConnections[gameId];
-  if (gameConnection) {
-    gameConnection.players.forEach(player => {
-      if (player.ws.readyState === WebSocket.OPEN) {
-        player.ws.send(JSON.stringify(message));
+function broadcastToGame(gameId: string, message: any): void {
+  const game = activeGames.get(gameId);
+  if (game && game.players) {
+    game.players.forEach((player: any) => {
+      const clientId = playerToClient.get(player.id);
+      if (clientId) {
+        sendToClient(clientId, message);
       }
     });
   }
 }
 
-// Función para generar posición aleatoria de pelota
-function randomBallPosition() {
-  return {
-    x: 400,
-    y: 300,
-    vx: (Math.random() > 0.5 ? 1 : -1) * (3 + Math.random() * 2),
-    vy: (Math.random() > 0.5 ? 1 : -1) * (2 + Math.random() * 2),
-    radio: 10
-  };
-}
-
-// Función para resetear pelota
-function resetBall(gameState: GameState) {
-  const newBall = randomBallPosition();
-  gameState.pelota = newBall;
-  gameState.rallyCount = 0;
-}
-
-// Función para generar un ID único para el juego
-function generateGameId(): string {
-  return uuidv4();
-}
-
-// Función para crear un nuevo estado de juego
-function createGameState(gameId: string, gameMode: 'pvp' | 'pve' | 'multiplayer' = 'pvp'): GameState {
-  return new GameState(gameId, gameMode);
-}
-
-// Función para obtener o crear un juego
-function getOrCreateGame(gameId?: string, gameMode: 'pvp' | 'pve' | 'multiplayer' = 'pvp'): { gameId: string; gameState: GameState } {
-  if (gameId && gameConnections[gameId]) {
-    return { gameId, gameState: gameConnections[gameId].gameState };
-  }
-  
-  const newGameId = gameId || generateGameId();
-  const newGameState = createGameState(newGameId, gameMode);
-  gameConnections[newGameId] = {
-    players: [],
-    gameState: newGameState
-  };
-  return { gameId: newGameId, gameState: newGameState };
-}
-
-// Función para detectar colisiones
-function detectCollision(pelota: any, pala: any, gameState: GameState): boolean {
-  return (
-    pelota.x - pelota.radio < pala.x + gameState.palaAncho &&
-    pelota.x + pelota.radio > pala.x &&
-    pelota.y - pelota.radio < pala.y + gameState.palaAlto &&
-    pelota.y + pelota.radio > pala.y
-  );
-}
-
-// Función para manejar el rebote en las palas
-function handlePaddleCollision(pelota: any, pala: any, gameState: GameState): void {
-  // Calcular el punto de impacto relativo en la pala (-1 a 1)
-  const impactPoint = (pelota.y - (pala.y + gameState.palaAlto / 2)) / (gameState.palaAlto / 2);
-  
-  // Cambiar dirección horizontal
-  pelota.vx = -pelota.vx;
-  
-  // Ajustar velocidad vertical basada en el punto de impacto
-  const maxAngle = Math.PI / 3; // 60 grados máximo
-  const angle = impactPoint * maxAngle;
-  
-  // Aumentar velocidad ligeramente para hacer el juego más dinámico
-  const currentSpeed = Math.sqrt(pelota.vx * pelota.vx + pelota.vy * pelota.vy);
-  const newSpeed = Math.min(currentSpeed * 1.05, 8); // Limitar velocidad máxima
-  
-  pelota.vx = Math.cos(angle) * newSpeed * (pelota.vx > 0 ? 1 : -1);
-  pelota.vy = Math.sin(angle) * newSpeed;
-  
-  // Incrementar contador de rally
-  gameState.rallyCount++;
-}
-
-// Función para actualizar la física del juego
-function updateGamePhysics(gameState: GameState): void {
-  if (!gameState.enJuego) return;
-
-  const pelota = gameState.pelota;
-  const palas = gameState.palas;
-
-  // Actualizar posición de la pelota
-  pelota.x += pelota.vx;
-  pelota.y += pelota.vy;
-
-  // Rebote en paredes superior e inferior
-  if (pelota.y - pelota.radio <= 0 || pelota.y + pelota.radio >= gameState.alto) {
-    pelota.vy = -pelota.vy;
-    pelota.y = Math.max(pelota.radio, Math.min(gameState.alto - pelota.radio, pelota.y));
-  }
-
-  // Detectar colisiones con las palas
-  if (detectCollision(pelota, palas.jugador1, gameState)) {
-    handlePaddleCollision(pelota, palas.jugador1, gameState);
-    pelota.x = palas.jugador1.x + gameState.palaAncho + pelota.radio; // Evitar que se pegue
-  } else if (detectCollision(pelota, palas.jugador2, gameState)) {
-    handlePaddleCollision(pelota, palas.jugador2, gameState);
-    pelota.x = palas.jugador2.x - pelota.radio; // Evitar que se pegue
-  }
-
-  // Detectar puntos (pelota sale por los lados)
-  if (pelota.x < 0) {
-    gameState.puntuacion.jugador2++;
-    resetBall(gameState);
-    sendToGameClients(gameState.id, {
-      tipo: 'puntuacion',
-      puntuacion: gameState.puntuacion
-    });
-  } else if (pelota.x > gameState.ancho) {
-    gameState.puntuacion.jugador1++;
-    resetBall(gameState);
-    sendToGameClients(gameState.id, {
-      tipo: 'puntuacion',
-      puntuacion: gameState.puntuacion
-    });
-  }
-
-  // Enviar estado actualizado a todos los clientes
-  sendToGameClients(gameState.id, {
-    tipo: 'estado',
-    estado: {
-      pelota: gameState.pelota,
-      palas: gameState.palas,
-      puntuacion: gameState.puntuacion,
-      rallyCount: gameState.rallyCount
-    }
-  });
-}
-
-// Función para iniciar el bucle del juego
-function startGameLoop(gameState: GameState): void {
-  if (gameState.intervalId) {
-    clearInterval(gameState.intervalId);
-  }
-  
-  gameState.intervalId = setInterval(() => {
-    updateGamePhysics(gameState);
-  }, 16); // ~60 FPS
-}
-
-// Función para detener el bucle del juego
-function stopGameLoop(gameState: GameState): void {
-  if (gameState.intervalId) {
-    clearInterval(gameState.intervalId);
-    gameState.intervalId = null;
-  }
-  if (gameState.countdownIntervalId) {
-    clearInterval(gameState.countdownIntervalId);
-    gameState.countdownIntervalId = null;
-  }
-  if (gameState.aiUpdateIntervalId) {
-    clearInterval(gameState.aiUpdateIntervalId);
-    gameState.aiUpdateIntervalId = null;
-  }
-}
-
-// Función para iniciar cuenta atrás
-function startCountdown(gameState: GameState): void {
-  gameState.cuentaAtrasActiva = true;
-  gameState.cuentaAtrasValor = 3;
-  gameState.enJuego = false;
-  
-  // Enviar estado inicial de cuenta atrás
-  sendToGameClients(gameState.id, {
-    tipo: 'cuentaAtras',
-    valor: gameState.cuentaAtrasValor
-  });
-  
-  gameState.countdownIntervalId = setInterval(() => {
-    gameState.cuentaAtrasValor--;
-    
-    if (gameState.cuentaAtrasValor > 0) {
-      sendToGameClients(gameState.id, {
-        tipo: 'cuentaAtras',
-        valor: gameState.cuentaAtrasValor
-      });
-    } else {
-      // Terminar cuenta atrás e iniciar juego
-      gameState.cuentaAtrasActiva = false;
-      gameState.enJuego = true;
-      
-      sendToGameClients(gameState.id, {
-        tipo: 'iniciarJuego'
-      });
-      
-      if (gameState.countdownIntervalId) {
-        clearInterval(gameState.countdownIntervalId);
-        gameState.countdownIntervalId = null;
-      }
-      
-      // Iniciar bucle del juego
-      startGameLoop(gameState);
-    }
-  }, 1000); // 1 segundo entre cada número
-}
-
-// Función para verificar si el juego puede iniciar
-function canStartGame(gameState: GameState): boolean {
-  return gameState.jugadoresConectados >= 2 && !gameState.enJuego && !gameState.cuentaAtrasActiva;
-}
-
-// Función para manejar el movimiento de las palas
-function handlePlayerMovement(gameState: GameState, playerNumber: 1 | 2, direction: 'arriba' | 'abajo'): void {
-  const pala = playerNumber === 1 ? gameState.palas.jugador1 : gameState.palas.jugador2;
-  const velocidad = 8; // Velocidad de movimiento
-  
-  if (direction === 'arriba') {
-    pala.y = Math.max(0, pala.y - velocidad);
-  } else if (direction === 'abajo') {
-    pala.y = Math.min(gameState.alto - gameState.palaAlto, pala.y + velocidad);
-  }
-}
-
-// 🤖 Clase para manejar la IA
-class AIPlayer {
-  private gameState: GameState;
-  private playerNumber: 1 | 2;
-  private lastUpdateTime: number;
-  private predictedBallY: number;
-  private reactionTime: number;
-  private difficulty: 'easy' | 'medium' | 'hard';
-  private lastDecision: number;
-  private randomOffset: number;
-  private clientId: string;
-
-  constructor(gameState: GameState, playerNumber: 1 | 2, clientId: string, difficulty: 'easy' | 'medium' | 'hard' = 'medium') {
-    this.gameState = gameState;
-    this.playerNumber = playerNumber;
-    this.clientId = clientId;
-    this.lastUpdateTime = Date.now();
-    this.predictedBallY = gameState.alto / 2;
-    this.difficulty = difficulty;
-    this.lastDecision = 0;
-    this.randomOffset = 0;
-    
-    // Configurar dificultad
-    switch(difficulty) {
-      case 'easy':
-        this.reactionTime = 1000; // 1 segundo
-        break;
-      case 'medium':
-        this.reactionTime = 500; // 0.5 segundos
-        break;
-      case 'hard':
-        this.reactionTime = 200; // 0.2 segundos
-        break;
-    }
-  }
-
-  // Actualizar la IA cada segundo (según los requerimientos)
-  update(): void {
-    const currentTime = Date.now();
-    if (currentTime - this.lastUpdateTime < this.reactionTime) {
-      return; // No actualizar hasta que pase el tiempo de reacción
-    }
-    
-    this.lastUpdateTime = currentTime;
-    this.lastDecision = currentTime;
-    
-    // Obtener información del juego
-    const pelota = this.gameState.pelota;
-    const pala = this.playerNumber === 1 ? this.gameState.palas.jugador1 : this.gameState.palas.jugador2;
-    
-    // Predecir hacia dónde va la pelota
-    this.predictBallPosition();
-    
-    // Agregar algo de error humano
-    this.addHumanError();
-    
-    // Calcular la decisión de movimiento
-    const centroPala = pala.y + this.gameState.palaAlto / 2;
-    const targetY = this.predictedBallY + this.randomOffset;
-    
-    const diff = targetY - centroPala;
-    
-    // Simular entrada de teclado enviando mensaje de movimiento
-    if (Math.abs(diff) > 20) { // Zona muerta para evitar temblores
-      const direction = diff > 0 ? 'abajo' : 'arriba';
-      this.simulateKeyPress(direction);
-    }
-  }
-  
-  private simulateKeyPress(direction: 'arriba' | 'abajo'): void {
-    // Simular el envío de un mensaje de movimiento como lo haría un jugador humano
-    const message = {
-      tipo: 'mover',
-      jugador: this.playerNumber,
-      direccion: direction
-    };
-    
-    // Procesar el mensaje como si viniera del cliente
-    this.processMovementMessage(message);
-  }
-  
-  private processMovementMessage(message: any): void {
-    // Procesar el mensaje de movimiento de la IA
-    handlePlayerMovement(this.gameState, this.playerNumber, message.direccion);
-  }
-  
-  private predictBallPosition(): void {
-    const pelota = this.gameState.pelota;
-    const palaX = this.playerNumber === 1 ? this.gameState.palas.jugador1.x : this.gameState.palas.jugador2.x;
-    
-    // Calcular cuánto tiempo tardará la pelota en llegar a la pala
-    const timeToReach = Math.abs(pelota.x - palaX) / Math.abs(pelota.vx);
-    
-    // Predecir posición Y considerando rebotes en paredes
-    let predictedY = pelota.y + (pelota.vy * timeToReach);
-    
-    // Simular rebotes en paredes superior e inferior
-    while (predictedY < 0 || predictedY > this.gameState.alto) {
-      if (predictedY < 0) {
-        predictedY = Math.abs(predictedY);
-      } else if (predictedY > this.gameState.alto) {
-        predictedY = this.gameState.alto - (predictedY - this.gameState.alto);
-      }
-    }
-    
-    this.predictedBallY = predictedY;
-  }
-  
-  private addHumanError(): void {
-    // Agregar error aleatorio basado en la dificultad
-    const errorRange = this.difficulty === 'easy' ? 40 : this.difficulty === 'medium' ? 20 : 10;
-    this.randomOffset = (Math.random() - 0.5) * errorRange;
-  }
-}
-
-// 🎮 Estado del juego: ahora es una clase para crear múltiples instancias
-class GameState {
-  id: string
-  nombre: string
-  ancho: number
-  alto: number
-  palaAncho: number
-  palaAlto: number
-  pelota: { x: number, y: number, vx: number, vy: number, radio: number }
-  palas: {
-    jugador1: { x: number, y: number },
-    jugador2: { x: number, y: number },
-  }
-  puntuacion: { jugador1: number, jugador2: number }
-  rallyCount: number
-  enJuego: boolean
-  cuentaAtrasActiva: boolean
-  cuentaAtrasValor: number
-  jugadoresConectados: number
-  capacidadMaxima: number
-  intervalId: NodeJS.Timeout | null // Para controlar el bucle del juego
-  countdownIntervalId: NodeJS.Timeout | null; // Para controlar el bucle de cuenta atrás
-  aiUpdateIntervalId: NodeJS.Timeout | null; // Para controlar la actualización de IA
-  aiPlayers: Map<number, AIPlayer> // Jugadores IA
-  gameMode: 'pvp' | 'pve' | 'multiplayer' // Modo de juego
-
-  constructor(id: string, gameMode: 'pvp' | 'pve' | 'multiplayer' = 'pvp') {
-    this.id = id;
-    this.nombre = `Juego ${id}`;
-    this.ancho = 800;
-    this.alto = 600;
-    this.palaAncho = 20;
-    this.palaAlto = 100;
-    this.pelota = randomBallPosition();
-    this.palas = {
-      jugador1: { x: 50, y: this.alto / 2 - 50 },
-      jugador2: { x: this.ancho - 70, y: this.alto / 2 - 50 },
-    };
-    this.puntuacion = { jugador1: 0, jugador2: 0 };
-    this.rallyCount = 0;
-    this.enJuego = false;
-    this.cuentaAtrasActiva = false;
-    this.cuentaAtrasValor = 3;
-    this.jugadoresConectados = 0;
-    this.capacidadMaxima = 2;
-    this.intervalId = null;
-    this.countdownIntervalId = null;
-    this.aiUpdateIntervalId = null;
-    this.aiPlayers = new Map();
-    this.gameMode = gameMode;
-  }
-
-  // Método para agregar un jugador IA
-  addAIPlayer(playerNumber: 1 | 2, clientId: string, difficulty: 'easy' | 'medium' | 'hard' = 'medium'): void {
-    const aiPlayer = new AIPlayer(this, playerNumber, clientId, difficulty);
-    this.aiPlayers.set(playerNumber, aiPlayer);
-    
-    // Iniciar el bucle de actualización de IA si no está ya corriendo
-    if (!this.aiUpdateIntervalId) {
-      this.aiUpdateIntervalId = setInterval(() => {
-        this.aiPlayers.forEach(ai => ai.update());
-      }, 100); // Actualizar cada 100ms para mayor responsividad
-    }
-  }
-
-  // Método para remover un jugador IA
-  removeAIPlayer(playerNumber: 1 | 2): void {
-    this.aiPlayers.delete(playerNumber);
-    
-    // Si no quedan jugadores IA, detener el bucle
-    if (this.aiPlayers.size === 0 && this.aiUpdateIntervalId) {
-      clearInterval(this.aiUpdateIntervalId);
-      this.aiUpdateIntervalId = null;
-    }
-  }
-
-  // Método para limpiar todos los intervalos
-  cleanup(): void {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-    }
-    if (this.countdownIntervalId) {
-      clearInterval(this.countdownIntervalId);
-      this.countdownIntervalId = null;
-    }
-    if (this.aiUpdateIntervalId) {
-      clearInterval(this.aiUpdateIntervalId);
-      this.aiUpdateIntervalId = null;
-    }
-    this.aiPlayers.clear();
-  }
-}
-
-// 🌐 Configurar la ruta de WebSocket
+// WebSocket route for game lobbies
 fastify.register(async function (fastify) {
-  fastify.get('/ws', { websocket: true }, (connection, request) => {
+  fastify.get('/pong/:gameId', { websocket: true }, (connection, request: any) => {
+    const gameId = request.params.gameId;
     const clientId = uuidv4();
-    const clientConnection: ClientConnection = {
-      id: clientId,
-      ws: connection.socket
-    };
+    const username = new URL(request.url, 'http://localhost').searchParams.get('username') || 'Usuario';
     
-    connections.set(clientId, clientConnection);
+    connections.set(clientId, connection.socket);
     
-    console.log(`Cliente conectado: ${clientId}`);
+    fastify.log.info(`🔗 Client ${username} connected to game ${gameId}: ${clientId}`);
     
-    // Enviar confirmación de conexión
-    connection.socket.send(JSON.stringify({
-      tipo: 'conexion',
-      clientId: clientId,
-      mensaje: 'Conectado al servidor de juego'
-    }));
+    // Get or create game
+    let game = activeGames.get(gameId);
+    if (!game) {
+      game = {
+        id: gameId,
+        players: [],
+        status: 'waiting',
+        gameState: {
+          palas: {
+            jugador1: { x: 20, y: 160 },
+            jugador2: { x: 560, y: 160 }
+          },
+          pelota: { x: 300, y: 200, vx: 3, vy: 2, radio: 8 },
+          puntuacion: { jugador1: 0, jugador2: 0 },
+          palaAncho: 10,
+          palaAlto: 80
+        },
+        createdAt: Date.now()
+      };
+      activeGames.set(gameId, game);
+    }
 
-    connection.socket.on('message', (message) => {
+    // Check if player already exists by username
+    const existingPlayer = game.players.find((p: any) => p.nombre === username);
+    let playerNumber;
+    let isNewPlayer = false;
+    
+    if (existingPlayer) {
+      // Reconnecting player
+      playerNumber = existingPlayer.numero;
+      existingPlayer.id = clientId;
+      existingPlayer.isConnected = true;
+      fastify.log.info(`🔄 Player ${username} reconnected to game ${gameId}`);
+    } else {
+      // New player
+      playerNumber = game.players.length + 1;
+      if (playerNumber <= 2) {
+        const player = {
+          id: clientId,
+          nombre: username,
+          numero: playerNumber,
+          isConnected: true
+        };
+        
+        game.players.push(player);
+        isNewPlayer = true;
+        fastify.log.info(`➕ New player ${username} joined game ${gameId} as player ${playerNumber}`);
+      } else {
+        sendToClient(clientId, {
+          type: 'error',
+          message: 'La partida está llena'
+        });
+        connection.socket.close();
+        return;
+      }
+    }
+    
+    // Update mappings
+    playerToClient.set(clientId, clientId);
+    clientToPlayer.set(clientId, clientId);
+    
+    // Send welcome message
+    sendToClient(clientId, {
+      type: 'game_joined',
+      gameId: gameId,
+      playerNumber: playerNumber,
+      playersConnected: game.players.length,
+      playerName: username
+    });
+    
+    // Notify all players about player update
+    broadcastToGame(gameId, {
+      type: 'player_joined',
+      playersConnected: game.players.length,
+      playerName: username,
+      playerNumber: playerNumber
+    });
+    
+    // If we have 2 unique players and game isn't already starting, start countdown
+    if (game.players.length === 2 && game.status === 'waiting' && isNewPlayer) {
+      game.status = 'starting';
+      fastify.log.info(`🚀 Starting countdown for game ${gameId} with ${game.players.length} players`);
+      setTimeout(() => startCountdown(gameId), 500); // Small delay to ensure all messages are sent
+    }
+
+    connection.socket.on('message', async (message) => {
       try {
         const data = JSON.parse(message.toString());
-        console.log(`Mensaje recibido de ${clientId}:`, data);
+        fastify.log.info(`📨 Message from ${clientId}:`, data);
         
-        switch(data.tipo) {
-          case 'unirseJuego':
-            handleJoinGame(clientConnection, data);
-            break;
-          case 'crearJuego':
-            handleCreateGame(clientConnection, data);
-            break;
-          case 'mover':
-            handleMove(clientConnection, data);
-            break;
-          case 'iniciarJuego':
-            handleStartGame(clientConnection, data);
-            break;
-          case 'obtenerJuegos':
-            handleGetGames(clientConnection);
-            break;
-          default:
-            console.log('Tipo de mensaje desconocido:', data.tipo);
-        }
+        handleGameMessage(clientId, gameId, data);
       } catch (error) {
-        console.error('Error procesando mensaje:', error);
+        fastify.log.error('Error processing message:', error);
       }
     });
 
     connection.socket.on('close', () => {
-      console.log(`Cliente desconectado: ${clientId}`);
-      handleDisconnect(clientConnection);
-      connections.delete(clientId);
+      fastify.log.info(`🔌 Client disconnected: ${clientId}`);
+      handleClientDisconnect(clientId, gameId);
+    });
+
+    connection.socket.on('error', (error) => {
+      fastify.log.error(`❌ WebSocket error for client ${clientId}:`, error);
     });
   });
 });
 
-// Función para manejar la creación de juego
-function handleCreateGame(clientConnection: ClientConnection, data: any): void {
-  const gameMode = data.gameMode || 'pvp';
-  const { gameId, gameState } = getOrCreateGame(undefined, gameMode);
+function startCountdown(gameId: string): void {
+  const game = activeGames.get(gameId);
+  if (!game) return;
   
-  // Agregar el cliente al juego
-  clientConnection.gameId = gameId;
-  clientConnection.playerNumber = 1;
-  gameConnections[gameId].players.push(clientConnection);
-  gameState.jugadoresConectados++;
+  let countdown = 3;
   
-  // Si es modo PvE, agregar IA como jugador 2
-  if (gameMode === 'pve') {
-    const aiClientId = uuidv4();
-    const aiConnection: ClientConnection = {
-      id: aiClientId,
-      ws: clientConnection.ws, // Compartir la conexión para simplicidad
-      gameId: gameId,
-      playerNumber: 2,
-      isAI: true
-    };
+  // Notificar inicio de cuenta atrás
+  broadcastToGame(gameId, {
+    type: 'countdown_start'
+  });
+  
+  const countdownInterval = setInterval(() => {
+    broadcastToGame(gameId, {
+      type: 'countdown_update',
+      count: countdown
+    });
     
-    gameConnections[gameId].players.push(aiConnection);
-    gameState.jugadoresConectados++;
-    gameState.addAIPlayer(2, aiClientId, data.difficulty || 'medium');
+    countdown--;
+    
+    if (countdown < 0) {
+      clearInterval(countdownInterval);
+      startGame(gameId);
+    }
+  }, 1000);
+}
+
+function startGame(gameId: string): void {
+  const game = activeGames.get(gameId);
+  if (!game) return;
+  
+  game.status = 'playing';
+  
+  broadcastToGame(gameId, {
+    type: 'gameStarted',
+    gameId: gameId
+  });
+  
+  // Start game loop
+  startGameLoop(gameId);
+}
+
+function startGameLoop(gameId: string): void {
+  const game = activeGames.get(gameId);
+  if (!game) return;
+  
+  const gameLoop = setInterval(() => {
+    const currentGame = activeGames.get(gameId);
+    if (!currentGame || currentGame.status !== 'playing') {
+      clearInterval(gameLoop);
+      return;
+    }
+    
+    // Update game physics
+    updateGamePhysics(currentGame);
+    
+    // Broadcast game state
+    broadcastToGame(gameId, {
+      type: 'gameState',
+      data: {
+        gameState: {
+          ball: {
+            x: currentGame.gameState.pelota.x,
+            y: currentGame.gameState.pelota.y,
+            vx: currentGame.gameState.pelota.vx,
+            vy: currentGame.gameState.pelota.vy,
+            radius: currentGame.gameState.pelota.radio
+          },
+          paddles: {
+            left: {
+              x: currentGame.gameState.palas.jugador1.x,
+              y: currentGame.gameState.palas.jugador1.y,
+              width: currentGame.gameState.palaAncho,
+              height: currentGame.gameState.palaAlto
+            },
+            right: {
+              x: currentGame.gameState.palas.jugador2.x,
+              y: currentGame.gameState.palas.jugador2.y,
+              width: currentGame.gameState.palaAncho,
+              height: currentGame.gameState.palaAlto
+            }
+          },
+          score: {
+            left: currentGame.gameState.puntuacion.jugador1,
+            right: currentGame.gameState.puntuacion.jugador2
+          },
+          gameRunning: true,
+          canvas: { width: 800, height: 600 },
+          maxScore: 5,
+          rallieCount: 0
+        }
+      }
+    });
+    
+    // Check for game end
+    if (currentGame.gameState.puntuacion.jugador1 >= 5 || currentGame.gameState.puntuacion.jugador2 >= 5) {
+      endGame(gameId);
+      clearInterval(gameLoop);
+    }
+  }, 1000 / 60); // 60 FPS
+}
+
+function updateGamePhysics(game: any): void {
+  const state = game.gameState;
+  
+  // Move ball
+  state.pelota.x += state.pelota.vx;
+  state.pelota.y += state.pelota.vy;
+  
+  // Ball collision with top/bottom walls
+  if (state.pelota.y <= state.pelota.radio || state.pelota.y >= 400 - state.pelota.radio) {
+    state.pelota.vy = -state.pelota.vy;
   }
   
-  sendToClient(clientConnection.id, {
-    tipo: 'juegoCreado',
-    gameId: gameId,
-    playerNumber: clientConnection.playerNumber,
-    gameMode: gameMode,
-    estado: {
-      pelota: gameState.pelota,
-      palas: gameState.palas,
-      puntuacion: gameState.puntuacion,
-      jugadoresConectados: gameState.jugadoresConectados,
-      enJuego: gameState.enJuego
+  // Ball collision with paddles
+  const ballLeft = state.pelota.x - state.pelota.radio;
+  const ballRight = state.pelota.x + state.pelota.radio;
+  const ballTop = state.pelota.y - state.pelota.radio;
+  const ballBottom = state.pelota.y + state.pelota.radio;
+  
+  // Left paddle collision
+  if (ballLeft <= state.palas.jugador1.x + state.palaAncho &&
+      ballRight >= state.palas.jugador1.x &&
+      ballBottom >= state.palas.jugador1.y &&
+      ballTop <= state.palas.jugador1.y + state.palaAlto) {
+    state.pelota.vx = Math.abs(state.pelota.vx);
+  }
+  
+  // Right paddle collision
+  if (ballRight >= state.palas.jugador2.x &&
+      ballLeft <= state.palas.jugador2.x + state.palaAncho &&
+      ballBottom >= state.palas.jugador2.y &&
+      ballTop <= state.palas.jugador2.y + state.palaAlto) {
+    state.pelota.vx = -Math.abs(state.pelota.vx);
+  }
+  
+  // Score points
+  if (state.pelota.x < 0) {
+    state.puntuacion.jugador2++;
+    resetBall(state);
+  } else if (state.pelota.x > 600) {
+    state.puntuacion.jugador1++;
+    resetBall(state);
+  }
+}
+
+function resetBall(state: any): void {
+  state.pelota.x = 300;
+  state.pelota.y = 200;
+  state.pelota.vx = Math.random() > 0.5 ? 3 : -3;
+  state.pelota.vy = Math.random() * 4 - 2;
+}
+
+function endGame(gameId: string): void {
+  const game = activeGames.get(gameId);
+  if (!game) return;
+  
+  game.status = 'finished';
+  
+  const winnerPlayer = game.gameState.puntuacion.jugador1 > game.gameState.puntuacion.jugador2 ? 1 : 2;
+  const winnerName = game.players.find((p: any) => p.numero === winnerPlayer)?.nombre || `Jugador ${winnerPlayer}`;
+  
+  broadcastToGame(gameId, {
+    type: 'gameEnded',
+    data: {
+      winner: winnerName,
+      score: {
+        left: game.gameState.puntuacion.jugador1,
+        right: game.gameState.puntuacion.jugador2
+      },
+      message: `¡Fin de la partida! ${winnerName} gana!`
     }
   });
+}
+
+function handleGameMessage(clientId: string, gameId: string, data: any): void {
+  const game = activeGames.get(gameId);
+  if (!game) return;
   
-  // Si el juego puede iniciar, empezar la cuenta atrás
-  if (canStartGame(gameState)) {
-    startCountdown(gameState);
+  switch (data.type) {
+    case 'playerMove':
+      handlePlayerMove(clientId, gameId, data.data);
+      break;
+    case 'ready':
+      // Handle ready state if needed
+      break;
   }
 }
 
-// Función para manejar la unión a un juego
-function handleJoinGame(clientConnection: ClientConnection, data: any): void {
-  const gameId = data.gameId;
+function handlePlayerMove(clientId: string, gameId: string, data: any): void {
+  const game = activeGames.get(gameId);
+  if (!game || game.status !== 'playing') return;
   
-  if (!gameConnections[gameId]) {
-    sendToClient(clientConnection.id, {
-      tipo: 'error',
-      mensaje: 'Juego no encontrado'
+  const player = game.players.find((p: any) => p.id === clientId);
+  if (!player) return;
+  
+  const paddle = player.numero === 1 ? game.gameState.palas.jugador1 : game.gameState.palas.jugador2;
+  const speed = 8;
+  
+  if (data.direction === 'up' && paddle.y > 0) {
+    paddle.y = Math.max(0, paddle.y - speed);
+  } else if (data.direction === 'down' && paddle.y < 600 - game.gameState.palaAlto) {
+    paddle.y = Math.min(600 - game.gameState.palaAlto, paddle.y + speed);
+  }
+}
+
+function handleClientDisconnect(clientId: string, gameId: string): void {
+  const game = activeGames.get(gameId);
+  if (!game) return;
+  
+  // Remove player from game
+  game.players = game.players.filter((p: any) => p.id !== clientId);
+  
+  // Clean up mappings
+  playerToClient.delete(clientId);
+  clientToPlayer.delete(clientId);
+  
+  // If no players left, remove game
+  if (game.players.length === 0) {
+    activeGames.delete(gameId);
+  } else {
+    // Notify remaining players
+    broadcastToGame(gameId, {
+      type: 'playerLeft',
+      data: {
+        message: 'Un jugador se ha desconectado'
+      }
     });
-    return;
   }
   
-  const gameState = gameConnections[gameId].gameState;
-  
-  if (gameState.jugadoresConectados >= gameState.capacidadMaxima) {
-    sendToClient(clientConnection.id, {
-      tipo: 'error',
-      mensaje: 'Juego lleno'
-    });
-    return;
-  }
-  
-  // Determinar número de jugador
-  const playerNumber = gameState.jugadoresConectados + 1;
-  
-  clientConnection.gameId = gameId;
-  clientConnection.playerNumber = playerNumber as 1 | 2;
-  gameConnections[gameId].players.push(clientConnection);
-  gameState.jugadoresConectados++;
-  
-  sendToClient(clientConnection.id, {
-    tipo: 'juegoUnido',
-    gameId: gameId,
-    playerNumber: clientConnection.playerNumber,
-    estado: {
-      pelota: gameState.pelota,
-      palas: gameState.palas,
-      puntuacion: gameState.puntuacion,
-      jugadoresConectados: gameState.jugadoresConectados,
-      enJuego: gameState.enJuego
-    }
-  });
-  
-  // Notificar a otros jugadores
-  sendToGameClients(gameId, {
-    tipo: 'jugadorUnido',
-    playerNumber: clientConnection.playerNumber,
-    jugadoresConectados: gameState.jugadoresConectados
-  });
-  
-  // Si el juego puede iniciar, empezar la cuenta atrás
-  if (canStartGame(gameState)) {
-    startCountdown(gameState);
-  }
+  connections.delete(clientId);
 }
 
-// Función para manejar el movimiento
-function handleMove(clientConnection: ClientConnection, data: any): void {
-  if (!clientConnection.gameId || !clientConnection.playerNumber) {
-    return;
+// API Routes for game management
+fastify.get("/api/games", async (request, reply) => {
+  try {
+    const games = Array.from(activeGames.values()).map(game => ({
+      id: game.id,
+      nombre: `Partida ${game.id.substring(0, 8)}`,
+      jugadores: game.players.map((p: any) => ({ nombre: p.nombre, numero: p.numero })),
+      jugadoresConectados: game.players.length,
+      capacidadMaxima: 2,
+      estado: game.status,
+      enJuego: game.status === 'playing',
+      gameMode: 'pvp',
+      puntuacion: game.gameState ? {
+        jugador1: game.gameState.puntuacion.jugador1,
+        jugador2: game.gameState.puntuacion.jugador2
+      } : { jugador1: 0, jugador2: 0 },
+      tipoJuego: 'pong',
+      espectadores: 0,
+      puedeUnirse: game.players.length < 2 && game.status === 'waiting',
+      puedeObservar: game.status === 'playing',
+      createdAt: game.createdAt
+    }));
+    
+    reply.send({ success: true, games });
+  } catch (error) {
+    fastify.log.error("Error getting API games:", error);
+    reply.status(500).send({ success: false, error: "Failed to get games list" });
   }
-  
-  const gameState = gameConnections[clientConnection.gameId].gameState;
-  if (!gameState.enJuego) {
-    return;
-  }
-  
-  handlePlayerMovement(gameState, clientConnection.playerNumber, data.direccion);
-}
+});
 
-// Función para manejar el inicio de juego
-function handleStartGame(clientConnection: ClientConnection, data: any): void {
-  if (!clientConnection.gameId) {
-    return;
-  }
-  
-  const gameState = gameConnections[clientConnection.gameId].gameState;
-  
-  if (canStartGame(gameState)) {
-    startCountdown(gameState);
-  }
-}
-
-// Función para obtener la lista de juegos
-function handleGetGames(clientConnection: ClientConnection): void {
-  const gamesList = Object.keys(gameConnections).map(gameId => {
-    const gameState = gameConnections[gameId].gameState;
-    return {
+fastify.post("/api/games", async (request: any, reply) => {
+  try {
+    const { nombre, gameMode = "pvp", maxPlayers = 2, playerName } = request.body;
+    const finalPlayerName = playerName || "Jugador1";
+    
+    const gameId = uuidv4();
+    const game = {
       id: gameId,
-      nombre: gameState.nombre,
-      jugadoresConectados: gameState.jugadoresConectados,
-      capacidadMaxima: gameState.capacidadMaxima,
-      enJuego: gameState.enJuego,
-      gameMode: gameState.gameMode
+      players: [],
+      status: 'waiting',
+      gameState: {
+        palas: {
+          jugador1: { x: 20, y: 160 },
+          jugador2: { x: 560, y: 160 }
+        },
+        pelota: { x: 300, y: 200, vx: 3, vy: 2, radio: 8 },
+        puntuacion: { jugador1: 0, jugador2: 0 },
+        palaAncho: 10,
+        palaAlto: 80
+      },
+      createdAt: Date.now()
     };
-  });
-  
-  sendToClient(clientConnection.id, {
-    tipo: 'listaJuegos',
-    juegos: gamesList
-  });
-}
-
-// Función para manejar la desconexión
-function handleDisconnect(clientConnection: ClientConnection): void {
-  if (clientConnection.gameId) {
-    const gameState = gameConnections[clientConnection.gameId].gameState;
     
-    // Remover el cliente del juego
-    gameConnections[clientConnection.gameId].players = gameConnections[clientConnection.gameId].players.filter(
-      player => player.id !== clientConnection.id
-    );
+    activeGames.set(gameId, game);
     
-    gameState.jugadoresConectados--;
+    const formattedGame = {
+      id: gameId,
+      nombre: nombre || `Partida de ${finalPlayerName}`,
+      jugadores: [],
+      jugadoresConectados: 0,
+      capacidadMaxima: maxPlayers,
+      estado: 'waiting',
+      enJuego: false,
+      gameMode: gameMode,
+      puntuacion: { jugador1: 0, jugador2: 0 },
+      tipoJuego: "pong",
+      espectadores: 0,
+      puedeUnirse: true,
+      puedeObservar: false,
+      createdAt: game.createdAt
+    };
     
-    // Remover jugador IA si existe
-    if (clientConnection.playerNumber) {
-      gameState.removeAIPlayer(clientConnection.playerNumber);
-    }
-    
-    // Si no quedan jugadores, limpiar el juego
-    if (gameState.jugadoresConectados <= 0) {
-      stopGameLoop(gameState);
-      gameState.cleanup();
-      delete gameConnections[clientConnection.gameId];
-    } else {
-      // Notificar a otros jugadores
-      sendToGameClients(clientConnection.gameId, {
-        tipo: 'jugadorDesconectado',
-        playerNumber: clientConnection.playerNumber,
-        jugadoresConectados: gameState.jugadoresConectados
-      });
-    }
+    reply.send(formattedGame);
+  } catch (error) {
+    fastify.log.error("Error creating API game:", error);
+    reply.status(500).send({ success: false, error: "Failed to create game" });
   }
-}
+});
 
-// 🚀 Iniciar el servidor
+fastify.get("/api/games/:gameId", async (request: any, reply) => {
+  try {
+    const { gameId } = request.params;
+    const game = activeGames.get(gameId);
+    
+    if (!game) {
+      return reply.status(404).send({ success: false, error: "Game not found" });
+    }
+    
+    const formattedGame = {
+      id: game.id,
+      nombre: `Partida ${game.id.substring(0, 8)}`,
+      jugadores: game.players.map((p: any) => ({ nombre: p.nombre, numero: p.numero })),
+      jugadoresConectados: game.players.length,
+      capacidadMaxima: 2,
+      estado: game.status,
+      enJuego: game.status === 'playing',
+      gameMode: 'pvp',
+      puntuacion: {
+        jugador1: game.gameState.puntuacion.jugador1,
+        jugador2: game.gameState.puntuacion.jugador2
+      },
+      tipoJuego: "pong",
+      espectadores: 0,
+      puedeUnirse: game.players.length < 2 && game.status === 'waiting',
+      puedeObservar: game.status === 'playing',
+      createdAt: game.createdAt
+    };
+    
+    reply.send(formattedGame);
+  } catch (error) {
+    fastify.log.error("Error getting API game:", error);
+    reply.status(500).send({ success: false, error: "Failed to get game" });
+  }
+});
+
+// Health check endpoint
+fastify.get('/health', async (request, reply) => {
+  return {
+    status: 'ok',
+    service: 'game-service',
+    timestamp: new Date().toISOString(),
+    games: {
+      total: activeGames.size,
+      active: Array.from(activeGames.values()).filter(g => g.status === 'playing').length,
+      waiting: Array.from(activeGames.values()).filter(g => g.status === 'waiting').length
+    },
+    connections: {
+      total: connections.size,
+      players: clientToPlayer.size,
+      spectators: Array.from(spectators.values()).reduce((sum, set) => sum + set.size, 0)
+    }
+  };
+});
+
+// Game statistics endpoint
+fastify.get('/stats', async (request, reply) => {
+  return {
+    totalGames: activeGames.size,
+    activeGames: Array.from(activeGames.values()).filter(g => g.status === 'playing').length,
+    waitingGames: Array.from(activeGames.values()).filter(g => g.status === 'waiting').length,
+    connectedClients: connections.size,
+    activePlayers: clientToPlayer.size,
+    totalSpectators: Array.from(spectators.values()).reduce((sum, set) => sum + set.size, 0),
+    spectatedGames: spectators.size
+  };
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  fastify.log.info('🛑 Received SIGTERM, shutting down gracefully...');
+  fastify.close(() => {
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  fastify.log.info('🛑 Received SIGINT, shutting down gracefully...');
+  fastify.close(() => {
+    process.exit(0);
+  });
+});
+
+// Start the server
 const start = async () => {
   try {
-    const port = process.env.PORT || 3001;
-    await fastify.listen({ port: Number(port), host: '0.0.0.0' });
-    console.log(`🎮 Servidor de juego funcionando en puerto ${port}`);
+    const port = process.env.PORT || 8000;
+    const host = process.env.HOST || '0.0.0.0';
+    
+    await fastify.listen({ port: Number(port), host });
+    fastify.log.info(`🎮 Game Service running on ${host}:${port}`);
+    fastify.log.info(`🔗 WebSocket endpoint: ws://${host}:${port}/ws`);
+    fastify.log.info(`🎯 Game WebSocket: ws://${host}:${port}/pong/{gameId}`);
+    fastify.log.info(`❤️ Health check: http://${host}:${port}/health`);
+    fastify.log.info(`📊 Stats endpoint: http://${host}:${port}/stats`);
   } catch (err) {
-    fastify.log.error(err);
+    fastify.log.error('❌ Error starting server:', err);
     process.exit(1);
   }
 };
