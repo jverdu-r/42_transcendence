@@ -1,79 +1,73 @@
 import Fastify from 'fastify';
 import httpProxy from '@fastify/http-proxy';
+import fastifyCors from '@fastify/cors'; // 🟡 <-- CORS IMPORTADO
+import Redis from 'ioredis';
 import dotenv from 'dotenv';
-
 dotenv.config();
 
-const fastify = Fastify({
-    logger: true
-});
+// -- Redis connection setup from env --
+const redisHost = process.env.REDIS_HOST || 'redis';
+const redisPort = Number(process.env.REDIS_PORT) || 6379;
+const redisPassword = process.env.REDIS_PASSWORD || '';
+let redis = new Redis({ host: redisHost, port: redisPort, password: redisPassword });
 
-// Enable CORS
-fastify.register(require('@fastify/cors'), {
-    origin: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-});
+// -- fastify instance --
+const fastify = Fastify({ logger: true });
 
-// Proxy para auth service
-fastify.register(httpProxy, {
-    upstream: 'http://auth-service:8000',
-    prefix: '/api/auth',
-    rewritePrefix: '/auth',
-    httpMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
-});
+(async () => {
+  // 🟡 REGISTRA CORS ANTES DE LOS PROXIES
+  await fastify.register(fastifyCors, {
+    origin: 'http://localhost:9001',
+    credentials: true
+  });
 
-// Proxy para game service (CORREGIDO: puerto 8000, no 8001)
-fastify.register(httpProxy, {
-    upstream: 'http://game-service:8000',
-    prefix: '/api/games',
-    rewritePrefix: '',
-    httpMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
-});
+  // -- Proxies to backend services --
+  const serviceConfigs = [
+    { env: 'AUTH_SERVICE_URL', prefix: '/api/auth', rewritePrefix: '/auth', fallback: 'http://auth-service:8000' },
+    { env: 'GAME_SERVICE_URL', prefix: '/api/game', rewritePrefix: '/game', fallback: 'http://game-service:8000' },
+    { env: 'CHAT_SERVICE_URL', prefix: '/api/chat', rewritePrefix: '/chat', fallback: 'http://chat-service:8000' },
+  ];
 
-// Proxy para WebSocket del game service
-fastify.register(httpProxy, {
-    upstream: 'http://game-service:8000',
-    prefix: '/pong',
-    rewritePrefix: '/pong',
-    websocket: true,
-    httpMethods: ['GET']
-});
+  for (const svc of serviceConfigs) {
+    const upstream = process.env[svc.env] || svc.fallback;
+    fastify.register(httpProxy, {
+      upstream,
+      prefix: svc.prefix,
+      rewritePrefix: svc.rewritePrefix,
+      httpMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Añade OPTIONS por si acaso
+    });
+  }
 
-// Proxy para WebSocket de espectadores
-fastify.register(httpProxy, {
-    upstream: 'http://game-service:8000',
-    prefix: '/ws',
-    rewritePrefix: '/ws',
-    websocket: true,
-    httpMethods: ['GET']
-});
-
-// Proxy para game stats (db-service)
-fastify.register(httpProxy, {
-    upstream: 'http://db-service:8000',
-    prefix: '/api/game',
-    rewritePrefix: '/game',
-    httpMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
-});
-
-// Health check route
-fastify.get('/health', async (request, reply) => {
-    reply.send({ status: 'ok', service: 'api-gateway' });
-});
-
-// Start server
-const start = async () => {
+  // -- Health check --
+  fastify.get('/health', async (request, reply) => {
     try {
-        await fastify.listen({ port: 8000, host: '0.0.0.0' });
-        fastify.log.info('API Gateway listening on port 8000');
-        fastify.log.info('🔗 Proxying /api/games to game-service:8000');
-        fastify.log.info('🔗 Proxying /pong WebSocket to game-service:8000');
-        fastify.log.info('🔗 Proxying /ws WebSocket to game-service:8000');
-    } catch (err) {
-        fastify.log.error(err);
-        process.exit(1);
+      await redis.ping();
+      reply.send({ status: 'ok', redis: 'connected' });
+    } catch (err: any) {
+      reply.status(500).send({ status: 'fail', error: err?.message || String(err) });
     }
-};
+  });
 
-start();
+  // -- Enqueue jobs --
+  fastify.post('/queue/job', async (request, reply) => {
+    try {
+      const job = request.body;
+      await redis.lpush('job-queue', JSON.stringify(job));
+      reply.send({ queued: true });
+    } catch (err: any) {
+      reply.status(500).send({ error: 'Failed to queue job', detail: err?.message || String(err) });
+    }
+  });
+
+  // -- Start server --
+  try {
+    await redis.ping();
+    fastify.log.info('Redis connection successfully established from .env or environment variables');
+    
+    await fastify.listen({ port: 8000, host: '0.0.0.0' });
+    fastify.log.info('API Gateway listening on port 8000');
+  } catch (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+})();

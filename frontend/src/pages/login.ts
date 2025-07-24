@@ -58,13 +58,8 @@ export function renderLoginPage(): void {
 
           <p class="text-center text-gray-400 text-sm mt-6" data-i18n="login.or">${getTranslation('login', 'or')}</p>
 
-          <div id="g_id_onload"
-               data-client_id="58128894262-ak29ohah5ovkh31dvp2srdbm16thp961.apps.googleusercontent.com"
-               data-context="signin"
-               data-callback="handleGoogleCredentialResponse"
-               data-auto_prompt="false">
-          </div>
-          <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="left"></div>
+          <!-- Botón perrsonalizado para Google -->
+          <div id="google-login-button" class="flex justify-center mt-6"></div>
 
           <p class="text-center text-gray-300 text-base mt-6">
             <span data-i18n-html="login.createAccountSentence">${getTranslation('login', 'noAccountYet')} <a href="/register" id="create-account-link" class="text-[#ffc300] hover:underline font-semibold transition-colors duration-200 hover:text-[#ffd60a]" data-i18n="login.createAccountButton">${getTranslation('register', 'registerButton')}</a></span>
@@ -97,6 +92,7 @@ export function renderLoginPage(): void {
     if (appRoot) {
         appRoot.innerHTML = loginHtml;
 
+        // Login clásico
         const loginButton = document.getElementById('login-button');
         if (loginButton) {
             loginButton.addEventListener('click', async (event) => {
@@ -125,6 +121,60 @@ export function renderLoginPage(): void {
             });
         }
 
+        // Callback global para Google
+        (window as any).handleGoogleCredentialResponse = async (response: any) => {
+            try {
+                const res = await fetch('/api/auth/google', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: response.credential })
+                });
+                const data = await res.json();
+                if (res.ok && data.token) {
+                    localStorage.setItem('jwt', data.token);
+                    navigateTo('/home');
+                } else {
+                    alert(data.message || 'Error en autenticación con Google');
+                }
+            } catch (error) {
+                console.error('Error en autenticación con Google:', error);
+                alert('Error de conexión con el servidor');
+            }
+        };
+
+        // Carga el script de Google y renderiza el botón
+        const googleLoginDiv = document.getElementById('google-login-button');
+        const renderGoogleButton = () => {
+            const googleLoginDiv = document.getElementById('google-login-button');
+            if (window.google?.accounts?.id && googleLoginDiv) {
+                window.google.accounts.id.initialize({
+                    client_id: "58128894262-ak29ohah5ovkh31dvp2srdbm16thp961.apps.googleusercontent.com",
+                    callback: (window as any).handleGoogleCredentialResponse,
+                });
+
+                // ✅ Aquí renderizas el botón oficial con estilo controlado
+                window.google.accounts.id.renderButton(googleLoginDiv, {
+                    theme: 'outline',
+                    size: 'large',
+                    width: '100%'
+                });
+            } else {
+                setTimeout(renderGoogleButton, 100);
+            }
+        };
+
+        if (!window.google) {
+            const script = document.createElement('script');
+            script.src = 'https://accounts.google.com/gsi/client';
+            script.async = true;
+            script.defer = true;
+            script.onload = () => renderGoogleButton();
+            document.head.appendChild(script);
+        } else {
+            renderGoogleButton();
+        }
+
+        // Navegación a registro
         const createAccountLink = document.getElementById('create-account-link');
         if (createAccountLink) {
             createAccountLink.addEventListener('click', (event) => {
@@ -133,6 +183,7 @@ export function renderLoginPage(): void {
             });
         }
 
+        // Selector de idioma
         const languageDropdownButton = document.getElementById('language-dropdown-button');
         const languageDropdownMenu = document.getElementById('language-dropdown-menu');
         if (languageDropdownButton && languageDropdownMenu) {
@@ -158,26 +209,5 @@ export function renderLoginPage(): void {
                 });
             });
         }
-
-        // Google Sign-In callback
-        (window as any).handleGoogleCredentialResponse = async (response: any) => {
-            try {
-                const res = await fetch('/api/auth/google', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token: response.credential })
-                });
-                const data = await res.json();
-                if (res.ok && data.token) {
-                    localStorage.setItem('jwt', data.token);
-                    navigateTo('/home');
-                } else {
-                    alert(data.message || 'Error en autenticación con Google');
-                }
-            } catch (error) {
-                console.error('Error en autenticación con Google:', error);
-                alert('Error de conexión con el servidor');
-            }
-        };
     }
 }
