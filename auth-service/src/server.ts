@@ -12,7 +12,7 @@ import { pipeline } from 'stream';
 import util from 'util';
 import { FastifyRequest } from 'fastify';
 import { MultipartFile } from '@fastify/multipart';
-import sharp from 'sharp';
+import { createCanvas, loadImage } from 'canvas';
 
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
@@ -140,32 +140,33 @@ fastify.post('/auth/login', async (request, reply) => {
 });
  
 // Endpoint para obtener estadísticas del usuario y generar archivo de historial
-
 fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, reply) => {
   try {
     const db = await openDb();
     const userId = (request as any).user.user_id;
 
+    // Obtener todas las partidas completadas con su info de jugadores
     const games = await db.all(`
-      SELECT 
+      SELECT
         g.id AS game_id,
         g.finished_at,
         g.status,
+        g.tournament_id,
         p.user_id AS player_id,
-        p.team_name AS player_team,
-        u.username AS player_name
+        p.team_name AS team,
+        u.username,
+        t.name AS tournament_name
       FROM games g
       JOIN participants p ON p.game_id = g.id
-      JOIN users u ON u.id = p.user_id
-      WHERE g.status = 'completed'
+      LEFT JOIN users u ON u.id = p.user_id
+      LEFT JOIN tournaments t ON g.tournament_id = t.id
+      WHERE g.status IN ('finished', 'completed')
     `);
 
+    // Obtener todos los scores por game + team
     const scores = await db.all(`
-      SELECT 
-        s.game_id,
-        s.team_name,
-        s.point_number
-      FROM scores s
+      SELECT game_id, team_name, point_number
+      FROM scores
     `);
 
     const scoreMap = new Map<string, number>();
@@ -173,75 +174,104 @@ fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, 
       scoreMap.set(`${s.game_id}_${s.team_name}`, s.point_number);
     }
 
+    // Agrupar los jugadores por game_id
+    const groupedGames = new Map<number, any[]>();
+    for (const g of games) {
+      if (!groupedGames.has(g.game_id)) groupedGames.set(g.game_id, []);
+      groupedGames.get(g.game_id)!.push(g);
+    }
+
+    // Preparar stats individuales
     const userGames = new Map<number, {
       matches: any[],
       pointsFor: number,
       pointsAgainst: number
     }>();
 
-    for (const g of games) {
-      const rivals = games.filter(m => m.game_id === g.game_id && m.player_id !== g.player_id);
-      const rival = rivals[0];
+    for (const [gameId, players] of groupedGames.entries()) {
+      if (players.length < 1) continue;
 
-      const userScore = scoreMap.get(`${g.game_id}_${g.player_team}`) ?? 0;
-      const rivalScore = rival ? scoreMap.get(`${rival.game_id}_${rival.player_team}`) ?? 0 : 0;
+      for (const current of players) {
+        const opponent = players.find(p => p.player_id !== current.player_id && p.user_id !== null) || null;
 
-      if (!userGames.has(g.player_id)) {
-        userGames.set(g.player_id, {
-          matches: [],
-          pointsFor: 0,
-          pointsAgainst: 0
+        const userScore = scoreMap.get(`${gameId}_${current.team}`) ?? 0;
+
+        let opponentScore = 0;
+        let opponentName = 'Bot AI';
+
+        if (opponent) {
+          opponentScore = scoreMap.get(`${gameId}_${opponent.team}`) ?? 0;
+          opponentName = opponent.username || 'Bot AI';
+        } else {
+          // Buscar en scores el otro equipo aunque no haya participant asociado
+          const allTeams = scores
+            .filter(s => s.game_id === gameId)
+            .map(s => s.team_name);
+          const otherTeam = allTeams.find(t => t !== current.team);
+          if (otherTeam) {
+            opponentScore = scoreMap.get(`${gameId}_${otherTeam}`) ?? 0;
+          }
+        }
+
+        if (!userGames.has(current.player_id)) {
+          userGames.set(current.player_id, {
+            matches: [],
+            pointsFor: 0,
+            pointsAgainst: 0
+          });
+        }
+
+        userGames.get(current.player_id)!.pointsFor += userScore;
+        userGames.get(current.player_id)!.pointsAgainst += opponentScore;
+
+        userGames.get(current.player_id)!.matches.push({
+          id: gameId,
+          result: userScore > opponentScore ? 'win' : 'loss',
+          opponent: opponentName,
+          score: `${userScore}-${opponentScore}`,
+          date: current.finished_at,
+          tournament: current.tournament_name || '-'
         });
       }
-
-      const result = userScore > rivalScore ? 'win' : 'loss';
-
-      userGames.get(g.player_id)!.pointsFor += userScore;
-      userGames.get(g.player_id)!.pointsAgainst += rivalScore;
-
-      userGames.get(g.player_id)!.matches.push({
-        id: g.game_id,
-        result,
-        opponent: rival ? rival.player_name : 'Bot AI',
-        score: `${userScore}-${rivalScore}`,
-        date: g.finished_at
-      });
     }
 
+    // Calcular ELOs
     const eloList = Array.from(userGames.entries()).map(([uid, data]) => ({
       user_id: uid,
       elo: 1000 + data.pointsFor - data.pointsAgainst
     }));
 
+    // Asegurar que todos los usuarios están presentes (aun sin partidas)
     const allUsers = await db.all(`SELECT id FROM users`);
     for (const u of allUsers) {
       if (!userGames.has(u.id)) {
-        eloList.push({ user_id: u.id, elo: 1000 });
         userGames.set(u.id, { matches: [], pointsFor: 0, pointsAgainst: 0 });
+        eloList.push({ user_id: u.id, elo: 1000 });
       }
     }
 
     eloList.sort((a, b) => b.elo - a.elo);
-
     const ranking = eloList.findIndex(u => u.user_id === userId) + 1;
-    const userData = userGames.get(userId)!;
 
+    const userData = userGames.get(userId)!;
     const wins = userData.matches.filter(m => m.result === 'win').length;
     const losses = userData.matches.filter(m => m.result === 'loss').length;
     const totalGames = wins + losses;
     const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
     const elo = 1000 + userData.pointsFor - userData.pointsAgainst;
 
-    const matchHistory = userData.matches
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const matchHistory = userData.matches.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
 
+    // Guardar historial completo en txt
     const filePath = path.resolve('/app/data/historial_partidas.txt');
     const matchHistoryText = matchHistory.map(entry =>
-      `Partida ${entry.id} | Resultado: ${entry.result} | Oponente: ${entry.opponent} | Marcador: ${entry.score} | Fecha: ${entry.date}`
+      `Partida ${entry.id} | Resultado: ${entry.result} | Oponente: ${entry.opponent} | Torneo: ${entry.tournament} | Marcador: ${entry.score} | Fecha: ${entry.date}`
     );
     fs.writeFileSync(filePath, matchHistoryText.join('\n'));
 
-    // 🔥 Consultar avatar_url del usuario
+    // Avatar
     const profile = await db.get('SELECT avatar_url FROM user_profiles WHERE user_id = ?', [userId]);
 
     await db.close();
@@ -262,26 +292,10 @@ fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, 
   }
 });
 
-fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, async (request, reply) => {
-  const filePath = path.resolve('/app/data/historial_partidas.txt');
-
-  if (!fs.existsSync(filePath)) {
-    return reply.code(404).send({ message: 'Historial no disponible' });
-  }
-
-  return reply
-    .header('Content-Type', 'text/plain')
-    .header('Content-Disposition', 'attachment; filename="historial_partidas.txt"')
-    .send(fs.createReadStream(filePath));
-});
-
 // Endpoint para subir el avatar
-
-const pump = util.promisify(pipeline);
-
 fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request, reply) => {
   const userId = (request as any).user.user_id;
-
+  
   const mpRequest = request as FastifyRequest & {
     file: () => Promise<MultipartFile>;
   };
@@ -301,20 +315,43 @@ fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request
     return reply.code(400).send({ message: 'Archivo demasiado grande (máx 2MB)' });
   }
 
-  const ext = data.filename.split('.').pop();
-  const saveDir = '/app/data/avatars';
-  const filename = `avatar_${userId}.${ext}`;
-  const filepath = path.join(saveDir, filename);
-
-  // Asegura que la carpeta exista
-  if (!fs.existsSync(saveDir)) {
-    fs.mkdirSync(saveDir, { recursive: true });
-  }
-
   try {
-    await pump(data.file, fs.createWriteStream(filepath));
+    const buffer = await data.toBuffer();
+    const image = await loadImage(buffer);
+    
+    // Tamaño máximo deseado
+    const MAX_SIZE = 256;
+    let width = image.width;
+    let height = image.height;
 
-    // Guardar ruta del avatar en base de datos
+    // Redimensionar manteniendo aspect ratio
+    if (width > height && width > MAX_SIZE) {
+      height = Math.round((height * MAX_SIZE) / width);
+      width = MAX_SIZE;
+    } else if (height > MAX_SIZE) {
+      width = Math.round((width * MAX_SIZE) / height);
+      height = MAX_SIZE;
+    }
+
+    // Crear canvas con nuevas dimensiones
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(image, 0, 0, width, height);
+
+    // Convertir a JPEG con calidad del 80% (más ligero que PNG)
+    const processedBuffer = canvas.toBuffer('image/jpeg', { quality: 0.8 });
+
+    const filename = `avatar_${userId}.jpg`;
+    const saveDir = '/app/data/avatars';
+    const filepath = path.join(saveDir, filename);
+
+    if (!fs.existsSync(saveDir)) {
+      fs.mkdirSync(saveDir, { recursive: true });
+    }
+
+    fs.writeFileSync(filepath, processedBuffer);
+
+    // Guardar en base de datos
     const db = await openDb();
     await db.run(`
       INSERT INTO user_profiles (user_id, avatar_url)
@@ -324,10 +361,16 @@ fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request
 
     await db.close();
 
-    return reply.send({ message: '✅ Avatar subido correctamente', avatar_url: `/avatars/${filename}` });
+    return reply.send({ 
+      message: '✅ Avatar optimizado y subido correctamente', 
+      avatar_url: `http://localhost:8000/avatars/${filename}`,
+      dimensions: { width, height },
+      size: `${(processedBuffer.length / 1024).toFixed(2)} KB`
+    });
+
   } catch (err) {
-    console.error('Error guardando avatar:', err);
-    return reply.code(500).send({ message: 'Error subiendo avatar' });
+    console.error('Error procesando avatar:', err);
+    return reply.code(500).send({ message: 'Error procesando avatar' });
   }
 });
 
@@ -429,6 +472,21 @@ fastify.post('/auth/google', async (request, reply) => {
     console.error('Error con Google Sign-In:', err);
     return reply.code(500).send({ message: 'Error con Google Sign-In' });
   }
+});
+
+// Endpoint para descargar historial
+fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, async (request, reply) => {
+  const userId = (request as any).user.user_id;
+  const filePath = path.resolve('/app/data/historial_partidas.txt');
+
+  if (!fs.existsSync(filePath)) {
+    return reply.code(404).send({ message: 'Historial no encontrado' });
+  }
+
+  return reply
+    .type('text/plain')
+    .header('Content-Disposition', `attachment; filename=historial_${userId}.txt`)
+    .send(fs.createReadStream(filePath));
 });
 
 // Inicializar base de datos antes de arrancar el servidor
