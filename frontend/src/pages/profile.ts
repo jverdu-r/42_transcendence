@@ -25,6 +25,7 @@ interface UserStats {
     score: string;
     date: string;
   }>;
+  avatar_url?: string; 
 }
 
 async function getUserStats(): Promise<UserStats | null> {
@@ -75,6 +76,16 @@ export async function renderProfilePage(): Promise<void> {
   }
 
   const stats = await getUserStats();
+
+  if (stats && user) {
+    user.avatar_url = stats.avatar_url;
+    if (stats.avatar_url && !stats.avatar_url.startsWith('http')) {
+      stats.avatar_url = `http://localhost:8001${stats.avatar_url}`;
+    }
+    user.avatar_url = stats.avatar_url;
+    localStorage.setItem('user', JSON.stringify(user));
+  }
+
   const defaultStats: UserStats = {
     totalGames: 0, wins: 0, losses: 0, winRate: 0, elo: 1000, ranking: 999, matchHistory: []
   };
@@ -87,7 +98,7 @@ export async function renderProfilePage(): Promise<void> {
           <div class="flex flex-col lg:flex-row items-center gap-8">
             ${
               user.avatar_url
-                ? `<img src="http://localhost:9000${user.avatar_url}" alt="Avatar" class="w-32 h-32 rounded-full object-cover border-2 border-[#ffc300]" />`
+                ? `<img src="${user.avatar_url}" alt="Avatar" class="w-32 h-32 rounded-full object-cover border-2 border-[#ffc300]" />`
                 : `<div class="w-32 h-32 rounded-full bg-gradient-to-r from-[#ffc300] to-[#ffd60a] flex items-center justify-center text-[#000814] text-4xl font-bold">
                     ${user.username.charAt(0).toUpperCase()}
                   </div>`
@@ -203,6 +214,12 @@ export async function renderProfilePage(): Promise<void> {
         if (res.ok) {
           const data = await res.json();
           const user: User | null = getCurrentUser();
+          const avatarPreview = document.getElementById('avatar-preview');
+          if (user && user.avatar_url && avatarPreview) {
+            avatarPreview.innerHTML = `<img src="${user.avatar_url}" alt="Avatar" style="width: 128px; height: 128px; border-radius: 50%; margin: auto; display: block;" />`;
+          } else if (avatarPreview) {
+            avatarPreview.innerHTML = '<p class="text-center">Avatar no disponible</p>';
+          }
           if (user) {
             user.avatar_url = data.avatar_url;
             localStorage.setItem('user', JSON.stringify(user));
@@ -235,7 +252,7 @@ export async function renderProfilePage(): Promise<void> {
         downloadBtn.disabled = true;
 
         try {
-          const response = await fetch('http://localhost:9000/api/auth/profile/download-historial', {
+          const response = await fetch('/api/auth/profile/download-historial', {
             headers: { Authorization: `Bearer ${token}` }
           });
 
