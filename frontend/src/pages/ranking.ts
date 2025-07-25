@@ -193,7 +193,7 @@ export async function renderRankingPage(): Promise<void> {
                             <div class="text-center p-8 text-gray-400">
                                 <div class="text-xl mb-2">🏆</div>
                                 <div class="text-lg">No hay datos de ranking disponibles</div>
-                                <div class="text-sm mt-2">¡Juega algunas partidas para aparecer en el ranking!</div>
+                                <div class="text-sm mt-2">¡Todavía nadie ha jugado partidas, anímate y se el primero!</div>
                             </div>
                         `}
                     </div>
