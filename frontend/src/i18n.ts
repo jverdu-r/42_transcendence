@@ -1,9 +1,9 @@
 // src/i18n.ts
 
 interface Translations {
-    [key: string]: { // This key will be the language code (e.g., 'es', 'en')
-        [component: string]: { // This key will be the component name (e.g., 'common', 'login', 'register', 'home', 'profile', 'play', 'ranking', 'settings', 'pong')
-            [textKey: string]: string; // This key will be the specific text identifier (e.g., 'welcomeBack')
+    [key: string]: {
+        [component: string]: {
+            [textKey: string]: string;
         };
     };
 }
@@ -25,6 +25,8 @@ const translations: Translations = {
             profile: 'Perfil',
             play: 'Jugar',
             ranking: 'Ranking',
+            tournaments: 'Torneos',
+            chat: 'Chat',
             settings: 'Ajustes',
             logout: 'Cerrar Sesión'
         },
@@ -54,6 +56,9 @@ const translations: Translations = {
             or: 'O'
         },
         home: {
+            noLiveMatches: 'No hay partidos en curso',
+            errorLoadingMatches: 'Error al cargar los partidos en vivo',
+            inProgressRound: 'Ronda en curso',
             welcomeTitle: "Bienvenido a",
             welcomeSubtitle: "La plataforma definitiva para el Pong moderno. ¡Compite, conéctate y trasciende!",
             playNowButton: "Jugar Ahora",
@@ -65,7 +70,6 @@ const translations: Translations = {
             teamX: "Equipo X",
             teamY: "Equipo Y",
             vs: "vs",
-            inProgressRound: "En progreso - Ronda ",
             tournamentSemifinal: "Semifinal del Torneo",
             quickMatch: "Partida Rápida",
             preparingToStart: "Preparándose para empezar",
@@ -174,6 +178,8 @@ const translations: Translations = {
             profile: 'Profile',
             play: 'Play',
             ranking: 'Ranking',
+            tournaments: 'Tournaments',
+            chat: 'Chat',
             settings: 'Settings',
             logout: 'Logout'
         },
@@ -203,6 +209,9 @@ const translations: Translations = {
             or: 'Or'
         },
         home: {
+            noLiveMatches: 'No live matches right now',
+            errorLoadingMatches: 'Error loading live matches',
+            inProgressRound: 'Round in progress',
             welcomeTitle: "Welcome to",
             welcomeSubtitle: "The ultimate platform for modern Pong. Compete, connect, and transcend!",
             playNowButton: "Play Now",
@@ -214,7 +223,6 @@ const translations: Translations = {
             teamX: "Team X",
             teamY: "Team Y",
             vs: "vs",
-            inProgressRound: "In progress - Round ",
             tournamentSemifinal: "Tournament Semifinal",
             quickMatch: "Quick Match",
             preparingToStart: "Preparing to start",
@@ -323,6 +331,8 @@ const translations: Translations = {
             profile: 'Perfil',
             play: 'Xogar',
             ranking: 'Clasificación',
+            tournaments: 'Campionatos',
+            chat: 'Chat',
             settings: 'Configuración',
             logout: 'Pechar Sesión'
         },
@@ -352,6 +362,9 @@ const translations: Translations = {
             or: 'Ou'
         },
         home: {
+            noLiveMatches: 'Non hai partidos agora mesmo',
+            errorLoadingMatches: 'Error cargando os partidos en vivo',
+            inProgressRound: 'Ronda en curso',
             welcomeTitle: "Benvido a",
             welcomeSubtitle: "A plataforma definitiva para o Pong moderno. Compite, conéctate e trasciende!",
             playNowButton: "Xogar Agora",
@@ -363,7 +376,6 @@ const translations: Translations = {
             teamX: "Equipo X",
             teamY: "Equipo Y",
             vs: "vs",
-            inProgressRound: "En progreso - Ronda ",
             tournamentSemifinal: "Semifinal do Torneo",
             quickMatch: "Partida Rápida",
             preparingToStart: "Preparándose para empezar",
@@ -472,6 +484,8 @@ const translations: Translations = {
             profile: '个人资料',
             play: '游戏',
             ranking: '排行榜',
+            tournaments: '锦标赛',
+            chat: '聊',
             settings: '设置',
             logout: '登出'
         },
@@ -501,6 +515,9 @@ const translations: Translations = {
             or: '或'
         },
         home: {
+            noLiveMatches: '当前没有正在进行的比赛',
+            errorLoadingMatches: '加载实时比赛时出错',
+            inProgressRound: '进行中的回合',
             welcomeTitle: "欢迎来到",
             welcomeSubtitle: "现代乒乓球的终极平台。竞争、连接、超越！",
             playNowButton: "立即游戏",
@@ -512,7 +529,6 @@ const translations: Translations = {
             teamX: "队伍 X",
             teamY: "队伍 Y",
             vs: "对战",
-            inProgressRound: "进行中 - 第 ",
             tournamentSemifinal: "锦标赛半决赛",
             quickMatch: "快速比赛",
             preparingToStart: "准备开始",
@@ -610,35 +626,20 @@ const translations: Translations = {
 // Variable para almacenar el idioma actual, inicializada desde localStorage o 'es' por defecto
 let currentLang = localStorage.getItem('lang') || 'es';
 
-/**
- * Obtiene la traducción para una clave de texto específica.
- * @param component El componente al que pertenece el texto (ej. 'login', 'common').
- * @param key La clave del texto a traducir (ej. 'welcomeBack', 'usernameLabel').
- * @returns El texto traducido o la clave original si no se encuentra la traducción.
- */
 export function getTranslation(component: string, key: string): string {
     return translations[currentLang]?.[component]?.[key] || key;
 }
 
-/**
- * Establece el idioma de la aplicación.
- * @param lang El código del idioma (ej. 'es', 'en').
- */
 export function setLanguage(lang: string): void {
     if (translations[lang]) {
         currentLang = lang;
         localStorage.setItem('lang', lang);
-        // Dispara un evento personalizado para notificar a los componentes que deben actualizarse
-        window.dispatchEvent(new CustomEvent('languageChange', { detail: lang }));
+        document.dispatchEvent(new Event('languageChanged'));
     } else {
         console.warn(`Language ${lang} not found in translations.`);
     }
 }
 
-/**
- * Obtiene el idioma actual de la aplicación.
- * @returns El código del idioma actual.
- */
 export function getCurrentLanguage(): string {
     return currentLang;
 }
