@@ -19,6 +19,8 @@ import { renderGameLobby } from './pages/gameLobby';
 // Spectator page
 import { renderGameSpectator, startSpectatorAutoRefresh, stopSpectatorAutoRefresh, cleanupSpectator } from './pages/gameSpectator';
 
+//tournaments page under construction
+import { renderTournamentsPage } from './pages/tournaments';
 // Define las rutas que realmente usamos
 const routes: { [key: string]: () => void } = {
   '/home': renderHomePage,
@@ -42,7 +44,10 @@ const routes: { [key: string]: () => void } = {
   '/unified-game-ai': renderUnifiedGameAI,
   '/unified-game-online': renderUnifiedGameOnline,
   '/game-lobby': renderGameLobby,
-  
+
+  // Tournaments route
+  '/tournaments': renderTournamentsPage,
+
   // Spectator route
   '/spectator': () => {
     cleanupCurrentPage();
