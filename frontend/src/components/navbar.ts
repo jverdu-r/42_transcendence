@@ -4,12 +4,6 @@ import { navigateTo } from '../router';
 import { getTranslation, setLanguage, getCurrentLanguage } from '../i18n';
 import { logout } from '../auth';
 
-/**
- * Renders the navigation bar and attaches its event listeners.
- * This function handles both desktop and mobile views,
- * including active link highlighting and language selection.
- * @param currentPath The current active path to highlight the correct link.
- */
 export function renderNavbar(currentPath: string): void {
     const navbarHtml = `
         <header class="w-full p-6 bg-[#000814] border-b border-[#003566] shadow-xl flex justify-between items-center fixed top-0 z-20 transition-all duration-300 ease-in-out">
@@ -18,22 +12,28 @@ export function renderNavbar(currentPath: string): void {
             <nav class="hidden md:flex items-center space-x-8">
                 <ul class="flex space-x-8">
                     <li>
-                        <a class="${currentPath === '/home' || currentPath === '/' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}" href="/home">${getTranslation('home', 'home')}</a>
+                        <a class="${currentPath === '/home' || currentPath === '/' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}" href="/home">${getTranslation('navbar', 'home')}</a>
                     </li>
                     <li>
-                        <a href="/profile" class="${currentPath === '/profile' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('home', 'profile')}</a>
+                        <a href="/profile" class="${currentPath === '/profile' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('navbar', 'profile')}</a>
                     </li>
                     <li>
-                        <a href="/play" class="${currentPath === '/play' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('home', 'play')}</a>
+                        <a href="/play" class="${currentPath === '/play' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('navbar', 'play')}</a>
                     </li>
                     <li>
-                        <a href="/ranking" class="${currentPath === '/ranking' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('home', 'ranking')}</a>
+                        <a href="/ranking" class="${currentPath === '/ranking' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('navbar', 'ranking')}</a>
                     </li>
                     <li>
-                        <a href="/settings" class="${currentPath === '/settings' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('home', 'settings')}</a>
+                        <a href="/torneos" class="${currentPath === '/tournaments' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('navbar', 'tournaments')}</a>
                     </li>
                     <li>
-                        <button id="logout-btn-desktop" class="text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200 bg-transparent border-none cursor-pointer">${getTranslation('home', 'logout')}</button>
+                        <a href="/chat" class="${currentPath === '/chat' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('navbar', 'chat')}</a>
+                    </li>
+                    <li>
+                        <a href="/settings" class="${currentPath === '/settings' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('navbar', 'settings')}</a>
+                    </li>
+                    <li>
+                        <button id="logout-btn-desktop" class="text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200 bg-transparent border-none cursor-pointer">${getTranslation('navbar', 'logout')}</button>
                     </li>
                 </ul>
                 <div class="relative z-50">
@@ -89,22 +89,28 @@ export function renderNavbar(currentPath: string): void {
                             peer-checked:max-h-screen">
                     <ul class="flex flex-col items-center py-4 space-y-4">
                         <li>
-                            <a class="${currentPath === '/home' || currentPath === '/' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}" href="/home">${getTranslation('home', 'home')}</a>
+                            <a class="${currentPath === '/home' || currentPath === '/' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}" href="/home">${getTranslation('navbar', 'home')}</a>
                         </li>
                         <li>
-                            <a href="/profile" class="${currentPath === '/profile' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}">${getTranslation('home', 'profile')}</a>
+                            <a href="/profile" class="${currentPath === '/profile' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}">${getTranslation('navbar', 'profile')}</a>
                         </li>
                         <li>
-                            <a href="/play" class="${currentPath === '/play' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}">${getTranslation('home', 'play')}</a>
+                            <a href="/play" class="${currentPath === '/play' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}">${getTranslation('navbar', 'play')}</a>
                         </li>
                         <li>
-                            <a href="/ranking" class="${currentPath === '/ranking' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}">${getTranslation('home', 'ranking')}</a>
+                            <a href="/ranking" class="${currentPath === '/ranking' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}">${getTranslation('navbar', 'ranking')}</a>
+                            </li>
+                        <li>
+                            <a href="/torneos" class="${currentPath === '/tournaments' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('navbar', 'tournaments')}</a>
                         </li>
                         <li>
-                            <a href="/settings" class="${currentPath === '/settings' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}">${getTranslation('home', 'settings')}</a>
+                            <a href="/chat" class="${currentPath === '/chat' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('navbar', 'chat')}</a>
                         </li>
                         <li>
-                            <button id="logout-btn-mobile" class="block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2 bg-transparent border-none cursor-pointer w-full text-center">${getTranslation('home', 'logout')}</button>
+                            <a href="/settings" class="${currentPath === '/settings' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}">${getTranslation('navbar', 'settings')}</a>
+                        </li>
+                        <li>
+                            <button id="logout-btn-mobile" class="block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2 bg-transparent border-none cursor-pointer w-full text-center">${getTranslation('navbar', 'logout')}</button>
                         </li>
                         <li class="mt-4 pt-4 border-t border-[#003566] w-full text-center">
                             <div class="inline-block">
@@ -275,3 +281,7 @@ export function renderNavbar(currentPath: string): void {
     }
 }
 
+document.addEventListener('languageChanged', () => {
+  const currentPath = window.location.pathname;
+  renderNavbar(currentPath);
+});
