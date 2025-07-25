@@ -27,6 +27,9 @@ export function renderNavbar(currentPath: string): void {
                         <a href="/play" class="${currentPath === '/play' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('home', 'play')}</a>
                     </li>
                     <li>
+                        <a href="/tournaments" class="${currentPath === '/tournaments' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('home', 'tournaments')}</a>
+                    </li>
+                    <li>
                         <a href="/ranking" class="${currentPath === '/ranking' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('home', 'ranking')}</a>
                     </li>
                     <li>
