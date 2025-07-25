@@ -133,7 +133,7 @@ export async function navigateTo(path: string): Promise<void> {
     // Si vamos a una página de la aplicación principal, nos aseguramos de que la estructura exista
     if (wasAuthPage) { // Si venimos de una página de autenticación
         setupMainAppLayout(); // Reestablece la estructura principal (navbar + main)
-    } else if (!document.getElementById('navbar-container') || !document.getElementById('page-content')) {
+    } else if (!document.getElementById('navbar') || !document.getElementById('page-content')) {
         // Si no es una página de autenticación, pero la estructura no está (ej. primera carga de /home)
         setupMainAppLayout();
     }
