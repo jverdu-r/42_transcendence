@@ -15,6 +15,60 @@ let redis = new Redis({ host: redisHost, port: redisPort, password: redisPasswor
 const fastify = Fastify({ logger: true });
 
 (async () => {
+  // --- Tournament Endpoints (proxy to db-service) ---
+  const DB_SERVICE_URL = process.env.DB_SERVICE_URL || 'http://db-service:8000';
+  const fetch = (await import('node-fetch')).default;
+
+  // List tournaments
+  fastify.get('/api/tournaments', async (request, reply) => {
+    try {
+      const res = await fetch(`${DB_SERVICE_URL}/tournaments`);
+      if (!res.ok) {
+        return reply.code(res.status).send(await res.text());
+      }
+      const data = await res.json();
+      return reply.send(data);
+    } catch (err) {
+      return reply.code(500).send({ error: 'Failed to fetch tournaments' });
+    }
+  });
+
+  // Create tournament
+  fastify.post('/api/tournaments', async (request, reply) => {
+    try {
+      const res = await fetch(`${DB_SERVICE_URL}/tournaments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request.body)
+      });
+      if (!res.ok) {
+        return reply.code(res.status).send(await res.text());
+      }
+      const data = await res.json();
+      return reply.send(data);
+    } catch (err) {
+      return reply.code(500).send({ error: 'Failed to create tournament' });
+    }
+  });
+
+  // Join tournament (example, adjust path/logic as needed)
+  fastify.post('/api/tournaments/:id/join', async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const res = await fetch(`${DB_SERVICE_URL}/tournaments/${id}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request.body)
+      });
+      if (!res.ok) {
+        return reply.code(res.status).send(await res.text());
+      }
+      const data = await res.json();
+      return reply.send(data);
+    } catch (err) {
+      return reply.code(500).send({ error: 'Failed to join tournament' });
+    }
+  });
   // 🟡 REGISTRA CORS ANTES DE LOS PROXIES
   await fastify.register(fastifyCors, {
     origin: 'http://localhost:9001',

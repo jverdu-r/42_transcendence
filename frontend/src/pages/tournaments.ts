@@ -1,5 +1,7 @@
 import { renderNavbar } from '../components/navbar';
 
+const API_BASE = 'http://localhost:9000';
+
 export function renderTournamentsPage() {
     // Render navbar at the top
     renderNavbar('/tournaments');
@@ -32,23 +34,55 @@ export function renderTournamentsPage() {
                             Tournament Name:<br>
                             <input type="text" name="name" required class="mt-1 p-2 rounded w-full bg-[#003566] text-[#ffc300] border border-[#ffc300]" />
                         </label>
-                        <label class="font-semibold text-[#ffc300]">
-                            Max Players:<br>
-                            <input type="number" name="maxPlayers" min="2" max="64" required class="mt-1 p-2 rounded w-full bg-[#003566] text-[#ffc300] border border-[#ffc300]" />
-                        </label>
-                        <label class="font-semibold text-[#ffc300]">
-                            Description:<br>
-                            <textarea name="description" rows="3" class="mt-1 p-2 rounded w-full bg-[#003566] text-[#ffc300] border border-[#ffc300]"></textarea>
-                        </label>
                         <button type="submit" class="px-4 py-2 rounded bg-[#ffc300] text-[#003566] font-bold hover:bg-[#003566] hover:text-[#ffc300] transition">Create</button>
                     </form>
                 `;
-                const form = document.getElementById('create-tournament-form');
+                const form = document.getElementById('create-tournament-form') as HTMLFormElement | null;
                 if (form) {
-                    form.addEventListener('submit', (e) => {
+                    form.addEventListener('submit', async (e) => {
                         e.preventDefault();
-                        // TODO: Add API call to create tournament
-                        alert('Tournament created (mock)!');
+                        const formData = new FormData(form);
+                        const name = formData.get('name');
+                        // Get authenticated user (window.getCurrentUser, localStorage, sessionStorage, log for debug)
+                        let user = (window as any).getCurrentUser ? (window as any).getCurrentUser() : null;
+                        if (!user || !user.id) {
+                            try {
+                                user = JSON.parse(localStorage.getItem('user') || 'null');
+                            } catch {}
+                        }
+                        if (!user || !user.id) {
+                            try {
+                                user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+                            } catch {}
+                        }
+                        if (!user || !user.id) {
+                            try {
+                                user = JSON.parse(sessionStorage.getItem('user') || 'null');
+                            } catch {}
+                        }
+                        if (!user || !user.id) {
+                            try {
+                                user = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+                            } catch {}
+                        }
+                        console.log('[Tournaments] Detected user:', user);
+                        if (!name) return;
+                        if (!user || !user.id) {
+                            alert('You must be logged in to create a tournament.');
+                            return;
+                        }
+                        try {
+const res = await fetch(`${API_BASE}/api/tournaments`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ name, created_by: user.id })
+                            });
+                            if (!res.ok) throw new Error(await res.text());
+                            // Refresh the join list after creation
+                            showJoinList();
+                        } catch (err) {
+                            alert('Error creating tournament: ' + err);
+                        }
                     });
                 }
             }
@@ -56,30 +90,70 @@ export function renderTournamentsPage() {
 
         function showJoinList() {
             if (content) {
-                // Mock tournaments data
-                const tournaments = [
-                    { id: 1, name: 'Spring Cup', players: 8 },
-                    { id: 2, name: 'Summer Showdown', players: 16 },
-                    { id: 3, name: 'Autumn Arena', players: 4 },
-                ];
-                content.innerHTML = `
-                    <h3 class="text-xl font-bold text-[#ffc300] mb-4">Available Tournaments</h3>
-                    <ul class="space-y-4">
-                        ${tournaments.map(t => `
-                            <li class="border border-[#ffc300] rounded-lg p-4 flex items-center justify-between bg-[#003566]">
-                                <span class="font-semibold text-[#ffc300]">${t.name}</span>
-                                <span class="text-[#ffd60a]">(${t.players} players)</span>
-                                <button data-id="${t.id}" class="ml-4 px-3 py-1 rounded bg-[#ffc300] text-[#003566] font-bold hover:bg-[#003566] hover:text-[#ffc300] transition">Join</button>
-                            </li>
-                        `).join('')}
-                    </ul>
-                `;
-                content.querySelectorAll('button[data-id]').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        // TODO: Add API call to join tournament
-                        alert('Joined tournament (mock)!');
+fetch(`${API_BASE}/api/tournaments`)
+                    .then(res => res.json())
+                    .then((tournaments) => {
+                        content.innerHTML = `
+                            <h3 class="text-xl font-bold text-[#ffc300] mb-4">Available Tournaments</h3>
+                            <ul class="space-y-4">
+                                ${tournaments.map((t: any) => `
+                                    <li class="border border-[#ffc300] rounded-lg p-4 flex items-center justify-between bg-[#003566]">
+                                        <span class="font-semibold text-[#ffc300]">${t.name}</span>
+                                        <span class="text-[#ffd60a]">Status: ${t.status}</span>
+                                        <button data-id="${t.id}" class="ml-4 px-3 py-1 rounded bg-[#ffc300] text-[#003566] font-bold hover:bg-[#003566] hover:text-[#ffc300] transition">Join</button>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        `;
+                        content.querySelectorAll('button[data-id]').forEach(btn => {
+                            btn.addEventListener('click', async () => {
+                                const tournamentId = btn.getAttribute('data-id');
+                                // Use real user id from authentication (window.getCurrentUser, localStorage, sessionStorage, log for debug)
+                                let user_id;
+                                try {
+                                    let user = (window as any).getCurrentUser ? (window as any).getCurrentUser() : null;
+                                    if (!user || !user.id) {
+                                        try {
+                                            user = JSON.parse(localStorage.getItem('user') || 'null');
+                                        } catch {}
+                                    }
+                                    if (!user || !user.id) {
+                                        try {
+                                            user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+                                        } catch {}
+                                    }
+                                    if (!user || !user.id) {
+                                        try {
+                                            user = JSON.parse(sessionStorage.getItem('user') || 'null');
+                                        } catch {}
+                                    }
+                                    if (!user || !user.id) {
+                                        try {
+                                            user = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+                                        } catch {}
+                                    }
+                                    console.log('[Tournaments] Detected user:', user);
+                                    if (!user || !user.id) {
+                                        alert('You must be logged in to join a tournament.');
+                                        return;
+                                    }
+                                    user_id = user.id;
+const res = await fetch(`${API_BASE}/api/tournaments/${tournamentId}/join`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ user_id })
+                                    });
+                                    if (!res.ok) throw new Error(await res.text());
+                                    showJoinList();
+                                } catch (err) {
+                                    alert('Error joining tournament: ' + err);
+                                }
+                            });
+                        });
+                    })
+                    .catch(() => {
+                        content.innerHTML = '<p class="text-red-400">Error loading tournaments.</p>';
                     });
-                });
             }
         }
 
