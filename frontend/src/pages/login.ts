@@ -2,6 +2,7 @@
 
 import { navigateTo } from '../router';
 import { getTranslation, setLanguage, getCurrentLanguage } from '../i18n';
+import { applyUserSettings } from '../auth';
 
 export function renderLoginPage(): void {
     const loginHtml = `
@@ -110,7 +111,12 @@ export function renderLoginPage(): void {
                     const data = await res.json();
                     if (res.ok && data.token) {
                         localStorage.setItem('jwt', data.token);
-                        navigateTo('/home');
+                        await applyUserSettings();
+                        const lang = localStorage.getItem('language');
+                        if (lang) {
+                            setLanguage(lang);
+                        }
+                    navigateTo('/home');
                     } else {
                         alert(data.message || 'Login fallido');
                     }
@@ -132,6 +138,11 @@ export function renderLoginPage(): void {
                 const data = await res.json();
                 if (res.ok && data.token) {
                     localStorage.setItem('jwt', data.token);
+                    await applyUserSettings();
+                    const lang = localStorage.getItem('language');
+                    if (lang) {
+                        setLanguage(lang);
+                    }
                     navigateTo('/home');
                 } else {
                     alert(data.message || 'Error en autenticación con Google');
