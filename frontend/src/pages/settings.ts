@@ -2,7 +2,7 @@
 
 import { navigateTo } from '../router';
 import { getTranslation } from '../i18n';
-import { getCurrentUser, getSetting, setSetting } from '../auth';
+import { getCurrentUser, getSetting, setSetting, applyUserSettings, fetchUserProfile } from '../auth';
 
 interface UserSettings {
     language: string;
@@ -11,13 +11,32 @@ interface UserSettings {
     game_difficulty: string;
 }
 
+document.addEventListener('DOMContentLoaded', async () => {
+  await applyUserSettings();
+
+  // Obtiene datos del usuario (username, email)
+  const user = await fetchUserProfile();
+  if (user) {
+    const usernameInput = document.querySelector<HTMLInputElement>('#username');
+    const emailInput = document.querySelector<HTMLInputElement>('#email');
+    if (usernameInput) usernameInput.value = user.username;
+    if (emailInput) emailInput.value = user.email;
+  }
+
+  // Cargar configuración del juego desde localStorage
+  const language = getSetting('language') || 'es';
+  const notifications = getSetting('notifications') || 'true';
+  const sound_effects = getSetting('sound_effects') || 'true';
+  const game_difficulty = getSetting('game_difficulty') || 'normal';
+});
+
 // Función para obtener configuraciones del usuario
 async function getUserSettings(): Promise<UserSettings | null> {
     const token = localStorage.getItem('jwt');
     if (!token) return null;
 
     try {
-        const response = await fetch('/api/auth/settings', {
+        const response = await fetch('/api/auth/settings/config', {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -43,7 +62,7 @@ async function updateUserSettings(settings: UserSettings): Promise<boolean> {
     if (!token) return false;
 
     try {
-        const response = await fetch('/api/auth/settings', {
+        const response = await fetch('/api/auth/settings/config', {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -70,7 +89,7 @@ async function updateUserProfile(profileData: any): Promise<{ success: boolean; 
     if (!token) return { success: false, message: 'No autenticado' };
 
     try {
-        const response = await fetch('/api/auth/profile', {
+        const response = await fetch('/api/auth/settings/user_data', {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -88,34 +107,6 @@ async function updateUserProfile(profileData: any): Promise<{ success: boolean; 
         return { success: true, message: result.message, user: result.user };
     } catch (error) {
         console.error('Error en la petición de actualización de perfil:', error);
-        return { success: false, message: 'Error de conexión' };
-    }
-}
-
-// Función para eliminar cuenta
-async function deleteUserAccount(password: string): Promise<{ success: boolean; message: string }> {
-    const token = localStorage.getItem('jwt');
-    if (!token) return { success: false, message: 'No autenticado' };
-
-    try {
-        const response = await fetch('/api/auth/profile', {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ password })
-        });
-
-        const result = await response.json();
-        
-        if (!response.ok) {
-            return { success: false, message: result.message || 'Error al eliminar cuenta' };
-        }
-
-        return { success: true, message: result.message };
-    } catch (error) {
-        console.error('Error en la petición de eliminación de cuenta:', error);
         return { success: false, message: 'Error de conexión' };
     }
 }
@@ -234,9 +225,6 @@ export async function renderSettingsPage(): Promise<void> {
                         <div class="flex flex-col sm:flex-row gap-4 mt-8">
                             <button id="save-profile-btn" class="flex-1 py-3 px-6 bg-gradient-to-r from-[#ffc300] to-[#ffd60a] text-[#000814] font-bold rounded-xl hover:from-[#ffd60a] hover:to-[#ffc300] transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg">
                                 💾 Guardar Cambios
-                            </button>
-                            <button id="delete-account-btn" class="px-6 py-3 border-2 border-red-500 text-red-400 font-semibold rounded-xl hover:bg-red-500 hover:text-white transition-all duration-300 transform hover:scale-105 active:scale-95">
-                                🗑️ Eliminar Cuenta
                             </button>
                         </div>
                     </div>
@@ -392,10 +380,10 @@ function setupEventListeners(): void {
 
         const profileData: any = { username, email };
         
-        if (currentPassword && newPassword) {
-            profileData.currentPassword = currentPassword;
-            profileData.newPassword = newPassword;
-        }
+        if (currentPassword || newPassword) {
+        profileData.current_password = currentPassword;
+        profileData.new_password = newPassword;
+}
 
         saveProfileBtn.disabled = true;
         saveProfileBtn.innerHTML = '⏳ Guardando...';
@@ -413,33 +401,6 @@ function setupEventListeners(): void {
 
         saveProfileBtn.disabled = false;
         saveProfileBtn.innerHTML = '💾 Guardar Cambios';
-    });
-
-    // Botón para eliminar cuenta
-    const deleteAccountBtn = document.getElementById('delete-account-btn') as HTMLButtonElement;
-    deleteAccountBtn?.addEventListener('click', async (event) => {
-        event.preventDefault();
-        
-        const password = prompt('🔒 Ingresa tu contraseña para confirmar la eliminación de tu cuenta:');
-        
-        if (!password) return;
-        
-        if (confirm('⚠️ ¿Estás seguro de que quieres eliminar tu cuenta? Esta acción no se puede deshacer.')) {
-            deleteAccountBtn.disabled = true;
-            deleteAccountBtn.innerHTML = '⏳ Eliminando...';
-
-            const result = await deleteUserAccount(password);
-            
-            if (result.success) {
-                alert('✅ Cuenta eliminada exitosamente');
-                localStorage.removeItem('jwt');
-                navigateTo('/login');
-            } else {
-                alert(`❌ Error: ${result.message}`);
-                deleteAccountBtn.disabled = false;
-                deleteAccountBtn.innerHTML = '🗑️ Eliminar Cuenta';
-            }
-        }
     });
 
     // Botón para guardar configuraciones del juego
