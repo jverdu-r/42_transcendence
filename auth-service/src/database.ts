@@ -35,13 +35,13 @@ export async function initializeDb() {
             INSERT OR IGNORE INTO users (id, username, email, password_hash, created_at) VALUES (6, 'ManuFern', 'manufern@student.42madrid.com', '$2b$12$1Mqudh5FrajQHKxtBOG26O/dL47xnZrbbQ8HjcipegON1NQdMFXou', datetime('now', '-6 days'));
             INSERT OR IGNORE INTO users (id, username, email, password_hash, created_at) VALUES (7, 'Diego', 'diegorubiomorato@gmail.com', '$2b$12$SC.8HYivrjOrLQQscZz7SuBNY4vodoHRh.cWXQ0htB/vBBJxblJPa', datetime('now', '-7 days'));
 
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty, theme) VALUES (1, NULL, '', 'es', 'true', 'true', 'easy');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty, theme) VALUES (2, NULL, '', 'gl', 'false', 'true', 'normal');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty, theme) VALUES (3, NULL, '', 'en', 'false', 'true', 'hard');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty, theme) VALUES (4, NULL, '', 'es', 'true', 'false', 'easy');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty, theme) VALUES (5, NULL, '', 'en', 'false', 'true', 'hard');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty, theme) VALUES (6, NULL, '', 'es', 'true', 'false', 'hard');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty, theme) VALUES (7, NULL, '', 'en', 'true', 'true', 'easy');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (1, NULL, '', 'es', 'true', 'true', 'easy');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (2, NULL, '', 'gl', 'false', 'true', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (3, NULL, '', 'en', 'false', 'true', 'hard');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (4, NULL, '', 'es', 'true', 'false', 'easy');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (5, NULL, '', 'en', 'false', 'true', 'hard');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (6, NULL, '', 'es', 'true', 'false', 'hard');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (7, NULL, '', 'en', 'true', 'true', 'easy');
 
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (1, 1, 2, 'accepted', datetime('now', '-1 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (2, 3, 4, 'accepted', datetime('now', '-2 hours'));

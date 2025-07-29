@@ -17,6 +17,7 @@ import { verifyToken } from './utils/auth-middleware';
 import gamesRoutes from './routes/games.routes';
 import friendsRoutes from './routes/friends.routes';
 
+
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
 
@@ -25,10 +26,10 @@ const fastify = Fastify({ logger: true });
 fastify.register(multipart);
 
 // Rutas para gestionar el guardado de partidas y estadísticas del juego
-fastify.register(gamesRoutes, { prefix: '/api/auth/games' });
+fastify.register(gamesRoutes, { prefix: '/auth/games' });
 
 // Ruta para gestionar amistades
-fastify.register(friendsRoutes, { prefix: '/api/auth/friends' });
+fastify.register(friendsRoutes, { prefix: '/auth/friends' });
 
 // Habilitar CORS
 
