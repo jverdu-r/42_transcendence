@@ -290,4 +290,5 @@ export function renderNavbar(currentPath: string): void {
 document.addEventListener('languageChanged', () => {
   const currentPath = window.location.pathname;
   renderNavbar(currentPath);
+  navigateTo(currentPath);
 });
