@@ -18,14 +18,11 @@ import gamesRoutes from './routes/games.routes';
 import friendsRoutes from './routes/friends.routes';
 
 
-// Configuración del entorno (dotenv) y constantes globales (JWT_SECRET)
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
 
-// Creación e inicialización de la instancia Fastify
 const fastify = Fastify({ logger: true });
 
-// Registro de plugin multipart para subida de archivos
 fastify.register(multipart);
 
 // Rutas para gestionar el guardado de partidas y estadísticas del juego
@@ -49,7 +46,6 @@ const avatarPath = path.join(dataPath, 'avatars');
 if (!fs.existsSync(dataPath)) fs.mkdirSync(dataPath, { recursive: true });
 if (!fs.existsSync(avatarPath)) fs.mkdirSync(avatarPath, { recursive: true });
 
-// Registro de rutas estáticas para descargas y avatares
 // Registro de rutas estáticas para descargas y avatares
 fastify.register(require('@fastify/static'), {
   root: dataPath,
@@ -97,7 +93,6 @@ fastify.post('/auth/register', async (request, reply) => {
 });
 
 // Endpoint para iniciar sesión (login) y generar token JWT
-// Endpoint para iniciar sesión (login) y generar token JWT
 fastify.post('/auth/login', async (request, reply) => {
   const { email, password } = request.body as any;
   
@@ -139,88 +134,6 @@ fastify.post('/auth/login', async (request, reply) => {
   } catch (err) {
     console.error('Error en login:', err);
     return reply.code(500).send({ message: 'Error interno del servidor' });
-  }
-});
-
-// Endpoint para subir y optimizar el avatar
-fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request, reply) => {
-  const userId = (request as any).user.user_id;
-  
-  const mpRequest = request as FastifyRequest & {
-    file: () => Promise<MultipartFile>;
-  };
-
-  const data = await mpRequest.file();
-
-  if (!data) {
-    return reply.code(400).send({ message: 'No se ha enviado ningún archivo' });
-  }
-
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  if (!allowedTypes.includes(data.mimetype)) {
-    return reply.code(400).send({ message: 'Tipo de archivo no permitido' });
-  }
-
-  if (data.file.truncated) {
-    return reply.code(400).send({ message: 'Archivo demasiado grande (máx 2MB)' });
-  }
-
-  try {
-    const buffer = await data.toBuffer();
-    const image = await loadImage(buffer);
-    
-    // Tamaño máximo deseado
-    const MAX_SIZE = 256;
-    let width = image.width;
-    let height = image.height;
-
-    // Redimensionar manteniendo aspect ratio
-    if (width > height && width > MAX_SIZE) {
-      height = Math.round((height * MAX_SIZE) / width);
-      width = MAX_SIZE;
-    } else if (height > MAX_SIZE) {
-      width = Math.round((width * MAX_SIZE) / height);
-      height = MAX_SIZE;
-    }
-
-    // Crear canvas con nuevas dimensiones
-    const canvas = createCanvas(width, height);
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(image, 0, 0, width, height);
-
-    // Convertir a JPEG con calidad del 80% (más ligero que PNG)
-    const processedBuffer = canvas.toBuffer('image/jpeg', { quality: 0.8 });
-
-    const filename = `avatar_${userId}.jpg`;
-    const saveDir = '/app/data/avatars';
-    const filepath = path.join(saveDir, filename);
-
-    if (!fs.existsSync(saveDir)) {
-      fs.mkdirSync(saveDir, { recursive: true });
-    }
-
-    fs.writeFileSync(filepath, processedBuffer);
-
-    // Guardar en base de datos
-    const db = await openDb();
-    await db.run(`
-      INSERT INTO user_profiles (user_id, avatar_url)
-      VALUES (?, ?)
-      ON CONFLICT(user_id) DO UPDATE SET avatar_url = excluded.avatar_url
-    `, [userId, `/avatars/${filename}`]);
-
-    await db.close();
-
-    return reply.send({ 
-      message: '✅ Avatar optimizado y subido correctamente', 
-      avatar_url: `http://localhost:8000/avatars/${filename}`,
-      dimensions: { width, height },
-      size: `${(processedBuffer.length / 1024).toFixed(2)} KB`
-    });
-
-  } catch (err) {
-    console.error('Error procesando avatar:', err);
-    return reply.code(500).send({ message: 'Error procesando avatar' });
   }
 });
 
@@ -460,7 +373,6 @@ fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, 
 });
 
 // Endpoint para obtener el ranking global completo (top 100)
-// Endpoint para obtener el ranking global completo (top 100)
 fastify.get('/auth/ranking', async (request, reply) => {
   try {
     const db = await openDb();
@@ -603,7 +515,6 @@ fastify.get('/auth/ranking', async (request, reply) => {
 });
 
 // Endpoint de home para partidos en juego ('in_progress')
-// Endpoint de home para partidos en juego ('in_progress')
 fastify.get('/auth/games/live', async (request, reply) => {
   try {
     const db = await openDb();
@@ -727,136 +638,9 @@ fastify.put('/auth/settings/user_data', { preHandler: verifyToken }, async (requ
 
 // Endpoint para obtener datos de usuario (username y email)
 fastify.get('/auth/settings/user_data', { preHandler: verifyToken }, async (request, reply) => {
-// Endpoint para cambiar datos de usuario
-fastify.put('/auth/settings/user_data', { preHandler: verifyToken }, async (request, reply) => {
-  const db = await openDb();
-
-  try {
-    const userId = (request as any).user.user_id;
-    const {
-      username,
-      email,
-      new_password,
-      current_password
-    } = request.body as any;
-
-    const user = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
-    if (!user) {
-      return reply.code(404).send({ message: 'Usuario no encontrado' });
-    }
-
-    const currentPassword = typeof current_password === 'string' ? current_password.trim() : '';
-    const newPassword = typeof new_password === 'string' ? new_password.trim() : '';
-    const quiereCambiarPassword = currentPassword !== '' || newPassword !== '';
-
-    let updatedPasswordHash = user.password_hash;
-
-    // Validaciones de cambio de contraseña
-    if (quiereCambiarPassword) {
-      if (!currentPassword) {
-        return reply.code(400).send({ message: 'Falta contraseña actual' });
-      }
-
-      const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
-      if (!isMatch) {
-        return reply.code(401).send({ message: 'Contraseña actual incorrecta' });
-      }
-
-      if (!newPassword) {
-        return reply.code(400).send({ message: 'Nueva contraseña inválida' });
-      }
-
-      updatedPasswordHash = await bcrypt.hash(newPassword, 10);
-    }
-
-    // Actualizar email, username y contraseña si es válida
-    await db.run(
-      `UPDATE users SET username = ?, email = ?, password_hash = ? WHERE id = ?`,
-      [
-        username ?? user.username,
-        email ?? user.email,
-        updatedPasswordHash,
-        userId
-      ]
-    );
-
-    return reply.send({ message: 'Perfil actualizado correctamente' });
-
-  } catch (err) {
-    console.error('Error actualizando perfil:', err);
-    return reply.code(500).send({ message: 'Error actualizando perfil' });
-  } finally {
-    await db.close();
-  }
-});
-
-// Endpoint para obtener datos de usuario (username y email)
-fastify.get('/auth/settings/user_data', { preHandler: verifyToken }, async (request, reply) => {
   try {
     const db = await openDb();
     const userId = (request as any).user.user_id;
-
-    const user = await db.get(
-      `SELECT username, email FROM users WHERE id = ?`,
-      [userId]
-    );
-
-    await db.close();
-
-    if (!user) {
-      return reply.code(404).send({ message: 'Usuario no encontrado' });
-    }
-
-    return reply.send(user);
-  } catch (err) {
-    console.error('Error al obtener datos de usuario:', err);
-    return reply.code(500).send({ message: 'Error al obtener datos de usuario' });
-  }
-});
-
-// Endpoint para cambiar configuración juego
-fastify.put('/auth/settings/config', { preHandler: verifyToken }, async (request, reply) => {
-  try {
-    const db = await openDb();
-    const userId = (request as any).user.user_id;
-    const {
-      language,
-      notifications,
-      sound_effects,
-      game_difficulty
-    } = request.body as any;
-
-    await db.run(
-      `INSERT INTO user_profiles (user_id, language, notifications, sound, difficulty)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(user_id) DO UPDATE SET
-         language = excluded.language,
-         notifications = excluded.notifications,
-         sound = excluded.sound,
-         difficulty = excluded.difficulty`,
-      [userId, language, notifications, sound_effects, game_difficulty]
-    );
-
-    await db.close();
-    return reply.send({ message: 'Configuración guardada correctamente' });
-  } catch (err) {
-    console.error('Error guardando configuración:', err);
-    return reply.code(500).send({ message: 'Error guardando configuración' });
-  }
-});
-
-// Obtener configuraciones del juego
-fastify.get('/auth/settings/config', { preHandler: verifyToken }, async (request, reply) => {
-  try {
-    const db = await openDb();
-    const userId = (request as any).user.user_id;
-
-    const config = await db.get(`
-      SELECT language, notifications, sound AS sound_effects, difficulty AS game_difficulty
-      FROM user_profiles
-      WHERE user_id = ?
-    `, [userId]);
-
 
     const user = await db.get(
       `SELECT username, email FROM users WHERE id = ?`,
@@ -926,21 +710,12 @@ fastify.get('/auth/settings/config', { preHandler: verifyToken }, async (request
     }
 
     return reply.send(config);
-
-    if (!config) {
-      return reply.code(404).send({ message: 'Configuración no encontrada' });
-    }
-
-    return reply.send(config);
   } catch (err) {
-    console.error('Error al obtener configuración:', err);
-    return reply.code(500).send({ message: 'Error al obtener configuración' });
     console.error('Error al obtener configuración:', err);
     return reply.code(500).send({ message: 'Error al obtener configuración' });
   }
 });
 
-// Endpoint para autenticación con Google (verifica token, crea usuario si no existe, devuelve JWT)
 // Endpoint para autenticación con Google (verifica token, crea usuario si no existe, devuelve JWT)
 type GooglePayload = {
   email: string;
@@ -1014,7 +789,6 @@ fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, asy
     .send(fs.createReadStream(filePath));
 });
 
-// Inicializar base de datos antes de arrancar el servidor en puerto 8000
 // Inicializar base de datos antes de arrancar el servidor en puerto 8000
 initializeDb().then(() => {
   fastify.listen({ port: 8000, host: '0.0.0.0' }, err => {

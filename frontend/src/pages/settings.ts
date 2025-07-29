@@ -3,7 +3,6 @@
 import { navigateTo } from '../router';
 import { getTranslation } from '../i18n';
 import { getCurrentUser, getSetting, setSetting, applyUserSettings, fetchUserProfile } from '../auth';
-import { getCurrentUser, getSetting, setSetting, applyUserSettings, fetchUserProfile } from '../auth';
 
 interface UserSettings {
     language: string;
@@ -11,25 +10,6 @@ interface UserSettings {
     sound_effects: string;
     game_difficulty: string;
 }
-
-document.addEventListener('DOMContentLoaded', async () => {
-  await applyUserSettings();
-
-  // Obtiene datos del usuario (username, email)
-  const user = await fetchUserProfile();
-  if (user) {
-    const usernameInput = document.querySelector<HTMLInputElement>('#username');
-    const emailInput = document.querySelector<HTMLInputElement>('#email');
-    if (usernameInput) usernameInput.value = user.username;
-    if (emailInput) emailInput.value = user.email;
-  }
-
-  // Cargar configuración del juego desde localStorage
-  const language = getSetting('language') || 'es';
-  const notifications = getSetting('notifications') || 'true';
-  const sound_effects = getSetting('sound_effects') || 'true';
-  const game_difficulty = getSetting('game_difficulty') || 'normal';
-});
 
 document.addEventListener('DOMContentLoaded', async () => {
   await applyUserSettings();
