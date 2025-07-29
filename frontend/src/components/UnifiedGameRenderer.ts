@@ -5,7 +5,6 @@
 
 import { navigateTo } from '../router';
 import { getCurrentUser } from '../auth';
-import { saveGameStats, createGameStats } from '../utils/gameStats';
 import { PlayerDisplay, PlayerInfo } from './playerDisplay';
 
 export interface UnifiedGameState {
@@ -428,32 +427,8 @@ export class UnifiedGameRenderer {
         }
         
         this.callbacks.onGameEnd?.(winner, score);
-        
-        // Save game stats if local or AI mode
-        if (this.gameMode === 'local' || this.gameMode === 'ai') {
-            this.saveGameStats(winner, score);
-        }
     }
-    
-    private saveGameStats(winner: string, score: { left: number; right: number }): void {
-        if (!this.gameStartTime) return;
-        
-        const duration = (Date.now() - this.gameStartTime.getTime()) / 1000;
-        const startTime = this.gameStartTime!;
-        const endTime = new Date();
-        const gameStats = createGameStats(
-            this.player1Info?.displayName || "Jugador 1",
-            this.player2Info?.displayName || "Jugador 2",
-            score.left,
-            score.right,
-            this.gameMode,
-            startTime,
-            endTime
-        );
-        
-        saveGameStats(gameStats);
-    }
-    
+
     public draw(): void {
         // Clear canvas
         this.ctx.fillStyle = '#000000';

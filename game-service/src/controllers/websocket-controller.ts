@@ -146,7 +146,7 @@ export class WebSocketController {
       }
 
       const gameId = GameValidators.sanitizeGameId(data.gameId);
-      const success = this.gameManager.startGame(gameId);
+      const success = await this.gameManager.startGame(gameId);
       
       if (success) {
         this.broadcastService.notifyGameStarted(gameId);

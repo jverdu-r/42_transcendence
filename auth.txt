@@ -1,3 +1,27 @@
+[1;32m=== ESTRUCTURA DE DIRECTORIOS ===[0m
+.
+├── controllers
+│   ├── friends.controller.ts
+│   └── games.controller.ts
+├── routes
+│   ├── friends.routes.ts
+│   └── games.routes.ts
+├── services
+│   ├── friends.services.ts
+│   └── games.services.ts
+├── utils
+│   └── auth-middleware.ts
+├── auth.txt
+├── database.ts
+├── print_tree.sh
+├── redis-client.ts
+└── server.ts
+
+5 directories, 12 files
+
+[1;32m=== CONTENIDO DE ARCHIVOS DE TEXTO ===[0m
+
+[1;34m=== ./database.ts ===[0m
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite'; // Importar Database de sqlite
 import path from 'path';
@@ -61,6 +85,7 @@ export async function initializeDb() {
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (15, 1, 3, 'accepted', datetime('now', '-15 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (16, 4, 7, 'accepted', datetime('now', '-16 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (17, 3, 5, 'accepted', datetime('now', '-17 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (17, 2, 4, 'pending', datetime('now', '-17 hours'));
 
             INSERT OR IGNORE INTO tournaments (id, name, created_by, status, created_at) VALUES (1, 'Torneo Relámpago', 1, 'finished', datetime('now', '-1 days'));
             INSERT OR IGNORE INTO games (id, tournament_id, match, status, started_at, finished_at) VALUES (1, 1, '1/2(1)', 'finished', datetime('now', '-1 days', '15:00:00'), datetime('now', '-1 days', '15:00:00', '+7 minutes'));
@@ -504,3 +529,1125 @@ export async function initializeDb() {
         await db.close();
     }
 }
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./services/games.services.ts ===[0m
+// auth-service/services/games.service.ts
+
+import { openDb } from '../database';
+
+export class GameService {
+  // 1. Crear partida y devolver el game_id generado
+  static async createGame(tournamentId: number | null = null, match: string | null = null): Promise<number> {
+    const db = await openDb();
+
+    const result = await db.run(
+      `INSERT INTO games (tournament_id, match, status, started_at)
+       VALUES (?, ?, 'in_progress', datetime('now'))`,
+      [tournamentId, match]
+    );
+
+    const gameId = result.lastID;
+    if (typeof gameId !== 'number') {
+        throw new Error('Could not retrieve last inserted game ID');
+        }
+    return gameId;
+  }
+
+  // 2. Añadir un participante (jugador humano o bot)
+  static async addParticipant(gameId: number, {
+    userId = null,
+    isBot = false,
+    teamName
+  }: {
+    userId?: number | null;
+    isBot?: boolean;
+    teamName: string;
+  }): Promise<void> {
+    const db = await openDb();
+
+    await db.run(
+      `INSERT INTO participants (game_id, user_id, is_bot, team_name)
+       VALUES (?, ?, ?, ?)`,
+      [gameId, userId, isBot ? 1 : 0, teamName]
+    );
+  }
+
+  // 3. Inicializar score en 0 para un participante
+  static async initScore(gameId: number, scorerId: number | null, teamName: string): Promise<void> {
+    const db = await openDb();
+
+    await db.run(
+      `INSERT INTO scores (game_id, scorer_id, team_name, point_number)
+       VALUES (?, ?, ?, 0)`,
+      [gameId, scorerId, teamName]
+    );
+  }
+
+  // 4. Registrar un punto anotado por un participante
+  static async updateScore(gameId: number, scorerId: number | null, teamName: string, pointNumber: number): Promise<void> {
+    const db = await openDb();
+
+    await db.run(
+      `INSERT INTO scores (game_id, scorer_id, team_name, point_number)
+       VALUES (?, ?, ?, ?)`,
+      [gameId, scorerId, teamName, pointNumber]
+    );
+  }
+
+  // 5. Finalizar partida y actualizar estado + ganadores
+  static async finalizeGame(gameId: number, winnerTeam: string): Promise<void> {
+    const db = await openDb();
+
+    await db.run(
+      `UPDATE games SET status = 'finished', finished_at = datetime('now') WHERE id = ?`,
+      [gameId]
+    );
+
+    await db.run(
+      `UPDATE participants
+       SET is_winner = CASE WHEN team_name = ? THEN 1 ELSE 0 END
+       WHERE game_id = ?`,
+      [winnerTeam, gameId]
+    );
+  }
+}[1;30m----------------------------------------[0m
+
+[1;34m=== ./services/friends.services.ts ===[0m
+// auth-service/src/services/friends.services.ts
+
+import { openDb } from '../database';
+
+interface Friend {
+    id: number;
+    username: string;
+    isOnline: boolean;
+    elo: number;
+}
+
+export async function getFriends(userId: number): Promise<Friend[]> {
+  const db = await openDb();
+
+  const friendsRaw = await db.all(`
+    SELECT u.id, u.username,
+      IFNULL(SUM(CASE WHEN p.user_id = u.id THEN s.point_number ELSE 0 END), 0) AS pointsFor,
+      IFNULL(SUM(CASE WHEN p.user_id != u.id THEN s.point_number ELSE 0 END), 0) AS pointsAgainst
+    FROM friendships f
+    JOIN users u ON (u.id = f.friend_id OR u.id = f.user_id) AND u.id != ?
+    LEFT JOIN participants p ON p.user_id = u.id
+    LEFT JOIN scores s ON s.game_id = p.game_id AND s.team_name = p.team_name
+    WHERE f.status = 'accepted' AND (f.user_id = ? OR f.friend_id = ?)
+    GROUP BY u.id
+  `, [userId, userId, userId]);
+
+  // Opcional: obtener usuarios online de Redis
+  // const onlineIds = await getOnlineUserIdsFromRedis();
+
+  const friends: Friend[] = friendsRaw.map(f => ({
+    id: f.id,
+    username: f.username,
+    elo: 1000 + (f.pointsFor - f.pointsAgainst),
+    isOnline: false,
+  }));
+
+  await db.close();
+  return friends;
+}
+
+export async function getPendingRequests(userId: number) {
+  const db = await openDb();
+  return db.all(`
+    SELECT u.id, u.username
+    FROM friendships f
+    JOIN users u ON u.id = f.requester_id
+    WHERE f.status = 'pending'
+      AND f.approver_id = ?;
+  `, [userId]);
+}
+
+export async function getAvailableUsers(userId: number) {
+  const db = await openDb();
+  return db.all(`
+    SELECT u.id, u.username
+    FROM users u
+    WHERE u.id != ?
+      AND u.id NOT IN (
+        SELECT requester_id FROM friendships WHERE approver_id = ?
+        UNION
+        SELECT approver_id FROM friendships WHERE requester_id = ?
+      );
+  `, [userId, userId, userId]);
+}
+
+export async function sendFriendRequest(userId: number, targetId: number): Promise<boolean> {
+  const db = await openDb();
+
+  // Verifica si ya existe
+  const existing = await db.get(
+    `SELECT * FROM friendships 
+     WHERE (user_id = ? AND friend_id = ?) 
+        OR (user_id = ? AND friend_id = ?)`,
+    [userId, targetId, targetId, userId]
+  );
+
+  if (existing) {
+    await db.close();
+    return false;
+  }
+
+  await db.run(
+    `INSERT INTO friendships (user_id, friend_id, status) VALUES (?, ?, 'pending')`,
+    [userId, targetId]
+  );
+
+  await db.close();
+  return true;
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./auth.txt ===[0m
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./print_tree.sh ===[0m
+#!/bin/bash
+
+# Función para detectar si un archivo es de texto
+is_text_file() {
+  file -b --mime-encoding "$1" | grep -q -v 'binary'
+}
+
+# Mostrar estructura de directorios (excluyendo .git, node_modules, styles y pages)
+echo -e "\033[1;32m=== ESTRUCTURA DE DIRECTORIOS ===\033[0m"
+tree -a -I '.git|node_modules' --dirsfirst
+
+# Mostrar contenido de archivos de texto, ignorando .git, node_modules, styles y pages
+echo -e "\n\033[1;32m=== CONTENIDO DE ARCHIVOS DE TEXTO ===\033[0m"
+find . -type f \
+  ! -path '*/.git/*' \
+  ! -path '*/print-tree.sh' \
+  ! -path '*/README.md' \
+  | while read -r file; do
+    if is_text_file "$file"; then
+      echo -e "\n\033[1;34m=== $file ===\033[0m"
+      cat "$file"
+      echo -e "\033[1;30m----------------------------------------\033[0m"
+    else
+      echo -e "\n\033[1;31m=== $file (archivo binario, omitido) ===\033[0m"
+    fi
+done
+
+
+
+  # ! -path '*/.api-gateway/src/*' \
+  # ! -path '*/.api-gateway/package.json' \
+  # ! -path '*/.api-gateway/tsconfig.json' \
+  # ! -path '*/.chat-service/src/*' \
+  # ! -path '*/.chat-service/package.json' \
+  # ! -path '*/.chat-service/tsconfig.json' \
+  # ! -path '*/frontend/src/*' \
+  # ! -path '*/frontend/package.json' \
+  # ! -path '*/frontend/tailwind.config.js' \
+  # ! -path '*/frontend/tsconfig.json' \
+  # ! -path '*/frontend/webpack.config.js' \
+  # ! -path '*/game-service/tsconfig.json' \
+  # ! -path '*/game-service/package.json' \
+  # ! -path '*/game-service/src/*' \[1;30m----------------------------------------[0m
+
+[1;34m=== ./controllers/friends.controller.ts ===[0m
+// auth-service/src/controllers/friends.controller.ts
+
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { getFriends, getPendingRequests, getAvailableUsers, sendFriendRequest } from '../services/friends.services';
+
+export async function getFriendsHandler(request: FastifyRequest, reply: FastifyReply) {
+  const userId = (request as any).user.user_id;
+  if (!userId) return reply.status(401).send({ error: 'Unauthorized' });
+
+  const friends = await getFriends(userId);
+  return reply.send(friends);
+}
+
+export async function getPendingRequestsHandler(request: FastifyRequest, reply: FastifyReply) {
+  const userId = (request as any).user.user_id;
+  if (!userId) return reply.status(401).send({ error: 'Unauthorized' });
+
+  const pending = await getPendingRequests(userId);
+  return reply.send(pending);
+}
+
+export async function getAvailableUsersHandler(request: FastifyRequest, reply: FastifyReply) {
+  const userId = (request as any).user.user_id;
+  if (!userId) return reply.status(401).send({ error: 'Unauthorized' });
+
+  const users = await getAvailableUsers(userId);
+  return reply.send(users);
+}
+
+export async function sendFriendRequestHandler(request: FastifyRequest, reply: FastifyReply) {
+  const userId = (request as any).user.user_id;
+  const targetId = Number((request.params as any).targetId);
+  if (!userId || !targetId || userId === targetId) {
+    return reply.status(400).send({ error: 'Invalid target user' });
+  }
+
+  try {
+    const result = await sendFriendRequest(userId, targetId);
+    return reply.send({ success: result });
+  } catch (err) {
+    console.error('Error sending friend request:', err);
+    return reply.status(500).send({ error: 'Server error' });
+  }
+}[1;30m----------------------------------------[0m
+
+[1;34m=== ./controllers/games.controller.ts ===[0m
+// auth-service/controllers/games.controller.ts
+
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { GameService } from '../services/games.services';
+import { openDb } from '../database';
+
+export const startGameHandler = async (req: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const {
+      gameId,
+      player1,
+      player2,
+      tournamentId = null,
+      match = null
+    } = req.body as any;
+
+    const db = await openDb();
+
+    // Insert en games
+    const result = await db.run(
+      `INSERT INTO games (id, tournament_id, match, status, started_at)
+       VALUES (?, ?, ?, 'in_progress', datetime('now'))`,
+      [gameId, tournamentId, match]
+    );
+
+    // helper para obtener user_id si es humano
+    const getUserId = async (username: string | null): Promise<number | null> => {
+      if (!username) return null;
+      const user = await db.get(`SELECT id FROM users WHERE username = ?`, [username]);
+      return user?.id ?? null;
+    };
+
+    // player1
+    const userId1 = player1.isBot ? null : await getUserId(player1.username);
+    await GameService.addParticipant(gameId, {
+      userId: userId1,
+      isBot: player1.isBot,
+      teamName: player1.teamName
+    });
+    await GameService.initScore(gameId, userId1, player1.teamName);
+
+    // player2
+    const userId2 = player2.isBot ? null : await getUserId(player2.username);
+    await GameService.addParticipant(gameId, {
+      userId: userId2,
+      isBot: player2.isBot,
+      teamName: player2.teamName
+    });
+    await GameService.initScore(gameId, userId2, player2.teamName);
+
+    reply.send({ success: true });
+  } catch (error) {
+    console.error('❌ Error in /api/games/start:', error);
+    reply.status(500).send({ error: 'Failed to start game' });
+  }
+};
+
+export const getUserIdByUsername = async (req: FastifyRequest, reply: FastifyReply) => {
+  const { username } = req.query as { username?: string };
+
+  if (!username) {
+    return reply.status(400).send({ error: 'Falta el parámetro username' });
+  }
+
+  try {
+    const db = await openDb();
+    const user = await db.get('SELECT id FROM users WHERE username = ?', [username]);
+    await db.close();
+
+    if (!user) {
+      return reply.status(404).send({ error: 'Usuario no encontrado' });
+    }
+
+    return reply.send({ userId: user.id });
+  } catch (error) {
+    console.error('❌ Error al obtener userId:', error);
+    return reply.status(500).send({ error: 'Error interno del servidor' });
+  }
+};[1;30m----------------------------------------[0m
+
+[1;34m=== ./utils/auth-middleware.ts ===[0m
+// src/utils/auth-middleware.ts
+
+import { FastifyRequest, FastifyReply } from 'fastify';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
+
+export async function verifyToken(request: FastifyRequest, reply: FastifyReply) {
+  const token = request.headers.authorization?.replace('Bearer ', '');
+  if (!token) return reply.code(401).send({ message: 'Token requerido' });
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    (request as any).user = decoded;
+  } catch (err) {
+    return reply.code(401).send({ message: 'Token inválido' });
+  }
+}[1;30m----------------------------------------[0m
+
+[1;34m=== ./server.ts ===[0m
+import Fastify from 'fastify';
+import fs from 'fs';
+import path from 'path';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import fetch from 'node-fetch';
+import dotenv from 'dotenv';
+import { openDb, initializeDb } from './database';
+import redis from './redis-client';
+import multipart from '@fastify/multipart';
+import { pipeline } from 'stream';
+import util from 'util';
+import { FastifyRequest } from 'fastify';
+import { MultipartFile } from '@fastify/multipart';
+import { createCanvas, loadImage } from 'canvas';
+import { verifyToken } from './utils/auth-middleware';
+import gamesRoutes from './routes/games.routes';
+import friendsRoutes from './routes/friends.routes';
+
+dotenv.config();
+const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
+
+const fastify = Fastify({ logger: true });
+
+fastify.register(multipart);
+
+// Habilitar CORS
+
+fastify.register(require('@fastify/cors'), {
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+});
+
+// Rutas para gestionar el guardado de partidas y estadísticas del juego
+fastify.register(gamesRoutes, { prefix: '/auth/games' });
+
+// Ruta para gestionar amistades
+fastify.register(friendsRoutes, { prefix: '/auth/friends' });
+
+// Asegurar que las carpetas existen
+const dataPath = path.join(__dirname, '../data');
+const avatarPath = path.join(dataPath, 'avatars');
+if (!fs.existsSync(dataPath)) fs.mkdirSync(dataPath, { recursive: true });
+if (!fs.existsSync(avatarPath)) fs.mkdirSync(avatarPath, { recursive: true });
+
+// Rutas estáticas
+fastify.register(require('@fastify/static'), {
+  root: dataPath,
+  prefix: '/downloads/'
+});
+
+fastify.register(require('@fastify/static'), {
+  root: avatarPath,
+  prefix: '/avatars/',
+  decorateReply: false // evita conflicto
+});
+
+fastify.post('/auth/register', async (request, reply) => {
+  const { username, email, password } = request.body as any;
+  
+  if (!username || !email || !password) {
+    return reply.code(400).send({ message: 'Faltan campos requeridos' });
+  }
+
+  try {
+    const db = await openDb();
+    
+    // Verificar si el usuario ya existe
+    const existingUser = await db.get('SELECT * FROM users WHERE email = ? OR username = ?', [email, username]);
+    if (existingUser) {
+      await db.close();
+      return reply.code(409).send({ message: 'Usuario o email ya existe' });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+    
+    // Insertar directamente en la base de datos
+    const result = await db.run('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)', [username, email, hash]);
+    
+    await db.close();
+    
+    return reply.code(201).send({ message: 'Usuario registrado exitosamente' });
+  } catch (err: any) {
+    console.error('Error en registro:', err);
+    if (err.code === 'SQLITE_CONSTRAINT') {
+      return reply.code(409).send({ message: 'Usuario o email ya existe' });
+    }
+    return reply.code(500).send({ message: 'Error interno del servidor' });
+  }
+});
+
+fastify.post('/auth/login', async (request, reply) => {
+  const { email, password } = request.body as any;
+  
+  if (!email || !password) {
+    return reply.code(400).send({ message: 'Email y contraseña son requeridos' });
+  }
+
+  try {
+    const db = await openDb();
+    const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+    
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      await db.close();
+      return reply.code(401).send({ message: 'Credenciales inválidas' });
+    }
+
+    const token = jwt.sign({
+      user_id: user.id,
+      username: user.username,
+      email: user.email,
+      exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hora
+    }, JWT_SECRET);
+    
+    // Obtener avatar_url
+    const profile = await db.get('SELECT avatar_url FROM user_profiles WHERE user_id = ?', [user.id]);
+
+    await db.close();
+
+    return reply.send({ 
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatar_url: profile?.avatar_url || null
+      }
+    });
+  } catch (err) {
+    console.error('Error en login:', err);
+    return reply.code(500).send({ message: 'Error interno del servidor' });
+  }
+});
+ 
+// Endpoint para obtener estadísticas del usuario y generar archivo de historial
+fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, reply) => {
+  try {
+    const db = await openDb();
+    const userId = (request as any).user.user_id;
+
+    // Obtener todas las partidas completadas con su info de jugadores
+    const games = await db.all(`
+      SELECT
+        g.id AS game_id,
+        g.finished_at,
+        g.status,
+        g.tournament_id,
+        p.user_id AS player_id,
+        p.team_name AS team,
+        u.username,
+        t.name AS tournament_name
+      FROM games g
+      JOIN participants p ON p.game_id = g.id
+      LEFT JOIN users u ON u.id = p.user_id
+      LEFT JOIN tournaments t ON g.tournament_id = t.id
+      WHERE g.status IN ('finished')
+    `);
+
+    // Obtener todos los scores por game + team
+    const scores = await db.all(`
+      SELECT game_id, team_name, point_number
+      FROM scores
+    `);
+
+    const scoreMap = new Map<string, number>();
+    for (const s of scores) {
+      scoreMap.set(`${s.game_id}_${s.team_name}`, s.point_number);
+    }
+
+    // Agrupar los jugadores por game_id
+    const groupedGames = new Map<number, any[]>();
+    for (const g of games) {
+      if (!groupedGames.has(g.game_id)) groupedGames.set(g.game_id, []);
+      groupedGames.get(g.game_id)!.push(g);
+    }
+
+    // Preparar stats individuales
+    const userGames = new Map<number, {
+      matches: any[],
+      pointsFor: number,
+      pointsAgainst: number
+    }>();
+
+    for (const [gameId, players] of groupedGames.entries()) {
+      if (players.length < 1) continue;
+
+      for (const current of players) {
+        const opponent = players.find(p => p.player_id !== current.player_id && p.user_id !== null) || null;
+
+        const userScore = scoreMap.get(`${gameId}_${current.team}`) ?? 0;
+
+        let opponentScore = 0;
+        let opponentName = 'Bot AI';
+
+        if (opponent) {
+          opponentScore = scoreMap.get(`${gameId}_${opponent.team}`) ?? 0;
+          opponentName = opponent.username || 'Bot AI';
+        } else {
+          // Buscar en scores el otro equipo aunque no haya participant asociado
+          const allTeams = scores
+            .filter(s => s.game_id === gameId)
+            .map(s => s.team_name);
+          const otherTeam = allTeams.find(t => t !== current.team);
+          if (otherTeam) {
+            opponentScore = scoreMap.get(`${gameId}_${otherTeam}`) ?? 0;
+          }
+        }
+
+        if (!userGames.has(current.player_id)) {
+          userGames.set(current.player_id, {
+            matches: [],
+            pointsFor: 0,
+            pointsAgainst: 0
+          });
+        }
+
+        userGames.get(current.player_id)!.pointsFor += userScore;
+        userGames.get(current.player_id)!.pointsAgainst += opponentScore;
+
+        userGames.get(current.player_id)!.matches.push({
+          id: gameId,
+          result: userScore > opponentScore ? 'win' : 'loss',
+          opponent: opponentName,
+          score: `${userScore}-${opponentScore}`,
+          date: current.finished_at,
+          tournament: current.tournament_name || '-'
+        });
+      }
+    }
+
+    // Calcular ELOs
+    const eloList = Array.from(userGames.entries()).map(([uid, data]) => ({
+      user_id: uid,
+      elo: 1000 + data.pointsFor - data.pointsAgainst
+    }));
+
+    // Asegurar que todos los usuarios están presentes (aun sin partidas)
+    const allUsers = await db.all(`SELECT id FROM users`);
+    for (const u of allUsers) {
+      if (!userGames.has(u.id)) {
+        userGames.set(u.id, { matches: [], pointsFor: 0, pointsAgainst: 0 });
+        eloList.push({ user_id: u.id, elo: 1000 });
+      }
+    }
+
+    eloList.sort((a, b) => b.elo - a.elo);
+    const ranking = eloList.findIndex(u => u.user_id === userId) + 1;
+
+    const userData = userGames.get(userId)!;
+    const wins = userData.matches.filter(m => m.result === 'win').length;
+    const losses = userData.matches.filter(m => m.result === 'loss').length;
+    const totalGames = wins + losses;
+    const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
+    const elo = 1000 + userData.pointsFor - userData.pointsAgainst;
+
+    const matchHistory = userData.matches.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    // Guardar historial completo en txt
+    const filePath = path.resolve('/app/data/historial_partidas.txt');
+    const matchHistoryText = matchHistory.map(entry =>
+      `Partida ${entry.id} | Resultado: ${entry.result} | Oponente: ${entry.opponent} | Torneo: ${entry.tournament} | Marcador: ${entry.score} | Fecha: ${entry.date}`
+    );
+    fs.writeFileSync(filePath, matchHistoryText.join('\n'));
+
+    // Avatar
+    const profile = await db.get('SELECT avatar_url FROM user_profiles WHERE user_id = ?', [userId]);
+
+    await db.close();
+
+    return reply.send({
+      totalGames,
+      wins,
+      losses,
+      winRate,
+      elo,
+      ranking,
+      matchHistory: matchHistory.slice(0, 10),
+      avatar_url: profile?.avatar_url || null
+    });
+  } catch (err) {
+    console.error('Error obteniendo estadísticas:', err);
+    return reply.code(500).send({ message: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint para subir el avatar
+fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request, reply) => {
+  const userId = (request as any).user.user_id;
+  
+  const mpRequest = request as FastifyRequest & {
+    file: () => Promise<MultipartFile>;
+  };
+
+  const data = await mpRequest.file();
+
+  if (!data) {
+    return reply.code(400).send({ message: 'No se ha enviado ningún archivo' });
+  }
+
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(data.mimetype)) {
+    return reply.code(400).send({ message: 'Tipo de archivo no permitido' });
+  }
+
+  if (data.file.truncated) {
+    return reply.code(400).send({ message: 'Archivo demasiado grande (máx 2MB)' });
+  }
+
+  try {
+    const buffer = await data.toBuffer();
+    const image = await loadImage(buffer);
+    
+    // Tamaño máximo deseado
+    const MAX_SIZE = 256;
+    let width = image.width;
+    let height = image.height;
+
+    // Redimensionar manteniendo aspect ratio
+    if (width > height && width > MAX_SIZE) {
+      height = Math.round((height * MAX_SIZE) / width);
+      width = MAX_SIZE;
+    } else if (height > MAX_SIZE) {
+      width = Math.round((width * MAX_SIZE) / height);
+      height = MAX_SIZE;
+    }
+
+    // Crear canvas con nuevas dimensiones
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(image, 0, 0, width, height);
+
+    // Convertir a JPEG con calidad del 80% (más ligero que PNG)
+    const processedBuffer = canvas.toBuffer('image/jpeg', { quality: 0.8 });
+
+    const filename = `avatar_${userId}.jpg`;
+    const saveDir = '/app/data/avatars';
+    const filepath = path.join(saveDir, filename);
+
+    if (!fs.existsSync(saveDir)) {
+      fs.mkdirSync(saveDir, { recursive: true });
+    }
+
+    fs.writeFileSync(filepath, processedBuffer);
+
+    // Guardar en base de datos
+    const db = await openDb();
+    await db.run(`
+      INSERT INTO user_profiles (user_id, avatar_url)
+      VALUES (?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET avatar_url = excluded.avatar_url
+    `, [userId, `/avatars/${filename}`]);
+
+    await db.close();
+
+    return reply.send({ 
+      message: '✅ Avatar optimizado y subido correctamente', 
+      avatar_url: `http://localhost:8000/avatars/${filename}`,
+      dimensions: { width, height },
+      size: `${(processedBuffer.length / 1024).toFixed(2)} KB`
+    });
+
+  } catch (err) {
+    console.error('Error procesando avatar:', err);
+    return reply.code(500).send({ message: 'Error procesando avatar' });
+  }
+});
+
+// Endpoint para obtener el ranking global completo
+fastify.get('/auth/ranking', async (request, reply) => {
+  try {
+    const db = await openDb();
+
+    // Obtener partidas finalizadas
+    const games = await db.all(`
+      SELECT
+        g.id AS game_id,
+        g.finished_at,
+        g.status,
+        g.tournament_id,
+        p.user_id AS player_id,
+        p.team_name AS team,
+        u.username,
+        t.name AS tournament_name
+      FROM games g
+      JOIN participants p ON p.game_id = g.id
+      LEFT JOIN users u ON u.id = p.user_id
+      LEFT JOIN tournaments t ON g.tournament_id = t.id
+      WHERE g.status IN ('finished')
+    `);
+
+    // Scores
+    const scores = await db.all(`
+      SELECT game_id, team_name, point_number
+      FROM scores
+    `);
+
+    const scoreMap = new Map<string, number>();
+    for (const s of scores) {
+      scoreMap.set(`${s.game_id}_${s.team_name}`, s.point_number);
+    }
+
+    // Agrupar jugadores por partida
+    const groupedGames = new Map<number, any[]>();
+    for (const g of games) {
+      if (!groupedGames.has(g.game_id)) groupedGames.set(g.game_id, []);
+      groupedGames.get(g.game_id)!.push(g);
+    }
+
+    // Calcular estadísticas por jugador
+    const userGames = new Map<number, {
+      username: string;
+      wins: number;
+      losses: number;
+      pointsFor: number;
+      pointsAgainst: number;
+    }>();
+
+    for (const [gameId, players] of groupedGames.entries()) {
+      if (players.length < 1) continue;
+
+      for (const current of players) {
+        const uid = current.player_id;
+        if (!uid) continue;
+
+        const opponent = players.find(p => p.player_id !== uid && p.user_id !== null) || null;
+        const userScore = scoreMap.get(`${gameId}_${current.team}`) ?? 0;
+
+        let opponentScore = 0;
+        if (opponent) {
+          opponentScore = scoreMap.get(`${gameId}_${opponent.team}`) ?? 0;
+        } else {
+          // Buscar el otro equipo aunque sea contra bot
+          const allTeams = scores
+            .filter(s => s.game_id === gameId)
+            .map(s => s.team_name);
+          const otherTeam = allTeams.find(t => t !== current.team);
+          if (otherTeam) {
+            opponentScore = scoreMap.get(`${gameId}_${otherTeam}`) ?? 0;
+          }
+        }
+
+        if (!userGames.has(uid)) {
+          userGames.set(uid, {
+            username: current.username || `User${uid}`,
+            wins: 0,
+            losses: 0,
+            pointsFor: 0,
+            pointsAgainst: 0
+          });
+        }
+
+        const stats = userGames.get(uid)!;
+        stats.pointsFor += userScore;
+        stats.pointsAgainst += opponentScore;
+        if (userScore > opponentScore) {
+          stats.wins += 1;
+        } else {
+          stats.losses += 1;
+        }
+      }
+    }
+
+    // Asegurar que todos los usuarios están en el ranking
+    const allUsers = await db.all(`SELECT id, username FROM users`);
+    for (const u of allUsers) {
+      if (!userGames.has(u.id)) {
+        userGames.set(u.id, {
+          username: u.username,
+          wins: 0,
+          losses: 0,
+          pointsFor: 0,
+          pointsAgainst: 0
+        });
+      }
+    }
+
+    // Calcular ELO y preparar la respuesta
+    const rankingRaw = Array.from(userGames.entries()).map(([uid, data]) => {
+      const totalGames = data.wins + data.losses;
+      const winRate = totalGames > 0 ? Math.round((data.wins / totalGames) * 100) : 0;
+      const elo = 1000 + data.pointsFor - data.pointsAgainst;
+
+      return {
+        id: uid,
+        username: data.username,
+        wins: data.wins,
+        losses: data.losses,
+        totalGames,
+        winRate,
+        elo
+      };
+    });
+
+    rankingRaw.sort((a, b) => b.elo - a.elo);
+
+    const rankingTop100 = rankingRaw.slice(0, 100).map((entry, index) => ({
+      ...entry,
+      rank: index + 1,
+      points: entry.elo // puedes ajustar esto si usas un sistema distinto de puntos
+    }));
+
+    await db.close();
+    return reply.send(rankingTop100);
+  } catch (err) {
+    console.error('Error obteniendo ranking:', err);
+    return reply.code(500).send({ message: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint para actualizar configuraciones del usuario
+
+
+// Endpoint de home para apartidos en juego
+fastify.get('/auth/games/live', async (request, reply) => {
+  try {
+    const db = await openDb();
+
+    // Buscar partidas en progreso
+    const games = await db.all(`
+      SELECT g.id AS game_id, g.status, g.started_at
+      FROM games g
+      WHERE g.status = 'in_progress'
+    `);
+
+    if (!games.length) {
+      await db.close();
+      return reply.send([]);
+    }
+
+    // Obtener participantes humanos (no bots) de esas partidas
+    const participants = await db.all(`
+      SELECT p.game_id, p.team_name, u.username
+      FROM participants p
+      LEFT JOIN users u ON u.id = p.user_id
+      WHERE p.game_id IN (${games.map(g => g.game_id).join(',')})
+    `);
+
+    // Obtener puntuaciones por game_id + team
+    const scores = await db.all(`
+      SELECT game_id, team_name, MAX(point_number) AS score
+      FROM scores
+      WHERE game_id IN (${games.map(g => g.game_id).join(',')})
+      GROUP BY game_id, team_name
+    `);
+
+    // Mapear resultados por partida
+    const liveMatches = games.map(game => {
+      const gameParticipants = participants.filter(p => p.game_id === game.game_id);
+      const scoreMap = new Map();
+      scores
+        .filter(s => s.game_id === game.game_id)
+        .forEach(s => scoreMap.set(s.team_name, s.score));
+
+      const [p1, p2] = gameParticipants;
+      return {
+        id: game.game_id,
+        player1: { username: p1?.username || 'Player 1' },
+        player2: { username: p2?.username || 'Player 2' },
+        score1: scoreMap.get(p1?.team_name) || 0,
+        score2: scoreMap.get(p2?.team_name) || 0,
+        round: Math.max(scoreMap.get(p1?.team_name) || 0, scoreMap.get(p2?.team_name) || 0)
+      };
+    });
+
+    await db.close();
+    return reply.send(liveMatches);
+  } catch (err) {
+    console.error('Error obteniendo partidas en vivo:', err);
+    return reply.code(500).send({ error: 'Error al obtener partidas en vivo' });
+  }
+});
+
+// Endpoint para eliminar cuenta
+fastify.delete('/auth/profile', { preHandler: verifyToken }, async (request, reply) => {
+  try {
+    const db = await openDb();
+    const userId = (request as any).user.user_id;
+    const { password } = request.body as any;
+    
+    // Verificar contraseña
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      await db.close();
+      return reply.code(401).send({ message: 'Contraseña incorrecta' });
+    }
+    
+    // Eliminar configuraciones del usuario
+    await db.run('DELETE FROM user_settings WHERE user_id = ?', [userId]);
+    
+    // Eliminar mensajes del usuario
+    await db.run('DELETE FROM messages WHERE user_id = ?', [userId]);
+    
+    // Eliminar usuario
+    await db.run('DELETE FROM users WHERE id = ?', [userId]);
+    
+    await db.close();
+    
+    return reply.send({ message: 'Cuenta eliminada exitosamente' });
+    
+  } catch (err) {
+    console.error('Error eliminando cuenta:', err);
+    return reply.code(500).send({ message: 'Error interno del servidor' });
+  }
+});
+
+type GooglePayload = {
+  email: string;
+  name: string;
+  picture?: string;
+  [key: string]: any;
+};
+
+fastify.post('/auth/google', async (request, reply) => {
+  const { token } = request.body as any;
+  
+  if (!token) {
+    return reply.code(400).send({ message: 'Falta token de Google' });
+  }
+
+  try {
+    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+    if (!res.ok) {
+      return reply.code(401).send({ message: 'Token de Google inválido' });
+    }
+    
+    const payload = (await res.json()) as GooglePayload;
+    
+    const db = await openDb();
+    let user = await db.get('SELECT * FROM users WHERE email = ?', [payload.email]);
+    
+    if (!user) {
+      // Crear nuevo usuario con Google
+      const result = await db.run(
+        'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+        [payload.name, payload.email, ''] // Sin contraseña para usuarios de Google
+      );
+      
+      user = await db.get('SELECT * FROM users WHERE email = ?', [payload.email]);
+    }
+
+    const jwtToken = jwt.sign({
+      user_id: user.id,
+      username: user.username,
+      email: user.email,
+      exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hora
+    }, JWT_SECRET);
+
+    await db.close();
+    
+    return reply.send({ 
+      token: jwtToken,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email
+      }
+    });
+  } catch (err) {
+    console.error('Error con Google Sign-In:', err);
+    return reply.code(500).send({ message: 'Error con Google Sign-In' });
+  }
+});
+
+// Endpoint para descargar historial
+fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, async (request, reply) => {
+  const userId = (request as any).user.user_id;
+  const filePath = path.resolve('/app/data/historial_partidas.txt');
+
+  if (!fs.existsSync(filePath)) {
+    return reply.code(404).send({ message: 'Historial no encontrado' });
+  }
+
+  return reply
+    .type('text/plain')
+    .header('Content-Disposition', `attachment; filename=historial_${userId}.txt`)
+    .send(fs.createReadStream(filePath));
+});
+
+// Inicializar base de datos antes de arrancar el servidor
+initializeDb().then(() => {
+  fastify.listen({ port: 8000, host: '0.0.0.0' }, err => {
+    if (err) {
+      fastify.log.error(err);
+      process.exit(1);
+    }
+  });
+});
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./routes/friends.routes.ts ===[0m
+// auth-service/routes/friends.routes.ts
+
+import { FastifyInstance } from 'fastify';
+import { getFriendsHandler, getPendingRequestsHandler, getAvailableUsersHandler, sendFriendRequestHandler } from '../controllers/friends.controller';
+import { verifyToken } from '../utils/auth-middleware';
+
+export default async function friendsRoutes(fastify: FastifyInstance) {
+    console.log("✅ Friends routes registered");
+    fastify.get('/', { preHandler: verifyToken }, getFriendsHandler);
+    fastify.get('/requests', { preHandler: verifyToken }, getPendingRequestsHandler);
+    fastify.get('/available', { preHandler: verifyToken }, getAvailableUsersHandler);
+    fastify.post('/request/:targetId', { preHandler: verifyToken }, sendFriendRequestHandler);
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./routes/games.routes.ts ===[0m
+// auth-service/routes/games.routes.ts
+
+import { FastifyInstance } from 'fastify';
+import { startGameHandler } from '../controllers/games.controller';
+import { getUserIdByUsername } from '../controllers/games.controller';
+
+export default async function gamesRoutes(fastify: FastifyInstance) {
+  fastify.post('/start', startGameHandler);
+fastify.get('/user-id', getUserIdByUsername);
+  
+}
+[1;30m----------------------------------------[0m
+
+[1;34m=== ./redis-client.ts ===[0m
+// auth-service/src/redis-client.ts
+
+import { createClient } from 'redis';
+
+import dotenv from 'dotenv';
+dotenv.config();
+
+const redis = createClient({
+  url: process.env.REDIS_URL || `redis://:${process.env.REDIS_PASSWORD || ''}@${process.env.REDIS_HOST || 'redis'}:${process.env.REDIS_PORT || '6379'}`
+});
+
+redis.on('error', (err) => {
+  console.error('Redis client error:', err);
+});
+
+(async () => {
+  try {
+    await redis.connect();
+    console.log('Redis client connected');
+  } catch (err) {
+    console.error('Redis connection failed:', err);
+  }
+})();
+
+export default redis;
+[1;30m----------------------------------------[0m

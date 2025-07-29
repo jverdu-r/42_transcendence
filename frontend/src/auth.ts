@@ -35,12 +35,12 @@ function parseJwt(token: string): any {
 }
 
 // Función para obtener configuraciones del usuario
-async function getUserSettings(): Promise<UserSettings | null> {
+export async function getUserSettings(): Promise<UserSettings | null> {
   const token = getToken();
   if (!token) return null;
 
   try {
-    const response = await fetch('/api/auth/settings', {
+    const response = await fetch('/api/auth/settings/config', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -60,8 +60,34 @@ async function getUserSettings(): Promise<UserSettings | null> {
   }
 }
 
+// Función para obtener datos del usuario
+export async function fetchUserProfile(): Promise<User | null> {
+  const token = getToken();
+  if (!token) return null;
+
+  try {
+    const response = await fetch('/api/auth/settings/user_data', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      console.error('Error al obtener datos de usuario:', response.status);
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error en la petición de datos de usuario:', error);
+    return null;
+  }
+}
+
 // Función para aplicar configuraciones del usuario
-async function applyUserSettings(): Promise<void> {
+export async function applyUserSettings(): Promise<void> {
   const settings = await getUserSettings();
   if (!settings) return;
 
