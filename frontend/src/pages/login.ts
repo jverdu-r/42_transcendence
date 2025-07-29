@@ -99,6 +99,7 @@ export function renderLoginPage(): void {
                 event.preventDefault();
                 const email = (document.getElementById('email') as HTMLInputElement)?.value || '';
                 const password = (document.getElementById('password') as HTMLInputElement)?.value || '';
+
                 if (!email || !password) return alert('Por favor, completa todos los campos');
 
                 try {
@@ -110,6 +111,15 @@ export function renderLoginPage(): void {
                     const data = await res.json();
                     if (res.ok && data.token) {
                         localStorage.setItem('jwt', data.token);
+                        
+                        // Guardar idioma en localStorage
+                        if (data.user.language) {
+                            localStorage.setItem('language', data.user.language);
+                        }
+                        
+                        // Aplicar el idioma inmediatamente
+                        setLanguage(data.user.language || 'es');
+                        
                         navigateTo('/home');
                     } else {
                         alert(data.message || 'Login fallido');
@@ -132,6 +142,15 @@ export function renderLoginPage(): void {
                 const data = await res.json();
                 if (res.ok && data.token) {
                     localStorage.setItem('jwt', data.token);
+                    
+                    // Guardar idioma en localStorage
+                    if (data.user.language) {
+                        localStorage.setItem('language', data.user.language);
+                    }
+                    
+                    // Aplicar el idioma inmediatamente
+                    setLanguage(data.user.language || 'es');
+                    
                     navigateTo('/home');
                 } else {
                     alert(data.message || 'Error en autenticación con Google');
