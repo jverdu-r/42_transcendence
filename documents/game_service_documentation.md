@@ -626,25 +626,27 @@ process.on('SIGINT', () => {
 
 ### server-refactored.ts
 
-El servidor refactorizado (`server-refactored.ts`) representa una versión mejorada con arquitectura limpia, separando responsabilidades en:
+El servidor refactorizado (`server-refactored.ts`) es una implementación avanzada de arquitectura limpia, destinada a una mejor mantenibilidad y extensibilidad. Esta versión está dividida en módulos claros, cada uno con responsabilidades bien definidas:
 
-- **Configuración**: `config/`
-- **Constantes**: `constants/`
-- **Controladores**: `controllers/`
-- **Motor de Juego**: `game/`
-- **Interfaces**: `interfaces/`
-- **Servicios**: `services/`
-- **Utilidades**: `utils/`
-- **Validadores**: `validators/`
+- **Configuración**: `config/` para la configuración centralizada del servidor
+- **Constantes**: `constants/` que almacena todas las constantes del sistema y del juego
+- **Controladores (Controllers)**: `controllers/` donde reside la lógica de negocio de la API y WebSocket
+- **Motor de Juego (Game Engine)**: `game/`, núcleo de la lógica de simulación del juego
+- **Interfaces (Interfaces/Types)**: `interfaces/` donde se definen los tipos e interfaces de TypeScript
+- **Servicios (Services)**: `services/` que maneja funciones de negocio específicas, como conexión y broadcasting
+- **Utilidades (Utils)**: `utils/`, un conjunto de herramientas y helpers para tareas comunes
+- **Validadores (Validators)**: `validators/`, encargados de la validación de input y mensajes
 
-#### Inicialización
+#### Inicialización del Servidor Refactorizado
+
+Esta sección detalla la inicialización del servidor refactorizado usando la arquitectura Fastify, que promueve la alta eficiencia y modularidad:
 
 ```typescript
 import Fastify from 'fastify';
 import fastifyWebsocket from '@fastify/websocket';
 import fastifyCors from '@fastify/cors';
 
-// Import refactored modules
+// Módulos refactorizados importados
 import { ServerConfig } from './config/index.js';
 import { GameManager } from './game/index.js';
 import {
@@ -658,7 +660,7 @@ import {
   HealthController 
 } from './controllers/index.js';
 
-// Initialize server configuration
+// Configuración inicial del servidor
 const serverConfig = ServerConfig.getInstance();
 const fastify = Fastify({
   logger: {
@@ -666,13 +668,13 @@ const fastify = Fastify({
   }
 });
 
-// Initialize core services
+// Inicialización de servicios centrales
 const gameManager = new GameManager();
 const connectionService = new ConnectionService();
 const broadcastService = new GameBroadcastService(connectionService, gameManager);
 const apiResponseService = new ApiResponseService();
 
-// Initialize controllers
+// Inicialización de los controladores
 const webSocketController = new WebSocketController(
   fastify,
   connectionService,
@@ -681,12 +683,35 @@ const webSocketController = new WebSocketController(
 );
 const apiController = new ApiController(fastify, gameManager, apiResponseService);
 const healthController = new HealthController(gameManager, connectionService);
+
+// Registro y configuración de plugins
+fastify.register(fastifyWebsocket);
+fastify.register(fastifyCors);
+
+// Inicio del servidor
+fastify.listen({
+  port: serverConfig.port,
+  host: serverConfig.host
+})
+  .then(() => fastify.log.info(`Server running at http://${serverConfig.host}:${serverConfig.port}`))
+  .catch(err => {
+    fastify.log.error('Failed to start server:', err);
+    process.exit(1);
+  });
 ```
 
-**Características clave:**
-- **Inyección de dependencias**: Los controladores reciben los servicios que necesitan
-- **Single Responsibility Principle**: Cada clase tiene una única responsabilidad
-- **Separación de capas**: Lógica de negocio, controladores y configuración están separados
+### Características Clave de la Implementación
+- **Inyección de dependencias y modularidad**: Promueve un código más limpio y adaptable
+- **Single Responsibility Principle (SRP)**: Cada módulo resuelve un problema específico
+- **Separación de capas**: Mantiene la lógica de configuración, control y negocio claramente separadas
+- **Manejo de errores y logging**: Incluye procedimientos detallados para asegurar la estabilidad en producción
+
+### Innovaciones y Ventajas
+La versión refactorizada del servidor ofrece múltiples mejoras significativas sobre la antigua:
+- **Mantenimiento Simplificado**: Gracias a la separación de responsabilidades
+- **Alta Escalabilidad**: Arquitectura diseñada para crecer con la aplicación
+- **Facilidad de Extensión**: Añadir nuevas características es sencillo y directo
+- **Reducción de Errores**: Menos propenso a bugs debido a su claridad arquitectural
 
 #### WebSocket - Ruta Unificada
 
