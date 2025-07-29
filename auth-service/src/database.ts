@@ -18,7 +18,7 @@ export async function initializeDb() {
     try {
         await db.exec(`
             CREATE TABLE IF NOT EXISTS users ( id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, email TEXT UNIQUE NOT NULL, password_hash TEXT, google_id TEXT UNIQUE, intra_id TEXT UNIQUE, is_active BOOLEAN DEFAULT 1, is_admin BOOLEAN DEFAULT 0, last_login DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
-            CREATE TABLE IF NOT EXISTS user_profiles ( user_id INTEGER PRIMARY KEY, avatar_url TEXT, bio TEXT, language TEXT DEFAULT 'es', notifications BOOLEAN DEFAULT 1, sound BOOLEAN DEFAULT 1, difficulty INTEGER DEFAULT 2, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
+            CREATE TABLE IF NOT EXISTS user_profiles ( user_id INTEGER PRIMARY KEY, avatar_url TEXT, language TEXT DEFAULT 'es', notifications TEXT DEFAULT 'true', sound TEXT DEFAULT 'true', difficulty TEXT DEFAULT 'normal', FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
             CREATE TABLE IF NOT EXISTS sessions ( id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, session_token TEXT UNIQUE NOT NULL, expires_at DATETIME NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
             CREATE TABLE IF NOT EXISTS friendships ( id INTEGER PRIMARY KEY AUTOINCREMENT, requester_id INTEGER NOT NULL, approver_id INTEGER, status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (approver_id) REFERENCES users(id) ON DELETE CASCADE);
             CREATE TABLE IF NOT EXISTS chat_messages ( id INTEGER PRIMARY KEY AUTOINCREMENT, sender_id INTEGER NOT NULL, receiver_id INTEGER, message TEXT NOT NULL, sent_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE);
@@ -35,13 +35,13 @@ export async function initializeDb() {
             INSERT OR IGNORE INTO users (id, username, email, password_hash, created_at) VALUES (6, 'ManuFern', 'manufern@student.42madrid.com', '$2b$12$1Mqudh5FrajQHKxtBOG26O/dL47xnZrbbQ8HjcipegON1NQdMFXou', datetime('now', '-6 days'));
             INSERT OR IGNORE INTO users (id, username, email, password_hash, created_at) VALUES (7, 'Diego', 'diegorubiomorato@gmail.com', '$2b$12$SC.8HYivrjOrLQQscZz7SuBNY4vodoHRh.cWXQ0htB/vBBJxblJPa', datetime('now', '-7 days'));
 
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (1, NULL, '', 'es', 'true', 'true', 'easy');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (2, NULL, '', 'gl', 'false', 'true', 'normal');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (3, NULL, '', 'en', 'false', 'true', 'hard');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (4, NULL, '', 'es', 'true', 'false', 'easy');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (5, NULL, '', 'en', 'false', 'true', 'hard');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (6, NULL, '', 'es', 'true', 'false', 'hard');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (7, NULL, '', 'en', 'true', 'true', 'easy');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (1, NULL, 'es', 'true', 'true', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (2, NULL, 'gl', 'true', 'true', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (3, NULL, 'en', 'true', 'true', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (4, NULL, 'es', 'true', 'true', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (5, NULL, 'en', 'true', 'true', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (6, NULL, 'es', 'true', 'true', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (7, NULL, 'en', 'true', 'true', 'normal');
 
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (1, 1, 2, 'accepted', datetime('now', '-1 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (2, 3, 4, 'accepted', datetime('now', '-2 hours'));

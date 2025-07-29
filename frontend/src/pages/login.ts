@@ -2,6 +2,7 @@
 
 import { navigateTo } from '../router';
 import { getTranslation, setLanguage, getCurrentLanguage } from '../i18n';
+import { applyUserSettings } from '../auth';
 
 export function renderLoginPage(): void {
     const loginHtml = `

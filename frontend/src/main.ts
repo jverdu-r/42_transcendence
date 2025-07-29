@@ -22,7 +22,7 @@ function initializeApp(): void {
 // Esperar a que el DOM esté cargado
 document.addEventListener('DOMContentLoaded', initializeApp);
 
-document.addEventListener('languageChanged', () => {
+window.addEventListener('languageChanged', () => {
   const currentPath = window.location.pathname;
   renderNavbar(currentPath);
   navigateTo(window.location.pathname);
