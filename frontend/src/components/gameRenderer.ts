@@ -1,6 +1,5 @@
 import { navigateTo } from '../router';
 import { getCurrentUser } from '../auth';
-import { saveGameStats, createGameStats } from '../utils/gameStats';
 import { PlayerDisplay, PlayerInfo } from '../components/playerDisplay';
 
 export interface GameState {

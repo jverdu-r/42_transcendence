@@ -52,7 +52,7 @@ export async function initializeDb() {
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (7, 1, 4, 'accepted', datetime('now', '-7 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (8, 5, 7, 'accepted', datetime('now', '-8 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (9, 6, 7, 'accepted', datetime('now', '-9 hours'));
-
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (10, 2, 7, 'pending', datetime('now', '-9 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (10, 1, 7, 'accepted', datetime('now', '-10 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (11, 4, 5, 'accepted', datetime('now', '-11 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (12, 5, 6, 'accepted', datetime('now', '-12 hours'));

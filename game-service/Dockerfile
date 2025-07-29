@@ -11,7 +11,7 @@ COPY package*.json ./
 COPY tsconfig.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm install && npm install node-fetch
 
 # Copy source code
 COPY src/ ./src/
