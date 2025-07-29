@@ -257,10 +257,10 @@ export async function renderSettingsPage(): Promise<void> {
                                         </div>
                                     </div>
                                     <select id="language" class="bg-[#003566] text-gray-100 px-4 py-2 rounded-lg border border-[#ffc300] focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-50 transition-all duration-200">
-                                        <option value="es" ${settings.language === 'es' ? 'selected' : ''}>GL Galego</option>
-                                        <option value="en" ${settings.language === 'en' ? 'selected' : ''}>ES Castellano</option>
-                                        <option value="gl" ${settings.language === 'gl' ? 'selected' : ''}>EN English</option>
-                                        <option value="zh" ${settings.language === 'zh' ? 'selected' : ''}>CH 中文</option>
+                                        <option value="es" ${settings.language === 'gl' ? 'selected' : ''}>GL Galego</option>
+                                        <option value="en" ${settings.language === 'es' ? 'selected' : ''}>ES Castellano</option>
+                                        <option value="gl" ${settings.language === 'en' ? 'selected' : ''}>EN English</option>
+                                        <option value="zh" ${settings.language === 'zh' ? 'selected' : ''}>ZH 中文</option>
                                     </select>
                                 </div>
                             </div>

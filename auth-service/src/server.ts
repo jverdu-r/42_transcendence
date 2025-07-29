@@ -115,8 +115,8 @@ fastify.post('/auth/login', async (request, reply) => {
       exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hora
     }, JWT_SECRET);
     
-    // Obtener avatar_url
-    const profile = await db.get('SELECT avatar_url FROM user_profiles WHERE user_id = ?', [user.id]);
+    // Obtener avatar_url e idioma
+    const profile = await db.get('SELECT avatar_url, language FROM user_profiles WHERE user_id = ?', [user.id]);
 
     await db.close();
 
@@ -126,7 +126,8 @@ fastify.post('/auth/login', async (request, reply) => {
         id: user.id,
         username: user.username,
         email: user.email,
-        avatar_url: profile?.avatar_url || null
+        avatar_url: profile?.avatar_url || null,
+        language: profile?.language || 'es'
       }
     });
   } catch (err) {
@@ -552,7 +553,6 @@ fastify.get('/auth/games/live', async (request, reply) => {
       scores
         .filter(s => s.game_id === game.game_id)
         .forEach(s => scoreMap.set(s.team_name, s.score));
-
       const [p1, p2] = gameParticipants;
       return {
         id: game.game_id,
