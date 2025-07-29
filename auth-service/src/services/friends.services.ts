@@ -17,11 +17,12 @@ export async function getFriends(userId: number): Promise<Friend[]> {
       IFNULL(SUM(CASE WHEN p.user_id = u.id THEN s.point_number ELSE 0 END), 0) AS pointsFor,
       IFNULL(SUM(CASE WHEN p.user_id != u.id THEN s.point_number ELSE 0 END), 0) AS pointsAgainst
     FROM friendships f
-    JOIN users u ON (u.id = f.friend_id OR u.id = f.user_id) AND u.id != ?
+    JOIN users u ON (u.id = f.requester_id OR u.id = f.approver_id) AND u.id != ?
     LEFT JOIN participants p ON p.user_id = u.id
     LEFT JOIN scores s ON s.game_id = p.game_id AND s.team_name = p.team_name
-    WHERE f.status = 'accepted' AND (f.user_id = ? OR f.friend_id = ?)
-    GROUP BY u.id
+    WHERE f.status = 'accepted'
+      AND (f.requester_id = ? OR f.approver_id = ?)
+    GROUP BY u.id;
   `, [userId, userId, userId]);
 
   // Opcional: obtener usuarios online de Redis
@@ -40,13 +41,15 @@ export async function getFriends(userId: number): Promise<Friend[]> {
 
 export async function getPendingRequests(userId: number) {
   const db = await openDb();
-  return db.all(`
+  const result = await db.all(`
     SELECT u.id, u.username
     FROM friendships f
     JOIN users u ON u.id = f.requester_id
     WHERE f.status = 'pending'
       AND f.approver_id = ?;
   `, [userId]);
+  await db.close();
+  return result;
 }
 
 export async function getAvailableUsers(userId: number) {
