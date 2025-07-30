@@ -1,0 +1,95 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'ft_transcendence'
+    replica: 'prometheus-1'
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['10.11.200.131:9090']
+
+  # Dedicated exporters (these have native Prometheus metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['10.11.200.131:9100']
+
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['10.11.200.131:9121']
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['10.11.200.131:8084']
+    scrape_interval: 30s
+
+  - job_name: 'nginx-exporter'
+    static_configs:
+      - targets: ['10.11.200.131:9113']
+    scrape_interval: 30s
+
+  # HashiCorp Vault (has native Prometheus metrics)
+  - job_name: 'vault'
+    static_configs:
+      - targets: ['10.11.200.131:8200']
+    metrics_path: '/v1/sys/metrics'
+    params:
+      format: ['prometheus']
+    bearer_token: 'dev-root-token'
+    scrape_interval: 60s
+
+  # Blackbox exporter self-monitoring
+  - job_name: 'blackbox-exporter'
+    static_configs:
+      - targets: ['10.11.200.131:9115']
+
+  # Blackbox exporter probes for HTTP health checks
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://10.11.200.131:9001  # frontend
+          - http://10.11.200.131:9002  # WAF
+          - http://10.11.200.131:8081  # redis-commander
+          - http://10.11.200.131:80    # nginx-proxy
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # Blackbox exporter probes for TCP connectivity checks
+  - job_name: 'blackbox-tcp'
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets:
+          - 10.11.200.131:8002 # game-service
+          - 10.11.200.131:9000 # api-gateway
+          - 10.11.200.131:8001 # auth-service
+          - 10.11.200.131:8003 # chat-service
+          - 10.11.200.131:8005 # db-service
+          - 10.11.200.131:6379 # redis
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
