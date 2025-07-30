@@ -13,7 +13,7 @@ RUN apk add --no-cache \
 
 # Crea directorio de datos con permisos
 RUN mkdir -p /app/data && chmod 777 /app/data
-RUN npm install @fastify/multipart && npm install --save-dev @types/node
+RUN npm install @fastify/multipart && npm install --save-dev @types/node && npm install @fastify/cookie
 
 # Copia e instala dependencias de Node
 COPY package*.json ./

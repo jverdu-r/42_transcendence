@@ -42,7 +42,7 @@ export async function initializeDb() {
     try {
         await db.exec(`
             CREATE TABLE IF NOT EXISTS users ( id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, email TEXT UNIQUE NOT NULL, password_hash TEXT, google_id TEXT UNIQUE, intra_id TEXT UNIQUE, is_active BOOLEAN DEFAULT 1, is_admin BOOLEAN DEFAULT 0, last_login DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
-            CREATE TABLE IF NOT EXISTS user_profiles ( user_id INTEGER PRIMARY KEY, avatar_url TEXT, bio TEXT, language TEXT DEFAULT 'es', notifications BOOLEAN DEFAULT 1, sound BOOLEAN DEFAULT 1, difficulty INTEGER DEFAULT 2, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
+            CREATE TABLE IF NOT EXISTS user_profiles ( user_id INTEGER PRIMARY KEY, avatar_url TEXT, language TEXT DEFAULT 'es', notifications TEXT DEFAULT 'true', sound TEXT DEFAULT 'true', difficulty TEXT DEFAULT 'normal', FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
             CREATE TABLE IF NOT EXISTS sessions ( id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, session_token TEXT UNIQUE NOT NULL, expires_at DATETIME NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
             CREATE TABLE IF NOT EXISTS friendships ( id INTEGER PRIMARY KEY AUTOINCREMENT, requester_id INTEGER NOT NULL, approver_id INTEGER, status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (approver_id) REFERENCES users(id) ON DELETE CASCADE);
             CREATE TABLE IF NOT EXISTS chat_messages ( id INTEGER PRIMARY KEY AUTOINCREMENT, sender_id INTEGER NOT NULL, receiver_id INTEGER, message TEXT NOT NULL, sent_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE);
@@ -59,32 +59,28 @@ export async function initializeDb() {
             INSERT OR IGNORE INTO users (id, username, email, password_hash, created_at) VALUES (6, 'ManuFern', 'manufern@student.42madrid.com', '$2b$12$1Mqudh5FrajQHKxtBOG26O/dL47xnZrbbQ8HjcipegON1NQdMFXou', datetime('now', '-6 days'));
             INSERT OR IGNORE INTO users (id, username, email, password_hash, created_at) VALUES (7, 'Diego', 'diegorubiomorato@gmail.com', '$2b$12$SC.8HYivrjOrLQQscZz7SuBNY4vodoHRh.cWXQ0htB/vBBJxblJPa', datetime('now', '-7 days'));
 
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (1, NULL, '', 'es', 'true', 'true', 'easy');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (2, NULL, '', 'gl', 'false', 'true', 'normal');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (3, NULL, '', 'en', 'false', 'true', 'hard');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (4, NULL, '', 'es', 'true', 'false', 'easy');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (5, NULL, '', 'en', 'false', 'true', 'hard');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (6, NULL, '', 'es', 'true', 'false', 'hard');
-            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, bio, language, notifications, sound, difficulty) VALUES (7, NULL, '', 'en', 'true', 'true', 'easy');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (1, NULL, 'es', 'true', 'true', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (2, NULL, 'gl', 'true', 'true', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (3, NULL, 'en', 'true', 'true', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (4, NULL, 'es', 'true', 'true', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (5, NULL, 'en', 'true', 'true', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (6, NULL, 'es', 'true', 'true', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (7, NULL, 'en', 'true', 'true', 'normal');
 
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (1, 1, 2, 'accepted', datetime('now', '-1 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (2, 3, 4, 'accepted', datetime('now', '-2 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (3, 2, 7, 'accepted', datetime('now', '-3 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (4, 1, 5, 'accepted', datetime('now', '-4 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (5, 3, 7, 'accepted', datetime('now', '-5 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (6, 4, 6, 'accepted', datetime('now', '-6 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (7, 1, 4, 'accepted', datetime('now', '-7 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (8, 5, 7, 'accepted', datetime('now', '-8 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (9, 6, 7, 'accepted', datetime('now', '-9 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (10, 2, 7, 'pending', datetime('now', '-9 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (10, 1, 7, 'accepted', datetime('now', '-10 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (11, 4, 5, 'accepted', datetime('now', '-11 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (1, 1, 2, 'pending', datetime('now', '-1 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (2, 1, 4, 'accepted', datetime('now', '-2 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (3, 1, 6, 'accepted', datetime('now', '-3 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (4, 2, 3, 'accepted', datetime('now', '-4 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (5, 2, 4, 'accepted', datetime('now', '-5 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (6, 2, 5, 'pending', datetime('now', '-6 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (7, 7, 2, 'pending', datetime('now', '-7 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (8, 3, 1, 'accepted', datetime('now', '-8 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (9, 3, 4, 'accepted', datetime('now', '-9 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (10, 3, 6, 'pending', datetime('now', '-9 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (10, 5, 4, 'accepted', datetime('now', '-10 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (11, 4, 7, 'accepted', datetime('now', '-11 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (12, 5, 6, 'accepted', datetime('now', '-12 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (13, 3, 6, 'accepted', datetime('now', '-13 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (14, 2, 5, 'accepted', datetime('now', '-14 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (15, 1, 3, 'accepted', datetime('now', '-15 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (16, 4, 7, 'accepted', datetime('now', '-16 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (17, 3, 5, 'accepted', datetime('now', '-17 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (13, 6, 7, 'accepted', datetime('now', '-13 hours'));
 
             INSERT OR IGNORE INTO tournaments (id, name, created_by, status, created_at) VALUES (1, 'Torneo Relámpago', 1, 'finished', datetime('now', '-1 days'));
             INSERT OR IGNORE INTO games (id, tournament_id, match, status, started_at, finished_at) VALUES (1, 1, '1/2(1)', 'finished', datetime('now', '-1 days', '15:00:00'), datetime('now', '-1 days', '15:00:00', '+7 minutes'));
@@ -632,11 +628,12 @@ export async function getFriends(userId: number): Promise<Friend[]> {
       IFNULL(SUM(CASE WHEN p.user_id = u.id THEN s.point_number ELSE 0 END), 0) AS pointsFor,
       IFNULL(SUM(CASE WHEN p.user_id != u.id THEN s.point_number ELSE 0 END), 0) AS pointsAgainst
     FROM friendships f
-    JOIN users u ON (u.id = f.friend_id OR u.id = f.user_id) AND u.id != ?
+    JOIN users u ON (u.id = f.requester_id OR u.id = f.approver_id) AND u.id != ?
     LEFT JOIN participants p ON p.user_id = u.id
     LEFT JOIN scores s ON s.game_id = p.game_id AND s.team_name = p.team_name
-    WHERE f.status = 'accepted' AND (f.user_id = ? OR f.friend_id = ?)
-    GROUP BY u.id
+    WHERE f.status = 'accepted'
+      AND (f.requester_id = ? OR f.approver_id = ?)
+    GROUP BY u.id;
   `, [userId, userId, userId]);
 
   // Opcional: obtener usuarios online de Redis
@@ -655,13 +652,15 @@ export async function getFriends(userId: number): Promise<Friend[]> {
 
 export async function getPendingRequests(userId: number) {
   const db = await openDb();
-  return db.all(`
+  const result = await db.all(`
     SELECT u.id, u.username
     FROM friendships f
     JOIN users u ON u.id = f.requester_id
     WHERE f.status = 'pending'
       AND f.approver_id = ?;
   `, [userId]);
+  await db.close();
+  return result;
 }
 
 export async function getAvailableUsers(userId: number) {
@@ -884,20 +883,63 @@ export const getUserIdByUsername = async (req: FastifyRequest, reply: FastifyRep
 
 import { FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
+import redisClient from '../redis-client';
+
+// Extiende el tipo de FastifyRequest para incluir cookies
+declare module 'fastify' {
+  interface FastifyRequest {
+    cookies?: {
+      token?: string;
+    };
+  }
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
 
-export async function verifyToken(request: FastifyRequest, reply: FastifyReply) {
-  const token = request.headers.authorization?.replace('Bearer ', '');
-  if (!token) return reply.code(401).send({ message: 'Token requerido' });
+export const verifyToken = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+  done: (err?: Error) => void
+) => {
+  const authHeader = request.headers['authorization'];
+  const token = authHeader && authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7)
+    : request.cookies?.token || (request.body as any)?.token;
+
+  if (!token) {
+    reply.code(401).send({ message: 'Token requerido' });
+    return done(new Error('Unauthorized'));
+  }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      user_id: number;
+      username: string;
+      email: string;
+    };
+
+    const sessionId = `jwt:${token}`;
+    const isValid = await redisClient.get(sessionId);
+    if (!isValid) {
+      reply.code(401).send({ message: 'Sesión cerrada o inválida' });
+      return done(new Error('Session invalid'));
+    }
+
+    await redisClient.expire(sessionId, 3600); // renovar TTL
+
     (request as any).user = decoded;
-  } catch (err) {
-    return reply.code(401).send({ message: 'Token inválido' });
+    (request as any).token = token;
+
+    done();
+  } catch (err: any) {
+    if (err.name === 'TokenExpiredError') {
+      reply.code(401).send({ message: 'Token expirado' });
+    } else {
+      reply.code(403).send({ message: 'Token inválido' });
+    }
+    done(err);
   }
-}[1;30m----------------------------------------[0m
+};[1;30m----------------------------------------[0m
 
 [1;34m=== ./server.ts ===[0m
 import Fastify from 'fastify';
@@ -908,7 +950,6 @@ import bcrypt from 'bcryptjs';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import { openDb, initializeDb } from './database';
-import redis from './redis-client';
 import multipart from '@fastify/multipart';
 import { pipeline } from 'stream';
 import util from 'util';
@@ -918,19 +959,21 @@ import { createCanvas, loadImage } from 'canvas';
 import { verifyToken } from './utils/auth-middleware';
 import gamesRoutes from './routes/games.routes';
 import friendsRoutes from './routes/friends.routes';
+import { promisify } from 'util';
+import { connectRedis } from './redis-client'
+import redisClient from './redis-client';
 
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
-
 const fastify = Fastify({ logger: true });
 
 fastify.register(multipart);
 
 // Rutas para gestionar el guardado de partidas y estadísticas del juego
-fastify.register(gamesRoutes, { prefix: '/api/auth/games' });
+fastify.register(gamesRoutes, { prefix: '/auth/games' });
 
 // Ruta para gestionar amistades
-fastify.register(friendsRoutes, { prefix: '/api/auth/friends' });
+fastify.register(friendsRoutes, { prefix: '/auth/friends' });
 
 // Habilitar CORS
 
@@ -1016,7 +1059,21 @@ fastify.post('/auth/login', async (request, reply) => {
       email: user.email,
       exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hora
     }, JWT_SECRET);
-    
+
+    // Registrar sesión en DB y Redis
+    const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hora// Guardar en Redis: clave = jwt:<token>, valor = user_id
+    await redisClient.set(`jwt:${token}`, user.id.toString(), { EX: 3600 }); // 3600s = 1h
+    await redisClient.set(`user:${user.id}:online`, 'true');
+    await redisClient.sAdd('online_users', user.id.toString());
+    await redisClient.set(`user:${user.id}:last_seen`, Date.now().toString());
+
+
+    await db.run(
+      `INSERT INTO sessions (user_id, session_token, expires_at) 
+       VALUES (?, ?, ?)`,
+      [user.id, token, expiresAt.toISOString()]
+    );
+
     // Obtener avatar_url e idioma
     const profile = await db.get('SELECT avatar_url, language FROM user_profiles WHERE user_id = ?', [user.id]);
 
@@ -1037,6 +1094,85 @@ fastify.post('/auth/login', async (request, reply) => {
     return reply.code(500).send({ message: 'Error interno del servidor' });
   }
 });
+
+// Endpoint para cerrar sesión
+fastify.post('/auth/logout', { preHandler: verifyToken }, async (request, reply) => {
+  const token = (request as any).token;
+  const userId = (request as any).user.user_id;
+
+  try {
+    const db = await openDb();
+    
+    // Eliminar sesión de la base de datos
+    await db.run(`DELETE FROM sessions WHERE session_token = ?`, [token]);
+    
+    // Eliminar de Redis
+    await redisClient.del(`jwt:${token}`); // ✅ Eliminar el token JWT
+    await redisClient.del(`user:${userId}:online`);
+    await redisClient.sRem('online_users', userId.toString());
+    await redisClient.del(`user:${userId}:last_seen`);
+    
+    return reply.send({ message: 'Sesión cerrada correctamente' });
+  } catch (err) {
+    console.error('Error en logout:', err);
+    return reply.code(500).send({ message: 'Error al cerrar sesión' });
+  }
+});
+
+// Endpoint heartbeat para mantener sesión activa
+fastify.get('/auth/heartbeat', { preHandler: verifyToken }, async (request, reply) => {
+  const userId = (request as any).user.user_id;
+  
+  try {
+    // Actualizar timestamp de última actividad
+    await redisClient.set(`user:${userId}:last_seen`, Date.now().toString());
+    return reply.send({ status: 'active' });
+  } catch (err) {
+    console.error('Error en heartbeat:', err);
+    return reply.code(500).send({ message: 'Error interno' });
+  }
+});
+
+// Endpoint para obtener usuarios conectados
+fastify.get('/auth/online-users', async (request, reply) => {
+  try {
+    const onlineUsers = await redisClient.sMembers('online_users');
+    return reply.send(onlineUsers.map(id => parseInt(id)));
+  } catch (err) {
+    console.error('Error obteniendo usuarios online:', err);
+    return reply.code(500).send({ message: 'Error interno' });
+  }
+});
+
+// Función de limpieza periódica de usuarios online
+async function cleanInactiveSessions() {
+  try {
+    const onlineUsers = await redisClient.sMembers('online_users');
+    const now = Date.now();
+    
+    for (const userId of onlineUsers) {
+      const lastSeen = await redisClient.get(`user:${userId}:last_seen`);
+      const inactiveTime = now - parseInt(lastSeen || '0');
+      
+      // Eliminar si inactivo por más de 10 minutos
+      if (inactiveTime > 600000) {
+        await redisClient.sRem('online_users', userId);
+        await redisClient.del(`user:${userId}:online`);
+        await redisClient.del(`user:${userId}:last_seen`);
+        
+        // También eliminar de la base de datos
+        const db = await openDb();
+        await db.run(`DELETE FROM sessions WHERE user_id = ?`, [userId]);
+        await db.close();
+      }
+    }
+  } catch (err) {
+    console.error('Error en limpieza de sesiones:', err);
+  }
+}
+
+// Iniciar limpieza periódica cada 10 minutos
+setInterval(cleanInactiveSessions, 600000);
 
 // Endpoint para subir y optimizar el avatar
 fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request, reply) => {
@@ -1597,13 +1733,16 @@ fastify.get('/auth/settings/config', { preHandler: verifyToken }, async (request
   try {
     const db = await openDb();
     const userId = (request as any).user.user_id;
-
-    const config = await db.get(`
-      SELECT language, notifications, sound AS sound_effects, difficulty AS game_difficulty
-      FROM user_profiles
-      WHERE user_id = ?
-    `, [userId]);
-
+    const config = await db.get(
+      `SELECT 
+        language, 
+        notifications, 
+        sound AS sound_effects, 
+        difficulty AS game_difficulty
+      FROM user_profiles 
+      WHERE user_id = ?`,
+      [userId]
+    );
     await db.close();
 
     if (!config) {
@@ -1659,6 +1798,18 @@ fastify.post('/auth/google', async (request, reply) => {
       exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hora
     }, JWT_SECRET);
 
+    // Registrar sesión en DB y Redis
+    const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hora
+    await db.run(
+      `INSERT INTO sessions (user_id, session_token, expires_at) 
+      VALUES (?, ?, ?)`,
+      [user.id, jwtToken, expiresAt.toISOString()]
+    );
+    await redisClient.set(`user:${user.id}:online`, 'true');
+    await redisClient.sAdd('online_users', user.id.toString());
+    await redisClient.set(`user:${user.id}:last_seen`, Date.now().toString());
+    await redisClient.set(`jwt:${jwtToken}`, user.id.toString(), { EX: 3600 });
+
     await db.close();
     
     return reply.send({ 
@@ -1690,14 +1841,27 @@ fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, asy
     .send(fs.createReadStream(filePath));
 });
 
-// Inicializar base de datos antes de arrancar el servidor en puerto 8000
-initializeDb().then(() => {
-  fastify.listen({ port: 8000, host: '0.0.0.0' }, err => {
-    if (err) {
-      fastify.log.error(err);
-      process.exit(1);
-    }
+// Inicializar base de datos y Redis
+Promise.all([initializeDb(), connectRedis()])
+  .then(() => {
+    fastify.listen({ port: 8000, host: '0.0.0.0' }, (err, address) => {
+      if (err) {
+        fastify.log.error(err);
+        process.exit(1);
+      }
+      console.log(`Servidor escuchando en ${address}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Error al inicializar servicios:', err);
+    process.exit(1);
   });
+
+// Cerrar conexiones al apagar el servidor
+process.on('SIGINT', async () => {
+  await redisClient.quit();
+  fastify.close();
+  process.exit();
 });[1;30m----------------------------------------[0m
 
 [1;34m=== ./routes/friends.routes.ts ===[0m
@@ -1732,28 +1896,31 @@ fastify.get('/user-id', getUserIdByUsername);
 
 [1;34m=== ./redis-client.ts ===[0m
 // auth-service/src/redis-client.ts
-
 import { createClient } from 'redis';
-
 import dotenv from 'dotenv';
+
 dotenv.config();
 
-const redis = createClient({
+const redisClient = createClient({
   url: process.env.REDIS_URL || `redis://:${process.env.REDIS_PASSWORD || ''}@${process.env.REDIS_HOST || 'redis'}:${process.env.REDIS_PORT || '6379'}`
 });
 
-redis.on('error', (err) => {
+redisClient.on('error', (err) => {
   console.error('Redis client error:', err);
 });
 
-(async () => {
+export async function connectRedis() {
   try {
-    await redis.connect();
-    console.log('Redis client connected');
-  } catch (err) {
-    console.error('Redis connection failed:', err);
-  }
-})();
+    if (redis.isOpen) {
+        console.log('🔁 Redis ya estaba conectado');
+        return;
+    }
 
-export default redis;
-[1;30m----------------------------------------[0m
+    await redis.connect();
+    console.log('🔌 Redis conectado');
+  } catch (err) {
+    console.error('Error conectando a Redis:', err);
+  }
+}
+
+export default redisClient;[1;30m----------------------------------------[0m

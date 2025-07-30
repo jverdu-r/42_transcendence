@@ -46,6 +46,22 @@ async function getAvailableUsers(): Promise<User[]> {
     return await fetchWithToken<User[]>('/api/auth/friends/available');
 }
 
+let cachedAvailableUsers: User[] = []; // Variable para almacenar usuarios disponibles
+
+// Función auxiliar para renderizar la lista de usuarios disponibles
+function renderAvailableUsersList(users: User[]): string {
+    return users.length > 0 
+        ? users.map(user => `
+            <div class="flex items-center justify-between p-3 bg-[#001d3d] rounded-xl border border-[#003566] mb-2">
+                <div class="font-bold text-gray-100">${user.username}</div>
+                <button class="text-xs bg-[#ffc300] text-[#000814] font-semibold py-1 px-3 rounded-xl hover:opacity-80">
+                    ${getTranslation('friends', 'sendRequestButton')}
+                </button>
+            </div>
+        `).join('') 
+        : `<p class="text-gray-400 text-center">${getTranslation('friends', 'noUsersAvailable')}</p>`;
+}
+
 export async function renderFriendsPage(): Promise<void> {
     const currentUser = getCurrentUser();
     const pageContent = document.getElementById('page-content') as HTMLElement;
@@ -59,6 +75,9 @@ export async function renderFriendsPage(): Promise<void> {
         getPendingRequests(),
         getAvailableUsers()
     ]);
+
+    // Guardar usuarios disponibles para usar en el filtro
+    cachedAvailableUsers = [...availableUsers];
 
     pageContent.innerHTML = `
         <main class="flex-grow w-full p-4 sm:p-8 flex flex-col items-center text-gray-100">
@@ -95,19 +114,17 @@ export async function renderFriendsPage(): Promise<void> {
                             ${getTranslation('friends', 'challengeButton')}
                             </button>
                         </div>
-                    `).join('') : `<p class="text-gray-400" text-center>${getTranslation('friends', 'noFriends')}</p>`}
+                    `).join('') : `<p class="text-gray-400 text-center">${getTranslation('friends', 'noFriends')}</p>`}
                 </div>
 
                 <!-- Peticiones -->
                 <div class="bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl p-6 border border-[#003566] shadow-2xl min-h-[425px]">
                     <h2 class="text-2xl font-bold text-[#ffc300] mb-4 text-center">${getTranslation('friends', 'sendRequests')}</h2>
-                    <input type="text" placeholder="🔍 Buscar usuarios..." class="w-full mb-4 p-2 rounded bg-[#000814] border border-[#003566] text-white placeholder-gray-400" />
-                    ${availableUsers.length > 0 ? availableUsers.map(user => `
-                        <div class="flex items-center justify-between p-3 bg-[#001d3d] rounded-xl border border-[#003566] mb-2">
-                            <div class="font-bold text-gray-100">${user.username}</div>
-                            <button class="text-xs bg-[#ffc300] text-[#000814] font-semibold py-1 px-3 rounded-xl hover:opacity-80">${getTranslation('friends', 'sendRequestButton')}</button>
-                        </div>
-                    `).join('') : `<p class="text-gray-400" text-center>${getTranslation('friends', 'noUsersAvailable')}</p>`}
+                    <input type="text" id="search-available-users" placeholder="🔍 ${getTranslation('friends', 'searchPlaceholder')}" 
+                           class="w-full mb-4 p-2 rounded bg-[#000814] border border-[#003566] text-white placeholder-gray-400" />
+                    <div id="available-users-list-container">
+                        ${renderAvailableUsersList(availableUsers)}
+                    </div>
                 </div>
 
                 <!-- Solicitudes -->
@@ -121,10 +138,26 @@ export async function renderFriendsPage(): Promise<void> {
                                 <button class="text-xs bg-red-500 text-white font-semibold py-1 px-3 rounded-xl hover:opacity-80">❌</button>
                             </div>
                         </div>
-                    `).join('') : `<p class="text-gray-400" text-center>${getTranslation('friends', 'noRequests')}</p>`}
+                    `).join('') : `<p class="text-gray-400 text-center">${getTranslation('friends', 'noRequests')}</p>`}
                 </div>
 
             </div>
         </main>
     `;
+
+    // Configurar el buscador de usuarios disponibles
+    const searchInput = document.getElementById('search-available-users') as HTMLInputElement;
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const filteredUsers = cachedAvailableUsers.filter(user => 
+                user.username.toLowerCase().includes(searchTerm)
+            );
+            
+            const container = document.getElementById('available-users-list-container');
+            if (container) {
+                container.innerHTML = renderAvailableUsersList(filteredUsers);
+            }
+        });
+    }
 }

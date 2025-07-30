@@ -6,7 +6,6 @@ import bcrypt from 'bcryptjs';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import { openDb, initializeDb } from './database';
-import redis from './redis-client';
 import multipart from '@fastify/multipart';
 import { pipeline } from 'stream';
 import util from 'util';
@@ -16,11 +15,12 @@ import { createCanvas, loadImage } from 'canvas';
 import { verifyToken } from './utils/auth-middleware';
 import gamesRoutes from './routes/games.routes';
 import friendsRoutes from './routes/friends.routes';
-
+import { promisify } from 'util';
+import { connectRedis } from './redis-client'
+import redisClient from './redis-client';
 
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
-
 const fastify = Fastify({ logger: true });
 
 fastify.register(multipart);
@@ -115,7 +115,21 @@ fastify.post('/auth/login', async (request, reply) => {
       email: user.email,
       exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hora
     }, JWT_SECRET);
-    
+
+    // Registrar sesión en DB y Redis
+    const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hora// Guardar en Redis: clave = jwt:<token>, valor = user_id
+    await redisClient.set(`jwt:${token}`, user.id.toString(), { EX: 3600 }); // 3600s = 1h
+    await redisClient.set(`user:${user.id}:online`, 'true');
+    await redisClient.sAdd('online_users', user.id.toString());
+    await redisClient.set(`user:${user.id}:last_seen`, Date.now().toString());
+
+
+    await db.run(
+      `INSERT INTO sessions (user_id, session_token, expires_at) 
+       VALUES (?, ?, ?)`,
+      [user.id, token, expiresAt.toISOString()]
+    );
+
     // Obtener avatar_url e idioma
     const profile = await db.get('SELECT avatar_url, language FROM user_profiles WHERE user_id = ?', [user.id]);
 
@@ -136,6 +150,85 @@ fastify.post('/auth/login', async (request, reply) => {
     return reply.code(500).send({ message: 'Error interno del servidor' });
   }
 });
+
+// Endpoint para cerrar sesión
+fastify.post('/auth/logout', { preHandler: verifyToken }, async (request, reply) => {
+  const token = (request as any).token;
+  const userId = (request as any).user.user_id;
+
+  try {
+    const db = await openDb();
+    
+    // Eliminar sesión de la base de datos
+    await db.run(`DELETE FROM sessions WHERE session_token = ?`, [token]);
+    
+    // Eliminar de Redis
+    await redisClient.del(`jwt:${token}`); // ✅ Eliminar el token JWT
+    await redisClient.del(`user:${userId}:online`);
+    await redisClient.sRem('online_users', userId.toString());
+    await redisClient.del(`user:${userId}:last_seen`);
+    
+    return reply.send({ message: 'Sesión cerrada correctamente' });
+  } catch (err) {
+    console.error('Error en logout:', err);
+    return reply.code(500).send({ message: 'Error al cerrar sesión' });
+  }
+});
+
+// Endpoint heartbeat para mantener sesión activa
+fastify.get('/auth/heartbeat', { preHandler: verifyToken }, async (request, reply) => {
+  const userId = (request as any).user.user_id;
+  
+  try {
+    // Actualizar timestamp de última actividad
+    await redisClient.set(`user:${userId}:last_seen`, Date.now().toString());
+    return reply.send({ status: 'active' });
+  } catch (err) {
+    console.error('Error en heartbeat:', err);
+    return reply.code(500).send({ message: 'Error interno' });
+  }
+});
+
+// Endpoint para obtener usuarios conectados
+fastify.get('/auth/online-users', async (request, reply) => {
+  try {
+    const onlineUsers = await redisClient.sMembers('online_users');
+    return reply.send(onlineUsers.map(id => parseInt(id)));
+  } catch (err) {
+    console.error('Error obteniendo usuarios online:', err);
+    return reply.code(500).send({ message: 'Error interno' });
+  }
+});
+
+// Función de limpieza periódica de usuarios online
+async function cleanInactiveSessions() {
+  try {
+    const onlineUsers = await redisClient.sMembers('online_users');
+    const now = Date.now();
+    
+    for (const userId of onlineUsers) {
+      const lastSeen = await redisClient.get(`user:${userId}:last_seen`);
+      const inactiveTime = now - parseInt(lastSeen || '0');
+      
+      // Eliminar si inactivo por más de 10 minutos
+      if (inactiveTime > 600000) {
+        await redisClient.sRem('online_users', userId);
+        await redisClient.del(`user:${userId}:online`);
+        await redisClient.del(`user:${userId}:last_seen`);
+        
+        // También eliminar de la base de datos
+        const db = await openDb();
+        await db.run(`DELETE FROM sessions WHERE user_id = ?`, [userId]);
+        await db.close();
+      }
+    }
+  } catch (err) {
+    console.error('Error en limpieza de sesiones:', err);
+  }
+}
+
+// Iniciar limpieza periódica cada 10 minutos
+setInterval(cleanInactiveSessions, 600000);
 
 // Endpoint para subir y optimizar el avatar
 fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request, reply) => {
@@ -696,13 +789,16 @@ fastify.get('/auth/settings/config', { preHandler: verifyToken }, async (request
   try {
     const db = await openDb();
     const userId = (request as any).user.user_id;
-
-    const config = await db.get(`
-      SELECT language, notifications, sound AS sound_effects, difficulty AS game_difficulty
-      FROM user_profiles
-      WHERE user_id = ?
-    `, [userId]);
-
+    const config = await db.get(
+      `SELECT 
+        language, 
+        notifications, 
+        sound AS sound_effects, 
+        difficulty AS game_difficulty
+      FROM user_profiles 
+      WHERE user_id = ?`,
+      [userId]
+    );
     await db.close();
 
     if (!config) {
@@ -758,6 +854,18 @@ fastify.post('/auth/google', async (request, reply) => {
       exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hora
     }, JWT_SECRET);
 
+    // Registrar sesión en DB y Redis
+    const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hora
+    await db.run(
+      `INSERT INTO sessions (user_id, session_token, expires_at) 
+      VALUES (?, ?, ?)`,
+      [user.id, jwtToken, expiresAt.toISOString()]
+    );
+    await redisClient.set(`user:${user.id}:online`, 'true');
+    await redisClient.sAdd('online_users', user.id.toString());
+    await redisClient.set(`user:${user.id}:last_seen`, Date.now().toString());
+    await redisClient.set(`jwt:${jwtToken}`, user.id.toString(), { EX: 3600 });
+
     await db.close();
     
     return reply.send({ 
@@ -789,12 +897,25 @@ fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, asy
     .send(fs.createReadStream(filePath));
 });
 
-// Inicializar base de datos antes de arrancar el servidor en puerto 8000
-initializeDb().then(() => {
-  fastify.listen({ port: 8000, host: '0.0.0.0' }, err => {
-    if (err) {
-      fastify.log.error(err);
-      process.exit(1);
-    }
+// Inicializar base de datos y Redis
+Promise.all([initializeDb(), connectRedis()])
+  .then(() => {
+    fastify.listen({ port: 8000, host: '0.0.0.0' }, (err, address) => {
+      if (err) {
+        fastify.log.error(err);
+        process.exit(1);
+      }
+      console.log(`Servidor escuchando en ${address}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Error al inicializar servicios:', err);
+    process.exit(1);
   });
+
+// Cerrar conexiones al apagar el servidor
+process.on('SIGINT', async () => {
+  await redisClient.quit();
+  fastify.close();
+  process.exit();
 });

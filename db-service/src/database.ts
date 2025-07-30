@@ -43,24 +43,20 @@ export async function initializeDb() {
             INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (6, NULL, 'es', 'true', 'true', 'normal');
             INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (7, NULL, 'en', 'true', 'true', 'normal');
 
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (1, 1, 2, 'accepted', datetime('now', '-1 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (2, 3, 4, 'accepted', datetime('now', '-2 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (3, 2, 7, 'accepted', datetime('now', '-3 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (4, 1, 5, 'accepted', datetime('now', '-4 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (5, 3, 7, 'accepted', datetime('now', '-5 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (6, 4, 6, 'accepted', datetime('now', '-6 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (7, 1, 4, 'accepted', datetime('now', '-7 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (8, 5, 7, 'accepted', datetime('now', '-8 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (9, 6, 7, 'accepted', datetime('now', '-9 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (10, 2, 7, 'pending', datetime('now', '-9 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (10, 1, 7, 'accepted', datetime('now', '-10 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (11, 4, 5, 'accepted', datetime('now', '-11 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (1, 1, 2, 'pending', datetime('now', '-1 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (2, 1, 4, 'accepted', datetime('now', '-2 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (3, 1, 6, 'accepted', datetime('now', '-3 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (4, 2, 3, 'accepted', datetime('now', '-4 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (5, 2, 4, 'accepted', datetime('now', '-5 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (6, 2, 5, 'pending', datetime('now', '-6 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (7, 7, 2, 'pending', datetime('now', '-7 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (8, 3, 1, 'accepted', datetime('now', '-8 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (9, 3, 4, 'accepted', datetime('now', '-9 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (10, 3, 6, 'pending', datetime('now', '-9 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (10, 5, 4, 'accepted', datetime('now', '-10 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (11, 4, 7, 'accepted', datetime('now', '-11 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (12, 5, 6, 'accepted', datetime('now', '-12 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (13, 3, 6, 'accepted', datetime('now', '-13 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (14, 2, 5, 'accepted', datetime('now', '-14 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (15, 1, 3, 'accepted', datetime('now', '-15 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (16, 4, 7, 'accepted', datetime('now', '-16 hours'));
-            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (17, 3, 5, 'accepted', datetime('now', '-17 hours'));
+            INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (13, 6, 7, 'accepted', datetime('now', '-13 hours'));
 
             INSERT OR IGNORE INTO tournaments (id, name, created_by, status, created_at) VALUES (1, 'Torneo Relámpago', 1, 'finished', datetime('now', '-1 days'));
             INSERT OR IGNORE INTO games (id, tournament_id, match, status, started_at, finished_at) VALUES (1, 1, '1/2(1)', 'finished', datetime('now', '-1 days', '15:00:00'), datetime('now', '-1 days', '15:00:00', '+7 minutes'));
