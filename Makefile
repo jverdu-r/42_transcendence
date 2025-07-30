@@ -6,6 +6,13 @@ export DATA_PATH
 MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 
 # CONSTRUCCION__________________________________________________________________
+
+all-auto: ip set-ip prepare build up
+
+ip:
+	@./update_machine_ip.sh
+	@./generate_prometheus_config.sh
+
 all: prepare build up
 
 prepare:
@@ -49,7 +56,7 @@ build:
 	@$(COMPOSE) build
 
 up:
-	@echo "     ,                                                                          ;                                            , "             
+
 	@echo "     Et           :                                :                            ED.                                :         Et "            
 	@echo "     E#t         t#,                              t#,     :      L.             E#Wi                        .     t#,        E#t "           
 	@echo "     E##t       ;##W.              .    .        ;##W.    Ef     EW:        ,ft E###G.                     ;W    ;##W.       E##t "          
@@ -100,6 +107,9 @@ up:
 	@echo "                                                                     :;X&&x: "
 	@$(COMPOSE) up -d
 
+show:
+	@./show_services.sh
+
 down:
 	@$(COMPOSE) down
 
@@ -139,4 +149,4 @@ quick-re: clean
 
 re: fclean all
 
-.PHONY: all build up down start stop shell clean fclean re quick-re prepare check-secrets
+.PHONY: all all-auto build up down start stop shell clean fclean re quick-re prepare set-ip show
