@@ -1,0 +1,34 @@
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alertmanager@transcendence.local'
+
+route:
+  group_by: ['alertname']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'web.hook'
+
+receivers:
+  - name: 'web.hook'
+    webhook_configs:
+      - url: 'http://127.0.0.1:5001/'
+        send_resolved: true
+
+  # Example email configuration (uncomment and configure as needed)
+  # - name: 'email-notifications'
+  #   email_configs:
+  #     - to: 'admin@transcendence.local'
+  #       subject: '[ALERT] {{ .GroupLabels.alertname }}'
+  #       body: |
+  #         {{ range .Alerts }}
+  #         Alert: {{ .Annotations.summary }}
+  #         Description: {{ .Annotations.description }}
+  #         {{ end }}
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'dev', 'instance']
