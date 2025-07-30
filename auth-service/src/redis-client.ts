@@ -1,25 +1,31 @@
 // auth-service/src/redis-client.ts
-
 import { createClient } from 'redis';
-
 import dotenv from 'dotenv';
+
 dotenv.config();
 
-const redis = createClient({
+const redisClient = createClient({
   url: process.env.REDIS_URL || `redis://:${process.env.REDIS_PASSWORD || ''}@${process.env.REDIS_HOST || 'redis'}:${process.env.REDIS_PORT || '6379'}`
 });
 
-redis.on('error', (err) => {
+redisClient.on('error', (err) => {
   console.error('Redis client error:', err);
 });
 
-(async () => {
+export async function connectRedis() {
   try {
-    await redis.connect();
-    console.log('Redis client connected');
-  } catch (err) {
-    console.error('Redis connection failed:', err);
-  }
-})();
+    if (redisClient.isOpen) {
+        console.log('🔁 Redis ya estaba conectado');
+        return;
+    }
 
-export default redis;
+    if (!redisClient.isOpen) {
+      await redisClient.connect();
+      console.log('✅ Conectado a Redis');
+    }
+  } catch (err) {
+        console.error('Error conectando a Redis:', err);
+    }
+}
+
+export default redisClient;
