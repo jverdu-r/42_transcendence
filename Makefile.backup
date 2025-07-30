@@ -19,31 +19,7 @@ prepare:
 	@echo "Redis data directory prepared at: $(HOME)/data/transcendence/redis"
 
 	mkdir -p "$(HOME)/data/transcendence/frontend"
-
-	mkdir -p "$(HOME)/data/transcendence/prometheus"
-	chmod -R 777 "$(HOME)/data/transcendence/prometheus"
-	@echo "Prometheus data directory prepared at: $(HOME)/data/transcendence/prometheus"
-
-	mkdir -p "$(HOME)/data/transcendence/grafana"
-	chmod -R 777 "$(HOME)/data/transcendence/grafana"
-	@echo "Grafana data directory prepared at: $(HOME)/data/transcendence/grafana"
-
-	mkdir -p "$(HOME)/data/transcendence/alertmanager"
-	chmod -R 777 "$(HOME)/data/transcendence/alertmanager"
-	@echo "Alertmanager data directory prepared at: $(HOME)/data/transcendence/alertmanager"
 	@echo "Frontend data directory prepared at: $(HOME)/data/transcendence/frontend"
-
-	mkdir -p "$(HOME)/data/transcendence/prometheus"
-	chmod -R 777 "$(HOME)/data/transcendence/prometheus"
-	@echo "Prometheus data directory prepared at: $(HOME)/data/transcendence/prometheus"
-
-	mkdir -p "$(HOME)/data/transcendence/grafana"
-	chmod -R 777 "$(HOME)/data/transcendence/grafana"
-	@echo "Grafana data directory prepared at: $(HOME)/data/transcendence/grafana"
-
-	mkdir -p "$(HOME)/data/transcendence/alertmanager"
-	chmod -R 777 "$(HOME)/data/transcendence/alertmanager"
-	@echo "Alertmanager data directory prepared at: $(HOME)/data/transcendence/alertmanager"
 
 build:
 	@$(COMPOSE) build

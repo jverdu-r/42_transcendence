@@ -1,0 +1,90 @@
+groups:
+  - name: transcendence_alerts
+    rules:
+      # Service availability alerts
+      - alert: ServiceDown
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.instance }} is down"
+          description: "{{ $labels.job }} service on {{ $labels.instance }} has been down for more than 30 seconds."
+
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 80% for more than 2 minutes on {{ $labels.instance }}"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 85% for more than 2 minutes on {{ $labels.instance }}"
+
+      # High disk usage
+      - alert: HighDiskUsage
+        expr: (1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) * 100 > 90
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High disk usage on {{ $labels.instance }}"
+          description: "Disk usage is above 90% on {{ $labels.instance }} for filesystem {{ $labels.mountpoint }}"
+
+      # Redis alerts
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis server is down"
+          description: "Redis server {{ $labels.instance }} is down"
+
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 90
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is above 90% on {{ $labels.instance }}"
+
+      # Container alerts
+      - alert: ContainerHighCPU
+        expr: rate(container_cpu_usage_seconds_total{name!=""}[5m]) * 100 > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container high CPU usage"
+          description: "Container {{ $labels.name }} CPU usage is above 80%"
+
+      - alert: ContainerHighMemory
+        expr: container_memory_usage_bytes{name!=""} / container_spec_memory_limit_bytes{name!=""} * 100 > 90
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container high memory usage"
+          description: "Container {{ $labels.name }} memory usage is above 90%"
+
+      # HTTP response time alerts
+      - alert: HighResponseTime
+        expr: avg_over_time(up[5m]) < 0.95
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time or low availability"
+          description: "Service {{ $labels.job }} has availability below 95% over the last 5 minutes"

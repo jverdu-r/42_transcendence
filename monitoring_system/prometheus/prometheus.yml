@@ -1,0 +1,109 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'ft_transcendence'
+    replica: 'prometheus-1'
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter (system metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Redis monitoring
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # Container monitoring (cAdvisor)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8084']
+    scrape_interval: 30s
+
+  # Nginx Proxy monitoring
+  - job_name: 'nginx-exporter'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+    scrape_interval: 30s
+
+  # Auth Service monitoring (health check)
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['auth-service:8000']
+    metrics_path: '/health'
+    scrape_interval: 30s
+
+  # Game Service monitoring (health check)
+  - job_name: 'game-service'
+    static_configs:
+      - targets: ['game-service:8000']
+    metrics_path: '/health'
+    scrape_interval: 15s
+
+  # Chat Service monitoring (health check)
+  - job_name: 'chat-service'
+    static_configs:
+      - targets: ['chat-service:8000']
+    metrics_path: '/health'
+    scrape_interval: 30s
+
+  # DB Service monitoring (health check)
+  - job_name: 'db-service'
+    static_configs:
+      - targets: ['db-service:8000']
+    metrics_path: '/health'
+    scrape_interval: 30s
+
+  # API Gateway monitoring (health check)
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:8000']
+    metrics_path: '/health'
+    scrape_interval: 15s
+
+  # Frontend monitoring (basic HTTP check)
+  - job_name: 'frontend'
+    static_configs:
+      - targets: ['frontend:8080']
+    metrics_path: '/'
+    scrape_interval: 30s
+
+  # WAF monitoring (basic HTTP check)
+  - job_name: 'waf'
+    static_configs:
+      - targets: ['waf:8080']
+    metrics_path: '/'
+    scrape_interval: 30s
+
+  # HashiCorp Vault monitoring
+  - job_name: 'vault'
+    static_configs:
+      - targets: ['vault:8200']
+    metrics_path: '/v1/sys/metrics'
+    params:
+      format: ['prometheus']
+    bearer_token: 'dev-root-token'
+    scrape_interval: 60s
+
+  # Redis Commander monitoring
+  - job_name: 'redis-commander'
+    static_configs:
+      - targets: ['redis-commander:8081']
+    metrics_path: '/'
+    scrape_interval: 60s
