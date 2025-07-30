@@ -226,7 +226,6 @@ services:
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
     secrets:
       - redis_password
     volumes:
@@ -273,8 +272,8 @@ services:
       - ./monitoring_system/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring_system/grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
     networks:
       - transcendence_net
@@ -294,7 +293,7 @@ services:
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/alertmanager'
-      - '--web.external-url=http://localhost:9093'
+      - '--web.external-url=http://${MACHINE_IP}:9093'
     networks:
       - transcendence_net
     restart: unless-stopped
@@ -360,6 +359,20 @@ services:
       - "9113:9113"
     command:
       - '-nginx.scrape-uri=http://nginx-proxy:80/nginx_status'
+    networks:
+      - transcendence_net
+    depends_on:
+      - nginx-proxy
+    restart: unless-stopped
+
+  # Blackbox Exporter - HTTP/TCP/ICMP monitoring
+  blackbox-exporter:
+    image: prom/blackbox-exporter:latest
+    container_name: blackbox-exporter
+    volumes:
+      - ./monitoring_system/blackbox-exporter/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    ports:
+      - "9115:9115"
     networks:
       - transcendence_net
     depends_on:
