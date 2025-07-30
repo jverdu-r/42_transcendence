@@ -1,0 +1,284 @@
+{
+  "__inputs": [],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "8.5.0"
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "panels": [],
+      "title": "Service Health Overview",
+      "type": "row"
+    },
+    {
+      "id": 1,
+      "title": "Service Status",
+      "type": "stat",
+      "description": "Overall status of all monitored services. 1 = Up, 0 = Down.",
+      "targets": [
+        {
+          "expr": "up{job!='prometheus'}",
+          "legendFormat": "{{job}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "text": "Down"
+                },
+                "1": {
+                  "color": "green",
+                  "text": "Up"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "green", "value": 1}
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 24, "x": 0, "y": 1},
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 200,
+      "panels": [],
+      "title": "System & Container Metrics",
+      "type": "row"
+    },
+    {
+      "id": 2,
+      "title": "Host CPU Usage",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": 0},
+              {"color": "orange", "value": 80},
+              {"color": "red", "value": 90}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 6}
+    },
+    {
+      "id": 3,
+      "title": "Host Memory Usage",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": 0},
+              {"color": "orange", "value": 80},
+              {"color": "red", "value": 90}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 6}
+    },
+    {
+      "id": 4,
+      "title": "Container CPU Usage (%)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total{image!=\"\"}[5m])) by (name)",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "percent"}},
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 6}
+    },
+    {
+      "id": 5,
+      "title": "Container Memory Usage (MB)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(container_memory_usage_bytes{image!=\"\"}) by (name) / 1024 / 1024",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "megabytes"}},
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 12}
+    },
+    {
+        "id": 6,
+        "title": "Network Traffic (bytes/sec)",
+        "type": "timeseries",
+        "targets": [
+            {
+                "expr": "sum(rate(container_network_receive_bytes_total[5m])) by (name)",
+                "legendFormat": "In: {{name}}"
+            },
+            {
+                "expr": "sum(rate(container_network_transmit_bytes_total[5m])) by (name)",
+                "legendFormat": "Out: {{name}}"
+            }
+        ],
+        "gridPos": {"h": 6, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "id": 300,
+      "panels": [],
+      "title": "Application & Database Metrics",
+      "type": "row"
+    },
+    {
+        "id": 7,
+        "title": "Redis Memory Usage",
+        "type": "timeseries",
+        "targets": [
+            {
+                "expr": "redis_memory_used_bytes",
+                "legendFormat": "Used Memory"
+            }
+        ],
+        "fieldConfig": {"defaults": {"unit": "bytes"}},
+        "gridPos": {"h": 7, "w": 8, "x": 0, "y": 19}
+    },
+    {
+        "id": 8,
+        "title": "Redis Connected Clients",
+        "type": "timeseries",
+        "targets": [
+            {
+                "expr": "redis_connected_clients",
+                "legendFormat": "Clients"
+            }
+        ],
+        "gridPos": {"h": 7, "w": 8, "x": 8, "y": 19}
+    },
+    {
+        "id": 9,
+        "title": "Nginx Requests",
+        "type": "timeseries",
+        "targets": [
+            {
+                "expr": "rate(nginx_http_requests_total[5m])",
+                "legendFormat": "{{status}}"
+            }
+        ],
+        "gridPos": {"h": 7, "w": 8, "x": 16, "y": 19}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["transcendence"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Transcendence Full Overview",
+  "version": 1
+}
