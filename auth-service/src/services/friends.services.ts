@@ -1,12 +1,23 @@
 // auth-service/src/services/friends.services.ts
 
 import { openDb } from '../database';
+import redisClient from '../redis-client';
 
 interface Friend {
     id: number;
     username: string;
     isOnline: boolean;
     elo: number;
+}
+
+export async function getOnlineUserIds(): Promise<Set<string>> {
+  try {
+    const onlineUsers = await redisClient.sMembers('online_users');
+    return new Set(onlineUsers);
+  } catch (err) {
+    console.error('Error obteniendo usuarios online:', err);
+    return new Set();
+  }
 }
 
 export async function getFriends(userId: number): Promise<Friend[]> {
@@ -28,11 +39,13 @@ export async function getFriends(userId: number): Promise<Friend[]> {
   // Opcional: obtener usuarios online de Redis
   // const onlineIds = await getOnlineUserIdsFromRedis();
 
+  const onlineUserIds = await getOnlineUserIds();
+
   const friends: Friend[] = friendsRaw.map(f => ({
     id: f.id,
     username: f.username,
     elo: 1000 + (f.pointsFor - f.pointsAgainst),
-    isOnline: false,
+    isOnline: onlineUserIds.has(f.id.toString()),
   }));
 
   await db.close();
@@ -82,10 +95,55 @@ export async function sendFriendRequest(userId: number, targetId: number): Promi
     return false;
   }
 
-  await db.run(
+  await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+    sql: 
     `INSERT INTO friendships (user_id, friend_id, status) VALUES (?, ?, 'pending')`,
-    [userId, targetId]
+    params: [userId, targetId]
+  }));
+
+  await db.close();
+  return true;
+}
+
+export async function acceptFriendRequest(requesterId: number, approverId: number): Promise<boolean> {
+  const db = await openDb();
+
+  const requestExists = await db.get(
+    'SELECT * FROM friendships WHERE requester_id = ? AND approver_id = ? AND status = "pending"',
+    [requesterId, approverId]
   );
+
+  if (!requestExists) {
+    await db.close();
+    return false;
+  }
+
+  await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+    sql: 'UPDATE friendships SET status = "accepted", created_at = datetime("now") WHERE requester_id = ? AND approver_id = ?',
+    params: [requesterId, approverId]
+  }));
+
+  await db.close();
+  return true;
+}
+
+export async function rejectFriendRequest(requesterId: number, approverId: number): Promise<boolean> {
+  const db = await openDb();
+
+  const requestExists = await db.get(
+    'SELECT * FROM friendships WHERE requester_id = ? AND approver_id = ? AND status = "pending"',
+    [requesterId, approverId]
+  );
+
+  if (!requestExists) {
+    await db.close();
+    return false;
+  }
+
+  await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+    sql: 'DELETE FROM friendships WHERE requester_id = ? AND approver_id = ?',
+    params: [requesterId, approverId]
+  }));
 
   await db.close();
   return true;

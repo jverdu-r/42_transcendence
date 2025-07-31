@@ -78,7 +78,10 @@ fastify.post('/auth/register', async (request, reply) => {
     const hash = await bcrypt.hash(password, 10);
     
     // Insertar directamente en la base de datos
-    const result = await db.run('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)', [username, email, hash]);
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+      params: [username, email, hash]
+    }));
     
     await db.close();
     
@@ -124,11 +127,13 @@ fastify.post('/auth/login', async (request, reply) => {
     await redisClient.set(`user:${user.id}:last_seen`, Date.now().toString());
 
 
-    await db.run(
-      `INSERT INTO sessions (user_id, session_token, expires_at) 
-       VALUES (?, ?, ?)`,
-      [user.id, token, expiresAt.toISOString()]
-    );
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `
+        INSERT INTO sessions (user_id, session_token, expires_at)
+        VALUES (?, ?, ?)
+      `,
+      params: [user.id, token, expiresAt.toISOString()]
+    }));
 
     // Obtener avatar_url e idioma
     const profile = await db.get('SELECT avatar_url, language FROM user_profiles WHERE user_id = ?', [user.id]);
@@ -158,9 +163,6 @@ fastify.post('/auth/logout', { preHandler: verifyToken }, async (request, reply)
 
   try {
     const db = await openDb();
-    
-    // Eliminar sesión de la base de datos
-    await db.run(`DELETE FROM sessions WHERE session_token = ?`, [token]);
     
     // Eliminar de Redis
     await redisClient.del(`jwt:${token}`); // ✅ Eliminar el token JWT
@@ -215,10 +217,8 @@ async function cleanInactiveSessions() {
         await redisClient.sRem('online_users', userId);
         await redisClient.del(`user:${userId}:online`);
         await redisClient.del(`user:${userId}:last_seen`);
-        
-        // También eliminar de la base de datos
+
         const db = await openDb();
-        await db.run(`DELETE FROM sessions WHERE user_id = ?`, [userId]);
         await db.close();
       }
     }
@@ -291,11 +291,14 @@ fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request
 
     // Guardar en base de datos
     const db = await openDb();
-    await db.run(`
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `
       INSERT INTO user_profiles (user_id, avatar_url)
       VALUES (?, ?)
       ON CONFLICT(user_id) DO UPDATE SET avatar_url = excluded.avatar_url
-    `, [userId, `/avatars/${filename}`]);
+      `,
+      params: [userId, `/avatars/${filename}`]
+    }));
 
     await db.close();
 
@@ -709,15 +712,16 @@ fastify.put('/auth/settings/user_data', { preHandler: verifyToken }, async (requ
     }
 
     // Actualizar email, username y contraseña si es válida
-    await db.run(
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 
       `UPDATE users SET username = ?, email = ?, password_hash = ? WHERE id = ?`,
-      [
+      params: [
         username ?? user.username,
         email ?? user.email,
         updatedPasswordHash,
         userId
       ]
-    );
+  }));
 
     return reply.send({ message: 'Perfil actualizado correctamente' });
 
@@ -765,16 +769,18 @@ fastify.put('/auth/settings/config', { preHandler: verifyToken }, async (request
       game_difficulty
     } = request.body as any;
 
-    await db.run(
-      `INSERT INTO user_profiles (user_id, language, notifications, sound, difficulty)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(user_id) DO UPDATE SET
-         language = excluded.language,
-         notifications = excluded.notifications,
-         sound = excluded.sound,
-         difficulty = excluded.difficulty`,
-      [userId, language, notifications, sound_effects, game_difficulty]
-    );
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `
+        INSERT INTO user_profiles (user_id, language, notifications, sound, difficulty)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+          language = excluded.language,
+          notifications = excluded.notifications,
+          sound = excluded.sound,
+          difficulty = excluded.difficulty
+      `,
+      params: [userId, language, notifications, sound_effects, game_difficulty]
+    }));
 
     await db.close();
     return reply.send({ message: 'Configuración guardada correctamente' });
@@ -839,10 +845,10 @@ fastify.post('/auth/google', async (request, reply) => {
     
     if (!user) {
       // Crear nuevo usuario con Google
-      const result = await db.run(
-        'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
-        [payload.name, payload.email, ''] // Sin contraseña para usuarios de Google
-      );
+      const result = await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+        sql: 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+        params: [payload.name, payload.email, ''] // Sin contraseña para usuarios de Google
+    }));
       
       user = await db.get('SELECT * FROM users WHERE email = ?', [payload.email]);
     }
@@ -856,11 +862,12 @@ fastify.post('/auth/google', async (request, reply) => {
 
     // Registrar sesión en DB y Redis
     const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hora
-    await db.run(
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 
       `INSERT INTO sessions (user_id, session_token, expires_at) 
       VALUES (?, ?, ?)`,
-      [user.id, jwtToken, expiresAt.toISOString()]
-    );
+      params: [user.id, jwtToken, expiresAt.toISOString()]
+    }));
     await redisClient.set(`user:${user.id}:online`, 'true');
     await redisClient.sAdd('online_users', user.id.toString());
     await redisClient.set(`user:${user.id}:last_seen`, Date.now().toString());

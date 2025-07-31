@@ -3,6 +3,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { GameService } from '../services/games.services';
 import { openDb } from '../database';
+import redisClient from '../redis-client';
 
 export const startGameHandler = async (req: FastifyRequest, reply: FastifyReply) => {
   try {
@@ -17,11 +18,12 @@ export const startGameHandler = async (req: FastifyRequest, reply: FastifyReply)
     const db = await openDb();
 
     // Insert en games
-    const result = await db.run(
-      `INSERT INTO games (id, tournament_id, match, status, started_at)
-       VALUES (?, ?, ?, 'in_progress', datetime('now'))`,
-      [gameId, tournamentId, match]
-    );
+    const result = await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 
+        `INSERT INTO games (id, tournament_id, match, status, started_at)
+        VALUES (?, ?, ?, 'in_progress', datetime('now'))`,
+        params: [gameId, tournamentId, match]
+      }));
 
     // helper para obtener user_id si es humano
     const getUserId = async (username: string | null): Promise<number | null> => {

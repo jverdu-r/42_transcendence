@@ -1,27 +1,29 @@
-FROM node:20-alpine
+FROM node:20
 
 WORKDIR /app
 
-# Instala dependencias del sistema para canvas
-RUN apk add --no-cache \
-    build-base \
-    cairo-dev \
-    pango-dev \
-    jpeg-dev \
-    giflib-dev \
-    librsvg-dev
+# Instala dependencias del sistema necesarias para compilar 'canvas'
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libjpeg-dev \
+    libgif-dev \
+    librsvg2-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Crea directorio de datos con permisos
-RUN mkdir -p /app/data && chmod 777 /app/data
-RUN npm install @fastify/multipart && npm install --save-dev @types/node && npm install @fastify/cookie
-
-# Copia e instala dependencias de Node
+# Copia package.json y package-lock.json
 COPY package*.json ./
-RUN npm install
 
-# Copia el resto de los archivos y construye
+# Fuerza la reconstrucción de canvas desde cero
+RUN npm install --build-from-source=canvas
+
+# Copia el código fuente
 COPY . .
+
+# Compila el proyecto
 RUN npm run build
 
 EXPOSE 8000
+
 CMD ["npm", "start"]

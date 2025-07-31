@@ -1,0 +1,77 @@
+dada esta bbdd:
+
+CREATE TABLE IF NOT EXISTS users ( id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, email TEXT UNIQUE NOT NULL, password_hash TEXT, google_id TEXT UNIQUE, intra_id TEXT UNIQUE, is_active BOOLEAN DEFAULT 1, is_admin BOOLEAN DEFAULT 0, last_login DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS user_profiles ( user_id INTEGER PRIMARY KEY, avatar_url TEXT, language TEXT DEFAULT 'es', notifications TEXT DEFAULT 'true', sound TEXT DEFAULT 'true', difficulty TEXT DEFAULT 'normal', FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS sessions ( id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, session_token TEXT UNIQUE NOT NULL, expires_at DATETIME NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS friendships ( id INTEGER PRIMARY KEY AUTOINCREMENT, requester_id INTEGER NOT NULL, approver_id INTEGER, status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (approver_id) REFERENCES users(id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS chat_messages ( id INTEGER PRIMARY KEY AUTOINCREMENT, sender_id INTEGER NOT NULL, receiver_id INTEGER, message TEXT NOT NULL, sent_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS tournaments ( id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, created_by INTEGER, status TEXT DEFAULT 'upcoming', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL);
+CREATE TABLE IF NOT EXISTS games ( id INTEGER PRIMARY KEY AUTOINCREMENT, tournament_id INTEGER, match TEXT, status TEXT DEFAULT 'pending', started_at DATETIME, finished_at DATETIME, FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE SET NULL);
+CREATE TABLE IF NOT EXISTS participants ( id INTEGER PRIMARY KEY AUTOINCREMENT, game_id INTEGER NOT NULL, user_id INTEGER, is_bot BOOLEAN DEFAULT 0, is_winner BOOLEAN DEFAULT 0, team_name TEXT NOT NULL, FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL);
+CREATE TABLE IF NOT EXISTS scores (id INTEGER PRIMARY KEY AUTOINCREMENT, game_id INTEGER NOT NULL, scorer_id INTEGER, team_name TEXT NOT NULL, point_number INTEGER NOT NULL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,  FOREIGN KEY (scorer_id) REFERENCES users(id) ON DELETE SET NULL);            
+
+
+quiero un endpoint uqe comience así:
+
+// Endpoint para obtener estadísticas del usuario y generar archivo de historial
+fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, reply) => {
+  try {
+    const db = await openDb();
+    const userId = (request as any).user.user_id;
+
+y que calcule, para ese todos los id de la tabla user:
+
+1. los games totales en los que ha participado (se sabe el game en el que ha participado mirando si hay una entrada en participants con su user_id)
+2. los games que ha ganado (aquellos registros de partipipants en los que está ese usuario y is_winner = 1)
+3. los games que ha perdido (aquellos registros de partipipants en los que está ese usuario y is_winner = 0)
+4. la tasa de victorias (partidos ganados / partidos totales)
+5. el elo: para ello hay que contar en scores, filtrando por los games en los que ha participado contra otros jugadores humanos (son aquellos donde hay dos participantes con user_id no nulo o vacio), los puntos que ha marcado y los que ha recibido. El ELO será 1000 + puntos marcados - puntos recibidos.
+6. su posición en el ranking; una vez calculado el ELO de todos los id de users, se ordenan de mayor a menor (en caso de que dos jugadores tengan el mimsmo elo estará mejor clasificado el que haya ganado mas partidos, si hay igualdad tambien en partidos ganados clasificará mejor el que tenga un id de usuario mas bajo)
+
+Ademas se debe guardar el historial del usuario con id = userId, con todas las partidas en la que ha participado conta humanos o bots con:
+nº partido | Resultado | Oponente (username) | Torneo (si es partida de torneo, si no en blanco) | Marcador | Fecha y hora
+
+
+Debe finalizar de esta forma:
+
+
+    const userData = userGames.get(userId)!;
+    const wins = userData.matches.filter(m => m.result === 'win').length;
+    const losses = userData.matches.filter(m => m.result === 'loss').length;
+    const totalGames = wins + losses;
+    const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
+    const elo = 1000 + userData.pointsFor - userData.pointsAgainst;
+
+    const matchHistory = userData.matches.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+
+    // Guardar historial completo en txt
+    const filePath = path.resolve('/app/data/historial_partidas.txt');
+    const matchHistoryText = matchHistory.map(entry =>
+      `Partida ${entry.id} | Resultado: ${entry.result} | Oponente: ${entry.opponent} | Torneo: ${entry.tournament} | Marcador: ${entry.score} | Fecha: ${entry.date}`
+    );
+    fs.writeFileSync(filePath, matchHistoryText.join('\n'));
+
+    // Avatar
+    const profile = await db.get('SELECT avatar_url FROM user_profiles WHERE user_id = ?', [userId]);
+
+    await db.close();
+
+    return reply.send({
+      totalGames,
+      wins,
+      losses,
+      winRate,
+      elo,
+      ranking,
+      matchHistory: matchHistory.slice(0, 10),
+      avatar_url: profile?.avatar_url || null
+    });
+  } catch (err) {
+    console.error('Error obteniendo estadísticas:', err);
+    return reply.code(500).send({ message: 'Error interno del servidor' });
+  }
+});
+
