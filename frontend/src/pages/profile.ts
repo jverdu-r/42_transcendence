@@ -225,9 +225,9 @@ export async function renderProfilePage(): Promise<void> {
             localStorage.setItem('user', JSON.stringify(user));
             renderProfilePage(); // Recarga perfil para que se vea
           }
-          alert('✅ Avatar subido correctamente');
+          alert(getTranslation('alerts', 'avatarOk'));
         } else {
-          alert('❌ Error al subir avatar');
+          alert(getTranslation('alerts', 'avatarFail'));
         }
       });
     }
@@ -244,7 +244,7 @@ export async function renderProfilePage(): Promise<void> {
       downloadBtn.addEventListener('click', async () => {
         const token = localStorage.getItem('jwt');
         if (!token) {
-          alert('Debes iniciar sesión para descargar el historial');
+          alert(getTranslation('alerts', 'history'));
           return;
         }
 
@@ -274,7 +274,7 @@ export async function renderProfilePage(): Promise<void> {
           downloadBtn.textContent = '✔ Descargado';
         } catch (err) {
           console.error(err);
-          alert('❌ Error al descargar el historial');
+          alert(getTranslation('alerts', 'historyError'));
           downloadBtn.textContent = 'Descargar historial';
         } finally {
           setTimeout(() => {

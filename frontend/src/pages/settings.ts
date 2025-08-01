@@ -386,21 +386,21 @@ function setupEventListeners(): void {
 }
 
         saveProfileBtn.disabled = true;
-        saveProfileBtn.innerHTML = '⏳ Guardando...';
+        saveProfileBtn.innerHTML = getTranslation('settings', 'saving');
 
         const result = await updateUserProfile(profileData);
         
         if (result.success) {
-            alert('✅ Perfil actualizado exitosamente');
+            alert(getTranslation('alerts', 'successProfile'));
             // Limpiar campos de contraseña
             (document.getElementById('current-password') as HTMLInputElement).value = '';
             (document.getElementById('new-password') as HTMLInputElement).value = '';
         } else {
-            alert(`❌ Error: ${result.message}`);
+            alert(`${getTranslation('alerts', 'errorLogin')}${result.message}`);
         }
 
         saveProfileBtn.disabled = false;
-        saveProfileBtn.innerHTML = '💾 Guardar Cambios';
+        saveProfileBtn.innerHTML = getTranslation('settings', 'saveChanges');
     });
 
     // Botón para guardar configuraciones del juego
@@ -421,12 +421,12 @@ function setupEventListeners(): void {
         };
 
         saveGameSettingsBtn.disabled = true;
-        saveGameSettingsBtn.innerHTML = '⏳ Guardando...';
+        saveGameSettingsBtn.innerHTML = getTranslation('settings', 'saving');
 
         const success = await updateUserSettings(gameSettings);
         
         if (success) {
-            alert('✅ Configuraciones del juego guardadas exitosamente');
+            alert(getTranslation('alerts', 'successChanges'));
             
             // Aplicar configuraciones localmente
             setSetting('language', language);
@@ -441,7 +441,7 @@ function setupEventListeners(): void {
             }
             
         } else {
-            alert('❌ Error al guardar las configuraciones del juego');
+            alert(getTranslation('alerts', 'errorChanges'));
         }
 
         saveGameSettingsBtn.disabled = false;

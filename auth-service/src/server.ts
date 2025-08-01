@@ -18,9 +18,6 @@ import friendsRoutes from './routes/friends.routes';
 import { promisify } from 'util';
 import { connectRedis } from './redis-client'
 import redisClient from './redis-client';
-import { promisify } from 'util';
-import { connectRedis } from './redis-client'
-import redisClient from './redis-client';
 
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
@@ -798,16 +795,6 @@ fastify.get('/auth/settings/config', { preHandler: verifyToken }, async (request
   try {
     const db = await openDb();
     const userId = (request as any).user.user_id;
-    const config = await db.get(
-      `SELECT 
-        language, 
-        notifications, 
-        sound AS sound_effects, 
-        difficulty AS game_difficulty
-      FROM user_profiles 
-      WHERE user_id = ?`,
-      [userId]
-    );
     const config = await db.get(
       `SELECT 
         language, 
