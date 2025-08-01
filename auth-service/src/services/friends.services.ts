@@ -79,30 +79,52 @@ export async function getAvailableUsers(userId: number) {
   `, [userId, userId, userId]);
 }
 
-export async function sendFriendRequest(userId: number, targetId: number): Promise<boolean> {
+export async function sendFriendRequest(requesterId: number, targetId: number): Promise<boolean> {
+  console.log('🔍 [sendFriendRequest] requesterId:', requesterId, 'targetId:', targetId);
+
   const db = await openDb();
 
-  // Verifica si ya existe
-  const existing = await db.get(
-    `SELECT * FROM friendships 
-     WHERE (user_id = ? AND friend_id = ?) 
-        OR (user_id = ? AND friend_id = ?)`,
-    [userId, targetId, targetId, userId]
-  );
+  try {
+    // Verificar que ambos usuarios existen
+    const requester = await db.get('SELECT id FROM users WHERE id = ?', [requesterId]);
+    const target = await db.get('SELECT id FROM users WHERE id = ?', [targetId]);
 
-  if (existing) {
+    if (!requester) {
+      console.error('❌ requester no existe:', requesterId);
+      return false;
+    }
+    if (!target) {
+      console.error('❌ target no existe:', targetId);
+      return false;
+    }
+
+    // Verificar si ya existe una solicitud
+    const existing = await db.get(`SELECT * FROM friendships 
+      WHERE (requester_id = ? AND approver_id = ?) 
+         OR (requester_id = ? AND approver_id = ?)`, 
+      [requesterId, targetId, targetId, requesterId]
+    );
+
+    if (existing) {
+      console.log('⚠️  Solicitud duplicada:', existing);
+      await db.close();
+      return false;
+    }
+
+    // Insertar nueva solicitud
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `INSERT INTO friendships (requester_id, approver_id, status) VALUES (?, ?, 'pending')`,
+      params: [requesterId, targetId]
+    }));
+
+    console.log('✅ Solicitud añadida a la cola Redis');
     await db.close();
-    return false;
+    return true;
+  } catch (err) {
+    console.error('❌ [sendFriendRequest] Error en la base de datos:', err);
+    await db.close().catch(console.error);
+    throw err; // Propagar el error para que el handler lo vea
   }
-
-  await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-    sql: 
-    `INSERT INTO friendships (user_id, friend_id, status) VALUES (?, ?, 'pending')`,
-    params: [userId, targetId]
-  }));
-
-  await db.close();
-  return true;
 }
 
 export async function acceptFriendRequest(requesterId: number, approverId: number): Promise<boolean> {

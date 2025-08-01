@@ -14,7 +14,7 @@ export default async function friendsRoutes(fastify: FastifyInstance) {
   fastify.get('/', { preHandler: verifyToken }, getFriendsHandler);
   fastify.get('/requests', { preHandler: verifyToken }, getPendingRequestsHandler);
   fastify.get('/available', { preHandler: verifyToken }, getAvailableUsersHandler);
-  fastify.post('/request/:targetId', { preHandler: verifyToken }, sendFriendRequestHandler);
+  fastify.post('/request', { preHandler: verifyToken }, sendFriendRequestHandler);
   fastify.post('/requests/accept', { preHandler: verifyToken }, acceptFriendRequestHandler);
   fastify.post('/requests/reject', { preHandler: verifyToken }, rejectFriendRequestHandler);
 }

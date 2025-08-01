@@ -3,6 +3,14 @@
 import { getTranslation } from '../i18n';
 import { getCurrentUser } from '../auth';
 
+declare global {
+    interface Window {
+        handleChallenge: (userId: number, username: string) => void;
+        handleAcceptRequest: (senderId: number, rowElement: HTMLElement) => void;
+        handleRejectRequest: (senderId: number, rowElement: HTMLElement) => void;
+    }
+}
+
 interface Friend {
     id: number;
     username: string;
@@ -54,7 +62,8 @@ function renderAvailableUsersList(users: User[]): string {
         ? users.map(user => `
             <div class="flex items-center justify-between p-3 bg-[#001d3d] rounded-xl border border-[#003566] mb-2">
                 <div class="font-bold text-gray-100">${user.username}</div>
-                <button class="text-xs bg-[#ffc300] text-[#000814] font-semibold py-1 px-3 rounded-xl hover:opacity-80">
+                <button class="text-xs bg-[#ffc300] text-[#000814] font-semibold py-1 px-3 rounded-xl hover:opacity-80"
+                        onclick="handleSendRequest(${user.id}, '${user.username}', this)">
                     ${getTranslation('friends', 'sendRequestButton')}
                 </button>
             </div>
@@ -105,13 +114,14 @@ export async function renderFriendsPage(): Promise<void> {
                                     <div class="text-sm text-gray-300">ELO: ${friend.elo}</div>
                                 </div>
                             </div>
-                            <button class="text-xs font-semibold py-1 px-3 rounded-xl transition-opacity duration-200 
+                            <button class="text-xs font-semibold py-1 px-3 rounded-xl transition-all duration-200 
                                     ${friend.isOnline 
-                                    ? 'bg-[#ffc300] text-[#000814] hover:opacity-80' 
-                                    : 'bg-gray-600 text-gray-300 cursor-not-allowed'}"
-                            ${friend.isOnline ? '' : 'disabled'}
+                                        ? 'bg-[#ffc300] text-[#000814] hover:opacity-80 cursor-pointer' 
+                                        : 'bg-gray-600 text-gray-300 cursor-not-allowed opacity-60'}"
+                                ${friend.isOnline ? '' : 'disabled'}
+                                onclick="${friend.isOnline ? `handleChallenge(${friend.id}, '${friend.username}')` : ''}"
                             >
-                            ${getTranslation('friends', 'challengeButton')}
+                                ${getTranslation('friends', 'challengeButton')}
                             </button>
                         </div>
                     `).join('') : `<p class="text-gray-400 text-center">${getTranslation('friends', 'noFriends')}</p>`}
@@ -134,9 +144,15 @@ export async function renderFriendsPage(): Promise<void> {
                         <div class="flex items-center justify-between p-3 bg-[#001d3d] rounded-xl border border-[#003566] mb-2">
                             <div class="font-bold text-gray-100">${user.username}</div>
                             <div class="flex gap-2">
-                                <button class="text-xs bg-green-500 text-white font-semibold py-1 px-3 rounded-xl hover:opacity-80">✅</button>
-                                <button class="text-xs bg-red-500 text-white font-semibold py-1 px-3 rounded-xl hover:opacity-80">❌</button>
-                            </div>
+                                <button class="text-xs bg-green-500 text-white font-semibold py-1 px-3 rounded-xl hover:opacity-80"
+                                        onclick="handleAcceptRequest(${user.id}, this.parentElement.parentElement)">
+                                    ✅
+                                </button>
+                                <button class="text-xs bg-red-500 text-white font-semibold py-1 px-3 rounded-xl hover:opacity-80"
+                                        onclick="handleRejectRequest(${user.id}, this.parentElement.parentElement)">
+                                    ❌
+                                </button>
+                            </div>          
                         </div>
                     `).join('') : `<p class="text-gray-400 text-center">${getTranslation('friends', 'noRequests')}</p>`}
                 </div>
@@ -160,4 +176,130 @@ export async function renderFriendsPage(): Promise<void> {
             }
         });
     }
+
+    // Añadir funcionalidad al botón de desafío (opcional)
+    window.handleChallenge = (userId: number, username: string) => {
+        console.log(`Desafiando a ${username} (ID: ${userId})`);
+        // Aquí puedes abrir un modal, redirigir, etc.
+        alert(`${getTranslation('friends', 'challenging')} ${username}!`);
+    };
+
+    // Aceptar solicitud de amistad
+    window.handleAcceptRequest = async (senderId: number, rowElement: HTMLElement) => {
+        if (!confirm('¿Aceptar solicitud de amistad?')) return;
+
+        try {
+            const token = localStorage.getItem('jwt');
+            const response = await fetch('/api/auth/friends/requests/accept', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ senderId })
+            });
+
+            if (response.ok) {
+                // Eliminar la fila de la UI
+                rowElement.remove();
+                await renderFriendsPage();
+                alert(getTranslation('friends', 'requestAccepted'));
+            } else {
+                const error = await response.json();
+                alert(`Error: ${error.message || getTranslation('alerts', 'noAccept')}`);
+            }
+        } catch (err) {
+            console.error('Error aceptando solicitud:', err);
+            alert(getTranslation('alerts', 'network'));
+        }
+    };
+
+    //Rechazar solicitud de amistad
+    window.handleRejectRequest = async (senderId: number, rowElement: HTMLElement) => {
+        if (!confirm('¿Rechazar solicitud de amistad?')) return;
+
+        try {
+            const token = localStorage.getItem('jwt');
+            const response = await fetch('/api/auth/friends/requests/reject', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ senderId })
+            });
+
+            if (response.ok) {
+                // Eliminar la fila de la UI
+                rowElement.remove();
+                await renderFriendsPage();
+                alert(`${getTranslation('friends', 'requestRejected')}`);
+            } else {
+                const error = await response.json();
+                alert(`Error: ${error.message || 'No se pudo rechazar'}`);
+            }
+        } catch (err) {
+            console.error(getTranslation('alerts', 'failRequest'), err);
+            alert(getTranslation('alerts', 'network'));
+        }
+    };
+
+    // Enviar solicitud de amistad
+    (window as any).handleSendRequest = async (targetId: number, username: string, buttonElement: HTMLElement) => {
+        if (typeof targetId !== 'number' || isNaN(targetId) || targetId <= 0) {
+            console.error('Invalid targetId:', targetId);
+            alert(getTranslation('friends', 'sentError'));
+            return;
+        }
+
+        if (!confirm(`${getTranslation('friends', 'confirmSendRequest')} ${username}?`)) {
+            return;
+        }
+
+        const token = localStorage.getItem('jwt');
+        if (!token) {
+            alert(getTranslation('friends', 'sessionExpired'));
+            window.location.href = '/login';
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/auth/friends/request', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ targetId })
+            });
+
+            // ✅ Si el servidor no responde con JSON, manejarlo
+            let data;
+            try {
+                data = await response.json();
+            } catch (e) {
+                const text = await response.text();
+                console.error('Response is not JSON:', text);
+                throw new Error('Invalid response from server');
+            }
+
+            if (response.ok && data.success) {
+                if (buttonElement instanceof HTMLButtonElement || 
+                    buttonElement instanceof HTMLInputElement) {
+                        buttonElement.disabled = true;
+                    }
+                buttonElement.innerText = getTranslation('friends', 'requestSent');
+                buttonElement.classList.remove('bg-[#ffc300]', 'hover:opacity-80');
+                buttonElement.classList.add('bg-gray-500', 'cursor-not-allowed');
+                buttonElement.removeAttribute('onclick');
+
+                alert(getTranslation('friends', 'requestSentSuccessfully'));
+            } else {
+                throw new Error(data.error || 'Request failed');
+            }
+        } catch (err: any) {
+            console.error('Error enviando solicitud de amistad:', err);
+            alert(`${getTranslation('alerts', 'failRequest')} ${err.message || ''}`);
+        }
+    };
 }

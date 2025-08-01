@@ -163,7 +163,14 @@ const translations: Translations = {
             noRequests: "No hay solicitudes",
             noFriends: "No tienes amigos",
             challengeButton: "Desafío",
-            sendRequestButton: "Solicitud"
+            sendRequestButton: "Solicitar",
+            requestSent: "Enviado",
+            sentError: "Error al enviar solicitud",
+            requestAccepted: "✅ Solicitud aceptada",
+            requestRejected: "❌ Solicitud rechazada",
+            confirmSendRequest: "¿Enviar solicitud de amistad a",
+            requestSentSuccessfully: "Petición de amistad enviada correctamente",
+            requestFailed: "Error al enviar solicitud"
         },
         settings: {
             title: "Configuración",
@@ -177,7 +184,7 @@ const translations: Translations = {
             changePassword: "Cambiar Contraseña",
             currentPasswordLabel: "Contraseña Actual",
             currentPasswordPlaceholder: "Ingresa tu contraseña actual",
-            saveChanges: "Guardar Cambios",
+            saveChanges: "💾 Guardar Cambios",
             gameConfigSectionTitle: "Configuración del juego",
             gameConfigSectionSubtitle: "Personaliza tu experiencia de juego",
             newPasswordLabel: "Nueva Contraseña",
@@ -202,7 +209,32 @@ const translations: Translations = {
             globalRanking: "Ranking Global",
             globalRankingText: "Compite por el primer lugar",
             security: "Seguridad",
-            securityText: "Tus datos están protegidos"
+            securityText: "Tus datos están protegidos",
+            saving: "⏳ Guardando..."
+        },
+        alerts: {
+            failRequest: "❌ Error rechazando solicitud:",
+            network: "❌ Error de red",
+            noAccept: "❌ No se pudo aceptar",
+            google: "❌ Error en autenticación con Google",
+            connection: "❌ Error de conexión",
+            failLogin: "❌ Login fallido",
+            emptyFields: "❌ Por favor, completa todos los campos",
+            avatarOk: "✅ Avatar subido correctamente",
+            avatarFail: "❌ Error al subir avatar",
+            history: "❌ Debes iniciar sesión para descargar el historial",
+            historyError: "❌ Error al descargar el historial",
+            passError: "❌ Las contraseñas no coinciden",
+            successLogin: "✅ Registro exitoso! Ahora puedes iniciar sesión",
+            errorLogin: "❌ Error: ",
+            registerError: "❌ Error en registro",
+            serverError: "❌ Error de conexión con el servidor",
+            successProfile: "✅ Pérfil actualizado con éxito",
+            successChanges: "✅ Configuraciones del juego guardadas exitosamente",
+            errorChanges: "❌ Error al guardar las configuraciones del juego",
+            challenging: "Desafiar",
+            requestSentSuccessfully: "✅ Petición de amistad enviada correctamente",
+            requestFailed: "❌ Error al enviar solicitud"
         }
     },
     en: {
@@ -351,15 +383,22 @@ const translations: Translations = {
         },
         friends: {
             friends: "Friends",
-            friendsManagement: "Manage your friendships in Transcendence",
-            yourFriends: "Your friends",
-            sendRequests: "Send Request",
-            incomingRequests: "Incoming Request",
-            noUsersAvailable: "No available users",
+            friendsManagement: "Manage your friends on Transcendence",
+            yourFriends: "Your Friends",
+            sendRequests: "Add Friends",
+            incomingRequests: "Requests",
+            noUsersAvailable: "No users available",
             noRequests: "No requests",
-            noFriends: "You don't have friends",
+            noFriends: "You have no friends",
             challengeButton: "Challenge",
-            sendRequestButton: "Request"
+            sendRequestButton: "Request",
+            requestSent: "Sent",
+            sentError: "Error sending request",
+            requestAccepted: "✅ Request accepted",
+            requestRejected: "❌ Request rejected",
+            confirmSendRequest: "Send friend request to",
+            requestSentSuccessfully: "Friend request sent successfully",
+            requestFailed: "Error sending request"
         },
         settings: {
             title: "Settings",
@@ -398,7 +437,32 @@ const translations: Translations = {
             globalRanking: "Global Ranking",
             globalRankingText: "Compete for the top spot",
             security: "Security",
-            securityText: "Your data is protected"
+            securityText: "Your data is protected",
+            saving: "⏳ Saving..."
+        },
+        alerts: {
+            failRequest: "❌ Error rejecting request:",
+            network: "❌ Network error",
+            noAccept: "❌ Could not accept",
+            google: "❌ Google authentication error",
+            connection: "❌ Connection error",
+            failLogin: "❌ Login failed",
+            emptyFields: "❌ Please fill in all fields",
+            avatarOk: "✅ Avatar uploaded successfully",
+            avatarFail: "❌ Error uploading avatar",
+            history: "❌ You must be logged in to download the history",
+            historyError: "❌ Error downloading history",
+            passError: "❌ Passwords do not match",
+            successLogin: "✅ Registration successful! You can now log in",
+            errorLogin: "❌ Error: ",
+            registerError: "❌ Registration error",
+            serverError: "❌ Server connection error",
+            successProfile: "✅ Profile updated successfully",
+            successChanges: "✅ Game settings saved successfully",
+            errorChanges: "❌ Error saving game settings",
+            challenging: "Challenging",
+            requestSentSuccessfully: "✅ Friend request sent successfully",
+            requestFailed: "❌ Error sending request"
         }
     },
     gl: {
@@ -547,7 +611,7 @@ const translations: Translations = {
         },
         friends: {
             friends: "Amigos",
-            friendsManagement: "Xestiona as túas amistades",
+            friendsManagement: "Xestiona as túas amizades en Transcendence",
             yourFriends: "Os teus Amigos",
             sendRequests: "Fai Amigos",
             incomingRequests: "Solicitudes",
@@ -555,7 +619,14 @@ const translations: Translations = {
             noRequests: "Non tes solicitudes",
             noFriends: "Non tes amigos",
             challengeButton: "Desafío",
-            sendRequestButton: "Solicitude"
+            sendRequestButton: "Solicitude",
+            requestSent: "Enviado",
+            sentError: "Erro ó enviar solicitude",
+            requestAccepted: "✅ Solicitude aceptada",
+            requestRejected: "❌ Solicitude rexeitada",
+            confirmSendRequest: "¿Enviar solicitude de amizade a ",
+            requestSentSuccessfully: "Solicitude de amizade enviada correctamente",
+            requestFailed: "Erro ao enviar solicitude"
         },
         settings: {
             title: "Configuración",
@@ -594,7 +665,32 @@ const translations: Translations = {
             globalRanking: "Clasificación Global",
             globalRankingText: "Compite polo primeiro posto",
             security: "Seguridade",
-            securityText: "Os teus datos están protexidos"
+            securityText: "Os teus datos están protexidos",
+            saving: "⏳ Gardando..."
+        },
+        alerts: {
+            failRequest: "❌ Erro ó rexeitar a solicitude:",
+            network: "❌ Erro de rede",
+            noAccept: "❌ Non se puido aceptar",
+            google: "❌ Erro na autenticación con Google",
+            connection: "❌ Erro de conexión",
+            failLogin: "❌ Inicio de sesión fallido",
+            emptyFields: "❌ Por favor, completa todos os campos",
+            avatarOk: "✅ Avatar subido correctamente",
+            avatarFail: "❌ Erro ó subir o avatar",
+            history: "❌ Debes iniciar sesión para descargalo historial",
+            historyError: "❌ Erro ao descargar o historial",
+            passError: "❌ Os contrasinais non coinciden",
+            successLogin: "✅ Rexistro exitoso! Agora podes iniciar sesión",
+            errorLogin: "❌ Erro: ",
+            registerError: "❌ Erro no rexistro",
+            serverError: "❌ Erro de conexión co servidor",
+            successProfile: "✅ Perfil actualizado con éxito",
+            successChanges: "✅ Configuración do xogo gardada con éxito",
+            errorChanges: "❌ Erro ao gardar a configuración do xogo",
+            challenging: "Desafiando",
+            requestSentSuccessfully: "✅ Solicitude de amizade enviada correctamente",
+            requestFailed: "❌ Erro ao enviar a solicitude"
         }
     },
     zh: {
@@ -743,15 +839,22 @@ const translations: Translations = {
         },
         friends: {
             friends: "朋友",
-            friendsManagement: "在 Transcendence 中管理你的好友关系",
+            friendsManagement: "在Transcendence中管理你的朋友",
             yourFriends: "你的朋友",
             sendRequests: "添加朋友",
-            incomingRequests: "收到的请求",
-            noUsersAvailable: "没有可用的用户",
-            noRequests: "没有好友请求",
-            noFriends: "你还没有朋友",
+            incomingRequests: "请求",
+            noUsersAvailable: "没有用户",
+            noRequests: "没有请求",
+            noFriends: "你没有朋友",
             challengeButton: "挑战",
-            sendRequestButton: "申请"
+            sendRequestButton: "请求",
+            requestSent: "已发送",
+            sentError: "发送请求时出错",
+            requestAccepted: "✅ 请求已接受",
+            requestRejected: "❌ 请求已拒绝",
+            confirmSendRequest: "向",
+            requestSentSuccessfully: "好友请求发送成功",
+            requestFailed: "发送请求失败"
         },
         settings: {
             title: "设置",
@@ -790,7 +893,32 @@ const translations: Translations = {
             globalRanking: "全球排名",
             globalRankingText: "争夺排行榜首位",
             security: "安全",
-            securityText: "你的数据已被保护"
+            securityText: "你的数据已被保护",
+            saving: "⏳ 正在保存..."
+        },
+        alerts: {
+            failRequest: "❌ 拒绝请求时出错：",
+            network: "❌ 网络错误",
+            noAccept: "❌ 无法接受",
+            google: "❌ Google 认证错误",
+            connection: "❌ 连接错误",
+            failLogin: "❌ 登录失败",
+            emptyFields: "❌ 请填写所有字段",
+            avatarOk: "✅ 头像上传成功",
+            avatarFail: "❌ 上传头像失败",
+            history: "❌ 您必须登录才能下载历史记录",
+            historyError: "❌ 下载历史记录失败",
+            passError: "❌ 密码不匹配",
+            successLogin: "✅ 注册成功！现在可以登录",
+            errorLogin: "❌ 错误：",
+            registerError: "❌ 注册错误",
+            serverError: "❌ 与服务器连接出错",
+            successProfile: "✅ 个人资料更新成功",
+            successChanges: "✅ 游戏设置已成功保存",
+            errorChanges: "❌ 保存游戏设置时出错",
+            challenging: "正在挑战",
+            requestSentSuccessfully: "✅ 好友请求发送成功",
+            requestFailed: "❌ 发送请求失败"
         }
     }
 };

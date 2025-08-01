@@ -29,14 +29,19 @@ export async function getAvailableUsersHandler(request: FastifyRequest, reply: F
 }
 
 export async function sendFriendRequestHandler(request: FastifyRequest, reply: FastifyReply) {
-  const userId = (request as any).user.user_id;
-  const targetId = Number((request.params as any).targetId);
-  if (!userId || !targetId || userId === targetId) {
+  const requesterId = (request as any).user.user_id;
+  const { targetId } = request.body as { targetId: number };
+
+  console.log('🔍 [sendFriendRequestHandler] requesterId:', requesterId);
+  console.log('🔍 [sendFriendRequestHandler] targetId:', targetId);
+  console.log('🔍 [sendFriendRequestHandler] request.body:', request.body);
+
+  if (!targetId || requesterId === targetId) {
     return reply.status(400).send({ error: 'Invalid target user' });
   }
 
   try {
-    const result = await sendFriendRequest(userId, targetId);
+    const result = await sendFriendRequest(requesterId, targetId);
     return reply.send({ success: result });
   } catch (err) {
     console.error('Error sending friend request:', err);
