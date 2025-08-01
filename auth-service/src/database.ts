@@ -40,6 +40,7 @@ export async function initializeDb() {
             INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (5, NULL, 'en', 'true', 'true', 'normal');
             INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (6, NULL, 'es', 'true', 'true', 'normal');
             INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, sound, difficulty) VALUES (7, NULL, 'en', 'true', 'true', 'normal');
+
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (1, 1, 2, 'pending', datetime('now', '-1 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (2, 1, 4, 'accepted', datetime('now', '-2 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (3, 1, 6, 'accepted', datetime('now', '-3 hours'));
@@ -54,6 +55,7 @@ export async function initializeDb() {
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (11, 4, 7, 'accepted', datetime('now', '-11 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (12, 5, 6, 'accepted', datetime('now', '-12 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (13, 6, 7, 'accepted', datetime('now', '-13 hours'));
+
             INSERT OR IGNORE INTO tournaments (id, name, created_by, status, created_at) VALUES (1, 'Torneo Relámpago', 1, 'finished', datetime('now', '-1 days'));
             INSERT OR IGNORE INTO tournaments (id, name, created_by, status, created_at) VALUES (2, 'Copa Velocidad', 3, 'finished', datetime('now', '-2 days'));
             INSERT OR IGNORE INTO tournaments (id, name, created_by, status, created_at) VALUES (3, 'Torneo Express', 2, 'finished', datetime('now', '-3 days'));
