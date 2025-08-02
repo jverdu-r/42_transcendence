@@ -179,6 +179,10 @@ export class UnifiedGameRenderer {
                 reject(new Error('Not in online mode'));
                 return;
             }
+
+            // Prompt for LAN host/IP
+            let serverHost = window.prompt('Introduce la IP o hostname del host (LAN):', window.location.hostname);
+            if (!serverHost) serverHost = window.location.hostname;
             
             this.gameId = gameId;
             this.playerNumber = playerNumber;
@@ -186,11 +190,12 @@ export class UnifiedGameRenderer {
             // Connect to WebSocket
             const currentUser = getCurrentUser();
             const username = currentUser?.username || 'Usuario';
-            const wsUrl = `ws://localhost:8002/pong/${gameId}?username=${encodeURIComponent(username)}`;
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${serverHost}:8002/pong/${gameId}?username=${encodeURIComponent(username)}`;
             this.websocket = new WebSocket(wsUrl);
             
             this.websocket.onopen = () => {
-                console.log(`🔗 Connected to game ${gameId}`);
+                console.log(`🔗 Connected to game ${gameId} at ${wsUrl}`);
                 resolve(true);
             };
             
@@ -316,11 +321,11 @@ export class UnifiedGameRenderer {
         
         // Right paddle
         if (this.gameMode === 'local') {
-            // Player 2 controls
-            if (this.keys['ArrowUp'] && this.gameState.paddles.right.y > 0) {
+            // Player 2 controls, now 'o' (up) and 'l' (down)
+            if ((this.keys['o'] || this.keys['O']) && this.gameState.paddles.right.y > 0) {
                 this.gameState.paddles.right.y -= speed;
             }
-            if (this.keys['ArrowDown'] && 
+            if ((this.keys['l'] || this.keys['L']) && 
                 this.gameState.paddles.right.y < this.canvas.height - this.gameState.paddles.right.height) {
                 this.gameState.paddles.right.y += speed;
             }
@@ -508,7 +513,7 @@ export class UnifiedGameRenderer {
         
         this.ctx.font = '16px Arial';
         if (this.gameMode === 'local') {
-            this.ctx.fillText('Jugador 1: W/S - Jugador 2: ↑/↓', this.canvas.width / 2, this.canvas.height / 2 + 40);
+            this.ctx.fillText('Jugador 1: W/S - Jugador 2: O/L', this.canvas.width / 2, this.canvas.height / 2 + 40);
         } else if (this.gameMode === 'ai') {
             this.ctx.fillText('Jugador: W/S - IA controlada automáticamente', this.canvas.width / 2, this.canvas.height / 2 + 40);
         } else if (this.gameMode === 'online') {
