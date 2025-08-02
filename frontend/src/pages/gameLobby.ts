@@ -46,17 +46,17 @@ class GameLobby {
                 navigateTo('/unified-game-online');
                 return;
             }
-            
-            // Get username from authenticated user
+            // LAN manual input prompt
+            let serverHost = window.prompt('Introduce la IP o hostname del host (LAN):', window.location.hostname);
+            if (!serverHost) serverHost = window.location.hostname;
             const currentUser = getCurrentUser();
             const username = encodeURIComponent(currentUser?.username || 'Usuario');
-            
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.hostname}:8002/pong/${gameId}?username=${username}`;
+            const wsUrl = `${protocol}//${serverHost}:8002/pong/${gameId}?username=${username}`;
             this.ws = new WebSocket(wsUrl);
 
             this.ws.onopen = () => {
-                console.log('Connected to game service');
+                console.log('Connected to game service [' + wsUrl + ']');
                 // No need to send a join message, the connection itself handles joining
             };
 
@@ -210,7 +210,7 @@ class GameLobby {
                     <div class="player-slot ${this.state.playerNumber === 1 ? 'current-player' : ''}">
                         <div class="player-info">
                             <h3>Jugador 1</h3>
-                            <p>${this.state.playerNumber === 1 ? 'Tú' : (this.state.opponentName || 'Esperando...')}</p>
+                            <p>${this.state.playerNumber === 1 ? 'Tú' : (this.state.opponentName || 'Waiting for a new challenger')}</p>
                         </div>
                         <div class="player-status ${this.state.playersConnected >= 1 ? 'connected' : 'waiting'}">
                             ${this.state.playersConnected >= 1 ? '✓ Conectado' : '⏳ Esperando'}
@@ -222,7 +222,7 @@ class GameLobby {
                     <div class="player-slot ${this.state.playerNumber === 2 ? 'current-player' : ''}">
                         <div class="player-info">
                             <h3>Jugador 2</h3>
-                            <p>${this.state.playerNumber === 2 ? 'Tú' : (this.state.opponentName || 'Esperando...')}</p>
+                            <p>${this.state.playerNumber === 2 ? 'Tú' : (this.state.opponentName || 'Waiting for a new challenger')}</p>
                         </div>
                         <div class="player-status ${this.state.playersConnected >= 2 ? 'connected' : 'waiting'}">
                             ${this.state.playersConnected >= 2 ? '✓ Conectado' : '⏳ Esperando'}
