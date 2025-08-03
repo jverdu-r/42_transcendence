@@ -9,7 +9,7 @@ import { openDb, initializeDb } from './database';
 import multipart from '@fastify/multipart';
 import { pipeline } from 'stream';
 import util from 'util';
-import { FastifyRequest } from 'fastify';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { MultipartFile } from '@fastify/multipart';
 import { createCanvas, loadImage } from 'canvas';
 import { verifyToken } from './utils/auth-middleware';
@@ -56,6 +56,141 @@ fastify.register(require('@fastify/static'), {
   prefix: '/avatars/',
   decorateReply: false // evita conflicto
 });
+
+// --- Función: generateRankingWithStats ---
+export async function generateRankingWithStats(db: any) {
+  const userGames = await db.all(`
+    SELECT 
+        u.id AS user_id,
+        u.username,
+        GROUP_CONCAT(DISTINCT p1.game_id) AS game_ids_str
+    FROM 
+        users u
+    JOIN participants p1 ON u.id = p1.user_id
+    JOIN games g ON g.id = p1.game_id
+    WHERE 
+        g.status = 'finished'
+        AND EXISTS (
+            SELECT 1
+            FROM participants p2
+            WHERE 
+                p2.game_id = p1.game_id
+                AND (
+                    p2.user_id IS NULL
+                    OR TRIM(p2.user_id) = ''
+                    OR p2.user_id != p1.user_id
+                )
+        )
+    GROUP BY u.id, u.username
+    ORDER BY u.id;
+  `);
+
+  const userGameDetails: any[] = [];
+
+  for (const user of userGames) {
+    const gameIdList = user.game_ids_str
+      ? user.game_ids_str.split(',').map((id: string) => parseInt(id.trim()))
+      : [];
+
+    const gamesDetails: any[] = [];
+    let totalGames = 0;
+    let wins = 0;
+    let losses = 0;
+    let pointsFor = 0;
+    let pointsAgainst = 0;
+    let eloWins = 0;
+    let eloLosses = 0;
+
+    for (const gameId of gameIdList) {
+      const gameDetail = await db.get(`
+        SELECT 
+            g.id AS game_id,
+            g.finished_at AS game_date,
+            t.name AS tournament_name,
+            p1.user_id AS user_id,
+            u1.username AS user_username,
+            p1.team_name AS user_team,
+            p1.is_winner AS user_won,
+            p2.user_id AS opponent_id,
+            u2.username AS opponent_username,
+            p2.team_name AS opponent_team,
+            p2.is_winner AS opponent_won,
+            COALESCE((
+              SELECT s1.point_number
+              FROM scores s1
+              WHERE s1.game_id = g.id AND (s1.scorer_id = p1.user_id OR s1.team_name = p1.team_name)
+              LIMIT 1
+            ), 0) AS user_score,
+            COALESCE((
+              SELECT s2.point_number
+              FROM scores s2
+              WHERE s2.game_id = g.id AND (s2.scorer_id = p2.user_id OR s2.team_name = p2.team_name)
+              LIMIT 1
+            ), 0) AS opponent_score
+        FROM games g
+        LEFT JOIN tournaments t ON g.tournament_id = t.id
+        JOIN participants p1 ON g.id = p1.game_id
+        JOIN users u1 ON p1.user_id = u1.id
+        JOIN participants p2 ON g.id = p2.game_id
+          AND (
+            (p2.user_id IS NULL OR TRIM(p2.user_id) = '') 
+            OR p2.user_id != p1.user_id
+          )
+        LEFT JOIN users u2 ON p2.user_id = u2.id
+        WHERE 
+            g.id = ?
+            AND p1.user_id = ?
+        GROUP BY g.id, t.name, u1.username, u2.username, p1.is_winner, p2.is_winner;
+      `, [gameId, user.user_id]);
+
+      if (!gameDetail) continue;
+
+      const { user_score, opponent_score, opponent_id } = gameDetail;
+      const won = user_score > opponent_score;
+
+      totalGames++;
+      if (won) wins++;
+      else losses++;
+
+      if (opponent_id !== null && String(opponent_id).trim() !== '') {
+        pointsFor += user_score;
+        pointsAgainst += opponent_score;
+        if (won) eloWins++;
+        else eloLosses++;
+      }
+
+      gamesDetails.push({
+        game_id: gameDetail.game_id,
+        date: gameDetail.game_date,
+        tournament_name: gameDetail.tournament_name || '-',
+        result: won ? 'win' : 'loss',
+        opponent_id: opponent_id,
+        opponent_name: gameDetail.opponent_username || (opponent_id === null ? 'AI Bot' : 'Unknown'),
+        final_score: `${user_score}-${opponent_score}`
+      });
+    }
+
+    const winRate = totalGames > 0 ? parseFloat(((wins / totalGames) * 100).toFixed(2)) : 0;
+    const elo = 1000 + (pointsFor - pointsAgainst) + (3 * eloWins) - eloLosses;
+
+    userGameDetails.push({
+      user_id: user.user_id,
+      username: user.username,
+      stats: {
+        total_games: totalGames,
+        wins,
+        losses,
+        win_rate: winRate,
+        points_for: pointsFor,
+        points_against: pointsAgainst,
+        elo: Math.round(elo)
+      },
+      games: gamesDetails
+    });
+  }
+
+  return userGameDetails;
+}
 
 // Endpoint para registrar un nuevo usuario
 fastify.post('/auth/register', async (request, reply) => {
@@ -317,134 +452,44 @@ fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request
  
 // Endpoint para obtener estadísticas del usuario y generar archivo de historial
 fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, reply) => {
+  let db;
   try {
-    const db = await openDb();
-    const userId = (request as any).user.user_id;
+    db = await openDb();
+    const userId = (request as any).user.user_id; 
 
-    // Obtener todas las partidas completadas con su info de jugadores
-    const games = await db.all(`
-      SELECT
-        g.id AS game_id,
-        g.finished_at,
-        g.status,
-        g.tournament_id,
-        p.user_id AS player_id,
-        p.team_name AS team,
-        u.username,
-        t.name AS tournament_name
-      FROM games g
-      JOIN participants p ON p.game_id = g.id
-      LEFT JOIN users u ON u.id = p.user_id
-      LEFT JOIN tournaments t ON g.tournament_id = t.id
-      WHERE g.status IN ('finished')
-    `);
+    const rankingData = await generateRankingWithStats(db);
+    const userData = rankingData.find((u: any) => u.user_id === userId);
 
-    // Obtener todos los scores por game + team
-    const scores = await db.all(`
-      SELECT game_id, team_name, point_number
-      FROM scores
-    `);
-
-    const scoreMap = new Map<string, number>();
-    for (const s of scores) {
-      scoreMap.set(`${s.game_id}_${s.team_name}`, s.point_number);
+    if (!userData) {
+      await db.close();
+      return reply.code(404).send({ message: 'Usuario no encontrado en el ranking' });
     }
 
-    // Agrupar los jugadores por game_id
-    const groupedGames = new Map<number, any[]>();
-    for (const g of games) {
-      if (!groupedGames.has(g.game_id)) groupedGames.set(g.game_id, []);
-      groupedGames.get(g.game_id)!.push(g);
-    }
+    const totalGames = userData.stats.total_games;
+    const wins = userData.stats.wins;
+    const losses = userData.stats.losses;
+    const winRate = userData.stats.win_rate;
+    const elo = userData.stats.elo;
+    const matchHistory = userData.games;
 
-    // Preparar stats individuales
-    const userGames = new Map<number, {
-      matches: any[],
-      pointsFor: number,
-      pointsAgainst: number
-    }>();
-
-    for (const [gameId, players] of groupedGames.entries()) {
-      if (players.length < 1) continue;
-
-      for (const current of players) {
-        const opponent = players.find(p => p.player_id !== current.player_id && p.user_id !== null) || null;
-
-        const userScore = scoreMap.get(`${gameId}_${current.team}`) ?? 0;
-
-        let opponentScore = 0;
-        let opponentName = 'Bot AI';
-
-        if (opponent) {
-          opponentScore = scoreMap.get(`${gameId}_${opponent.team}`) ?? 0;
-          opponentName = opponent.username || 'Bot AI';
-        } else {
-          // Buscar en scores el otro equipo aunque no haya participant asociado
-          const allTeams = scores
-            .filter(s => s.game_id === gameId)
-            .map(s => s.team_name);
-          const otherTeam = allTeams.find(t => t !== current.team);
-          if (otherTeam) {
-            opponentScore = scoreMap.get(`${gameId}_${otherTeam}`) ?? 0;
-          }
-        }
-
-        if (!userGames.has(current.player_id)) {
-          userGames.set(current.player_id, {
-            matches: [],
-            pointsFor: 0,
-            pointsAgainst: 0
-          });
-        }
-
-        userGames.get(current.player_id)!.pointsFor += userScore;
-        userGames.get(current.player_id)!.pointsAgainst += opponentScore;
-
-        userGames.get(current.player_id)!.matches.push({
-          id: gameId,
-          result: userScore > opponentScore ? 'win' : 'loss',
-          opponent: opponentName,
-          score: `${userScore}-${opponentScore}`,
-          date: current.finished_at,
-          tournament: current.tournament_name || '-'
-        });
-      }
-    }
-
-    // Calcular ELOs
-    const eloList = Array.from(userGames.entries()).map(([uid, data]) => ({
-      user_id: uid,
-      elo: 1000 + data.pointsFor - data.pointsAgainst
-    }));
-
-    // Asegurar que todos los usuarios están presentes (aun sin partidas)
-    const allUsers = await db.all(`SELECT id FROM users`);
-    for (const u of allUsers) {
-      if (!userGames.has(u.id)) {
-        userGames.set(u.id, { matches: [], pointsFor: 0, pointsAgainst: 0 });
-        eloList.push({ user_id: u.id, elo: 1000 });
-      }
-    }
-
-    eloList.sort((a, b) => b.elo - a.elo);
-    const ranking = eloList.findIndex(u => u.user_id === userId) + 1;
-
-    const userData = userGames.get(userId)!;
-    const wins = userData.matches.filter(m => m.result === 'win').length;
-    const losses = userData.matches.filter(m => m.result === 'loss').length;
-    const totalGames = wins + losses;
-    const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
-    const elo = 1000 + userData.pointsFor - userData.pointsAgainst;
-
-    const matchHistory = userData.matches.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+    const sortedRanking = [...rankingData].sort((a: any, b: any) => b.stats.elo - a.stats.elo);
+    const ranking = sortedRanking.findIndex((u: any) => u.user_id === userId) + 1;
 
     // Guardar historial completo en txt
     const filePath = path.resolve('/app/data/historial_partidas.txt');
-    const matchHistoryText = matchHistory.map(entry =>
-      `Partida ${entry.id} | Resultado: ${entry.result} | Oponente: ${entry.opponent} | Torneo: ${entry.tournament} | Marcador: ${entry.score} | Fecha: ${entry.date}`
+    const matchHistoryText = matchHistory.map((entry: {
+      game_id: number;
+      result: string;
+      opponent_name: string;
+      tournament_name: string;
+      final_score: string;
+      date: string;
+    }) =>
+      `Partida ${entry.game_id} | Resultado: ${entry.result} | Oponente: ${entry.opponent_name} | Torneo: ${entry.tournament_name} | Marcador: ${entry.final_score} | Fecha: ${entry.date}`
     );
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
     fs.writeFileSync(filePath, matchHistoryText.join('\n'));
 
     // Avatar
@@ -470,142 +515,35 @@ fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, 
 
 // Endpoint para obtener el ranking global completo (top 100)
 fastify.get('/auth/ranking', async (request, reply) => {
+  let db: any;
   try {
-    const db = await openDb();
+    db = await openDb();
 
-    // Obtener partidas finalizadas
-    const games = await db.all(`
-      SELECT
-        g.id AS game_id,
-        g.finished_at,
-        g.status,
-        g.tournament_id,
-        p.user_id AS player_id,
-        p.team_name AS team,
-        u.username,
-        t.name AS tournament_name
-      FROM games g
-      JOIN participants p ON p.game_id = g.id
-      LEFT JOIN users u ON u.id = p.user_id
-      LEFT JOIN tournaments t ON g.tournament_id = t.id
-      WHERE g.status IN ('finished')
-    `);
+    const allUsers = await generateRankingWithStats(db);
 
-    // Scores
-    const scores = await db.all(`
-      SELECT game_id, team_name, point_number
-      FROM scores
-    `);
-
-    const scoreMap = new Map<string, number>();
-    for (const s of scores) {
-      scoreMap.set(`${s.game_id}_${s.team_name}`, s.point_number);
-    }
-
-    // Agrupar jugadores por partida
-    const groupedGames = new Map<number, any[]>();
-    for (const g of games) {
-      if (!groupedGames.has(g.game_id)) groupedGames.set(g.game_id, []);
-      groupedGames.get(g.game_id)!.push(g);
-    }
-
-    // Calcular estadísticas por jugador
-    const userGames = new Map<number, {
-      username: string;
-      wins: number;
-      losses: number;
-      pointsFor: number;
-      pointsAgainst: number;
-    }>();
-
-    for (const [gameId, players] of groupedGames.entries()) {
-      if (players.length < 1) continue;
-
-      for (const current of players) {
-        const uid = current.player_id;
-        if (!uid) continue;
-
-        const opponent = players.find(p => p.player_id !== uid && p.user_id !== null) || null;
-        const userScore = scoreMap.get(`${gameId}_${current.team}`) ?? 0;
-
-        let opponentScore = 0;
-        if (opponent) {
-          opponentScore = scoreMap.get(`${gameId}_${opponent.team}`) ?? 0;
-        } else {
-          // Buscar el otro equipo aunque sea contra bot
-          const allTeams = scores
-            .filter(s => s.game_id === gameId)
-            .map(s => s.team_name);
-          const otherTeam = allTeams.find(t => t !== current.team);
-          if (otherTeam) {
-            opponentScore = scoreMap.get(`${gameId}_${otherTeam}`) ?? 0;
-          }
-        }
-
-        if (!userGames.has(uid)) {
-          userGames.set(uid, {
-            username: current.username || `User${uid}`,
-            wins: 0,
-            losses: 0,
-            pointsFor: 0,
-            pointsAgainst: 0
-          });
-        }
-
-        const stats = userGames.get(uid)!;
-        stats.pointsFor += userScore;
-        stats.pointsAgainst += opponentScore;
-        if (userScore > opponentScore) {
-          stats.wins += 1;
-        } else {
-          stats.losses += 1;
-        }
-      }
-    }
-
-    // Asegurar que todos los usuarios están en el ranking
-    const allUsers = await db.all(`SELECT id, username FROM users`);
-    for (const u of allUsers) {
-      if (!userGames.has(u.id)) {
-        userGames.set(u.id, {
-          username: u.username,
-          wins: 0,
-          losses: 0,
-          pointsFor: 0,
-          pointsAgainst: 0
-        });
-      }
-    }
-
-    // Calcular ELO y preparar la respuesta
-    const rankingRaw = Array.from(userGames.entries()).map(([uid, data]) => {
-      const totalGames = data.wins + data.losses;
-      const winRate = totalGames > 0 ? Math.round((data.wins / totalGames) * 100) : 0;
-      const elo = 1000 + data.pointsFor - data.pointsAgainst;
-
-      return {
-        id: uid,
-        username: data.username,
-        wins: data.wins,
-        losses: data.losses,
-        totalGames,
-        winRate,
-        elo
-      };
-    });
-
-    rankingRaw.sort((a, b) => b.elo - a.elo);
+    const rankingRaw = allUsers
+      .map(user => ({
+        id: user.user_id,
+        username: user.username,
+        wins: user.stats.wins,
+        losses: user.stats.losses,
+        totalGames: user.stats.total_games,
+        winRate: user.stats.win_rate,
+        elo: user.stats.elo
+      }))
+      .sort((a, b) => b.elo - a.elo);
 
     const rankingTop100 = rankingRaw.slice(0, 100).map((entry, index) => ({
       ...entry,
       rank: index + 1,
-      points: entry.elo // puedes ajustar esto si usas un sistema distinto de puntos
+      points: entry.elo
     }));
 
     await db.close();
     return reply.send(rankingTop100);
   } catch (err) {
     console.error('Error obteniendo ranking:', err);
+    if (db) await db.close().catch(console.error);
     return reply.code(500).send({ message: 'Error interno del servidor' });
   }
 });
