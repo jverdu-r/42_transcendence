@@ -113,7 +113,7 @@ export async function sendFriendRequest(requesterId: number, targetId: number): 
 
     // Insertar nueva solicitud
     await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-      sql: `INSERT INTO friendships (requester_id, approver_id, status) VALUES (?, ?, 'pending')`,
+      sql: `INSERT OR IGNORE INTO friendships (requester_id, approver_id, status) VALUES (?, ?, 'pending')`,
       params: [requesterId, targetId]
     }));
 

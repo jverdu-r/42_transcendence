@@ -521,7 +521,7 @@ fastify.get("/api/games", async (request, reply) => {
       createdAt: game.createdAt
     }));
     
-    reply.send({ success: true, games });
+    return reply.send({ success: true, games });
   } catch (error) {
     fastify.log.error("Error getting API games:", error);
     reply.status(500).send({ success: false, error: "Failed to get games list" });
@@ -556,7 +556,7 @@ fastify.post("/api/games", async (request: any, reply) => {
     
     activeGames.set(gameId, game);
     
-    reply.send({
+    return reply.send({
       id: gameId,
       nombre: nombre || `Partida de ${finalPlayerName}`,
       // ... más propiedades

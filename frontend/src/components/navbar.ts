@@ -24,7 +24,7 @@ export function renderNavbar(currentPath: string): void {
                         <a href="/ranking" class="${currentPath === '/ranking' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('navbar', 'ranking')}</a>
                     </li>
                     <li>
-                        <a href="/torneos" class="${currentPath === '/tournaments' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('navbar', 'tournaments')}</a>
+                        <a href="/tournaments" class="${currentPath === '/tournaments' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('navbar', 'tournaments')}</a>
                     </li>
                     <li>
                         <a href="/chat" class="${currentPath === '/chat' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('navbar', 'chat')}</a>
@@ -104,7 +104,7 @@ export function renderNavbar(currentPath: string): void {
                             <a href="/ranking" class="${currentPath === '/ranking' ? 'block text-[#ffc300] font-bold text-xl transition-colors duration-200 border-b-2 border-[#ffc300] px-4 py-2 hover:text-[#ffd60a]' : 'block text-gray-200 hover:text-[#ffc300] font-medium text-xl transition-colors duration-200 px-4 py-2'}">${getTranslation('navbar', 'ranking')}</a>
                             </li>
                         <li>
-                            <a href="/torneos" class="${currentPath === '/tournaments' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('navbar', 'tournaments')}</a>
+                            <a href="/tournaments" class="${currentPath === '/tournaments' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('navbar', 'tournaments')}</a>
                         </li>
                         <li>
                             <a href="/chat" class="${currentPath === '/chat' ? 'text-[#ffc300] font-bold text-lg transition-colors duration-200 border-b-2 border-[#ffc300] pb-1 hover:text-[#ffd60a]' : 'text-gray-200 hover:text-[#ffc300] font-medium text-lg transition-colors duration-200'}">${getTranslation('navbar', 'chat')}</a>

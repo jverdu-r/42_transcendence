@@ -175,6 +175,14 @@ const translations: Translations = {
             friendDeleted: 'Amigo eliminado correctamente',
             deletingError: "Error eliminando amigo"
         },
+        chat: {
+            underConstruction: "¡En construcción!",
+            comingSoon: "Pronto podrás chatear en Transcendence"
+        },
+        tournaments: {
+            underConstruction: "¡En construcción!",
+            comingSoon: "¡¡Próximamente!!"
+        },
         settings: {
             title: "Configuración",
             subtitle: "Personaliza tu experiencia de juego y gestiona tu cuenta",
@@ -187,7 +195,7 @@ const translations: Translations = {
             changePassword: "Cambiar Contraseña",
             currentPasswordLabel: "Contraseña Actual",
             currentPasswordPlaceholder: "Ingresa tu contraseña actual",
-            saveChanges: "💾 Guardar Cambios",
+            saveChanges: "Guardar Cambios",
             gameConfigSectionTitle: "Configuración del juego",
             gameConfigSectionSubtitle: "Personaliza tu experiencia de juego",
             newPasswordLabel: "Nueva Contraseña",
@@ -405,6 +413,14 @@ const translations: Translations = {
             confirmDelete: 'Are you sure you want to delete this friend?',
             friendDeleted: 'Friend successfully deleted',
             deletingError: 'Error deleting friend'
+        },
+        chat: {
+            underConstruction: "Under construction!",
+            comingSoon: "Soon you’ll be able to chat in Transcendence"
+        },
+        tournaments: {
+            underConstruction: "Under construction!",
+            comingSoon: "Coming soon!!"
         },
         settings: {
             title: "Settings",
@@ -637,6 +653,14 @@ const translations: Translations = {
             friendDeleted: 'Amistade ó carallo',
             deletingError: 'Erro ó borralo amigo'
         },
+        chat: {
+            underConstruction: "En construción!",
+            comingSoon: "Pronto poderás chatear en Transcendence"
+        },
+        tournaments: {
+            underConstruction: "En construción!",
+            comingSoon: "Axiña poderás xogar campionatos!!"
+        },
         settings: {
             title: "Configuración",
             subtitle: "Personaliza a túa experiencia de xogo e xestiona a túa conta",
@@ -867,6 +891,14 @@ const translations: Translations = {
             confirmDelete: '您确定要删除这个好友吗？',
             friendDeleted: '好友已成功删除',
             deletingError: '删除好友时出错'
+        },
+        chat: {
+            underConstruction: "建设中！",
+            comingSoon: "很快你就能在 Transcendence 中聊天了"
+        },
+        tournaments: {
+            underConstruction: "建设中！",
+            comingSoon: "很快你就能在 Transcendence 中聊天了"
         },
         settings: {
             title: "设置",
