@@ -428,7 +428,7 @@ fastify.get("/api/games", async (request, reply) => {
       createdAt: game.createdAt
     }));
     
-    reply.send({ success: true, games });
+    return reply.send({ success: true, games });
   } catch (error) {
     fastify.log.error("Error getting API games:", error);
     reply.status(500).send({ success: false, error: "Failed to get games list" });
@@ -477,7 +477,7 @@ fastify.post("/api/games", async (request: any, reply) => {
       createdAt: game.createdAt
     };
     
-    reply.send(formattedGame);
+    return reply.send(formattedGame);
   } catch (error) {
     fastify.log.error("Error creating API game:", error);
     reply.status(500).send({ success: false, error: "Failed to create game" });
@@ -513,7 +513,7 @@ fastify.get("/api/games/:gameId", async (request: any, reply) => {
       createdAt: game.createdAt
     };
     
-    reply.send(formattedGame);
+    return reply.send(formattedGame);
   } catch (error) {
     fastify.log.error("Error getting API game:", error);
     reply.status(500).send({ success: false, error: "Failed to get game" });

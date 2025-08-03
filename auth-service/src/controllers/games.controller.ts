@@ -50,7 +50,7 @@ export const startGameHandler = async (req: FastifyRequest, reply: FastifyReply)
     });
     await GameService.initScore(gameId, userId2, player2.teamName);
 
-    reply.send({ success: true });
+    return reply.send({ success: true });
   } catch (error) {
     console.error('❌ Error in /api/games/start:', error);
     reply.status(500).send({ error: 'Failed to start game' });
