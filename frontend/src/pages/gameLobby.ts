@@ -85,14 +85,14 @@ class GameLobby {
             console.log('Received message:', data);
 
             switch (data.type) {
-                case 'game_joined':
+                case 'gameJoined':
                     this.state.gameId = data.gameId;
                     this.state.playerNumber = data.playerNumber;
                     this.state.playersConnected = data.playersConnected;
                     this.updateUI();
                     break;
 
-                case 'player_joined':
+                case 'playerJoined':
                     this.state.playersConnected = data.playersConnected;
                     if (data.playerName && data.playerNumber !== this.state.playerNumber) {
                         this.state.opponentName = data.playerName;
@@ -100,11 +100,11 @@ class GameLobby {
                     this.updateUI();
                     break;
 
-                case 'countdown_start':
+                case 'countdownStart':
                     this.startCountdown();
                     break;
 
-                case 'countdown_update':
+                case 'countdownUpdate':
                     this.state.countdownValue = data.count;
                     this.updateUI();
                     break;
@@ -147,44 +147,39 @@ class GameLobby {
         canvas.style.margin = '0 auto';
         this.container.appendChild(canvas);
         
-        // Initialize the game renderer
-        this.renderer = new UnifiedGameRenderer(canvas, 'online');
-        this.renderer.setCallbacks({
-            onScoreUpdate: (score: { left: number; right: number }) => {
-                console.log('Score updated:', score);
-            },
-            onGameEnd: (winner: string) => {
-                console.log('Game ended, winner:', winner);
-                this.handleGameEnd(winner);
-            }
-        });
+            // Initialize the game renderer and transfer the WebSocket connection
+            this.renderer = new UnifiedGameRenderer(canvas, 'online');
+            this.renderer.setCallbacks({
+                onScoreUpdate: (score: { left: number; right: number }) => {
+                    console.log('Score updated:', score);
+                },
+                onGameEnd: (winner: string) => {
+                    console.log('Game ended, winner:', winner);
+                    this.handleGameEnd(winner);
+                }
+            });
 
-        // Don't create a new WebSocket connection, the game is already started
-        // Just start the renderer's game loop
-        console.log('Game renderer initialized, starting game...');
-        this.renderer.startGame();
-        
-        // Forward WebSocket messages from lobby to renderer
-        if (this.ws) {
-            const originalOnMessage = this.ws.onmessage;
-            const ws = this.ws; // Store reference to avoid null check issues
-            this.ws.onmessage = (event) => {
-                // First handle lobby messages
-                if (originalOnMessage) {
-                    originalOnMessage.call(ws, event);
-                }
+            // Transfer the existing WebSocket connection to the renderer
+            if (this.state.gameId && this.state.playerNumber !== null && this.renderer && this.ws) {
+                console.log('Transferring WebSocket connection to game renderer...');
+                this.renderer.setWebSocketConnection(this.ws, this.state.gameId);
+                this.renderer.startGame();
                 
-                // Then forward game state messages to renderer
-                try {
-                    const data = JSON.parse(event.data);
-                    if (data.type === 'gameState' && this.renderer) {
-                        this.renderer.updateGameState(data.data.gameState);
+                // Transfer WebSocket message handling to the renderer
+                this.ws.onmessage = (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        this.renderer?.handleWebSocketMessage(message);
+                    } catch (error) {
+                        console.error('Error parsing WebSocket message in game:', error);
                     }
-                } catch (error) {
-                    console.error('Error forwarding message to renderer:', error);
-                }
-            };
-        }
+                };
+                
+                // Don't close the WebSocket in cleanup anymore since renderer owns it
+                this.ws = null;
+            }
+
+            // Do NOT re-assign this.ws.onmessage (let renderer do it)
     }
 
     private handleGameEnd(winner: string): void {

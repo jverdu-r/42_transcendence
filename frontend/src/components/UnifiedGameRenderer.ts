@@ -58,10 +58,17 @@ export class UnifiedGameRenderer {
     private gameId?: string;
     private websocket?: WebSocket;
     private playerNumber?: number;
+    private playerId?: string;
     
     // AI properties
     private aiDifficulty: 'easy' | 'medium' | 'hard' = 'medium';
     private aiSpeed: number = 3;
+
+    // Allow external (lobby) setup of WebSocket for online mode
+    public setWebSocketConnection(ws: WebSocket, gameId: string) {
+        this.websocket = ws;
+        this.gameId = gameId;
+    }
     
     constructor(canvas: HTMLCanvasElement, mode: GameMode) {
         this.canvas = canvas;
@@ -109,54 +116,42 @@ export class UnifiedGameRenderer {
     }
     
     private setupEventListeners(): void {
-        if (this.gameMode === 'local' || this.gameMode === 'ai') {
+        console.log("[UnifiedGameRenderer] setupEventListeners called, mode:", this.gameMode);
+        if (this.gameMode === 'local' || this.gameMode === 'ai' || this.gameMode === 'online') {
             document.addEventListener('keydown', this.handleKeyDown.bind(this));
             document.addEventListener('keyup', this.handleKeyUp.bind(this));
         }
     }
     
     private handleKeyDown(e: KeyboardEvent): void {
+        console.log("[UnifiedGameRenderer] handleKeyDown", e.key, "mode:", this.gameMode);
         this.keys[e.key] = true;
-        
-        // Send input to server if online mode
+        // Send only 'up'/'down' (classic backend protocol)
         if (this.gameMode === 'online' && this.websocket && this.gameId) {
-            this.sendPlayerInput(e.key, 'down');
+            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+                this.sendPlayerMove('up');
+            } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+                this.sendPlayerMove('down');
+            }
         }
     }
-    
+
     private handleKeyUp(e: KeyboardEvent): void {
         this.keys[e.key] = false;
-        
-        // Send input to server if online mode
-        if (this.gameMode === 'online' && this.websocket && this.gameId) {
-            this.sendPlayerInput(e.key, 'up');
-        }
+        // Do NOT send anything on keyup for classic server
     }
-    
-    private sendPlayerInput(key: string, action: 'up' | 'down'): void {
-        if (!this.websocket || !this.gameId) return;
-        
-        let direction: string | null = null;
-        
-        if ((key === 'w' || key === 'W' || key === 'ArrowUp') && action === 'down') {
-            direction = 'up';
-        } else if ((key === 's' || key === 'S' || key === 'ArrowDown') && action === 'down') {
-            direction = 'down';
-        } else if ((key === 'w' || key === 'W' || key === 's' || key === 'S' || 
-                  key === 'ArrowUp' || key === 'ArrowDown') && action === 'up') {
-            direction = 'stop';
-        }
-        
-        if (direction) {
-            this.websocket.send(JSON.stringify({
-                type: 'playerMove',
-                data: {
-                    gameId: this.gameId,
-                    direction: direction,
-                    playerNumber: this.playerNumber
-                }
-            }));
-        }
+
+    /**
+     * For classic backend: send only up/down as soon as pressed. Never send 'stop'.
+     */
+    private sendPlayerMove(direction: 'up' | 'down'): void {
+        if (!this.websocket) return;
+        const msg = {
+            type: 'playerMove',
+            data: { direction }
+        };
+        console.log('[WebSocket] Sending playerMove:', msg);
+        this.websocket.send(JSON.stringify(msg));
     }
     
     public setPlayerInfo(player1: PlayerInfo, player2: PlayerInfo): void {
@@ -173,6 +168,9 @@ export class UnifiedGameRenderer {
         this.aiSpeed = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 3 : 4;
     }
     
+    /**
+     * Connect to online game. Save both playerNumber and playerId assigned by backend.
+     */
     public connectToOnlineGame(gameId: string, playerNumber: number): Promise<boolean> {
         return new Promise((resolve, reject) => {
             if (this.gameMode !== 'online') {
@@ -202,6 +200,13 @@ export class UnifiedGameRenderer {
             this.websocket.onmessage = (event) => {
                 try {
                     const message = JSON.parse(event.data);
+                    // On gameJoined/gameCreated, record playerId
+                    if (message.type === 'gameJoined' && message.data) {
+                        this.playerId = message.data.playerId;
+                    }
+                    if (message.type === 'gameCreated' && message.data) {
+                        this.playerId = message.data.playerId;
+                    }
                     this.handleWebSocketMessage(message);
                 } catch (error) {
                     console.error('Error parsing WebSocket message:', error);
@@ -220,9 +225,9 @@ export class UnifiedGameRenderer {
         });
     }
     
-    private handleWebSocketMessage(message: any): void {
+    public handleWebSocketMessage(message: any): void {
         const { type, data } = message;
-        
+        console.log('[WebSocket] Message received:', message); // Log everything
         switch (type) {
             case 'gameState':
                 if (data.gameState) {
@@ -244,6 +249,8 @@ export class UnifiedGameRenderer {
             case 'error':
                 this.callbacks.onStatusUpdate?.(`❌ Error: ${data.message}`);
                 break;
+            default:
+                console.warn('[WebSocket] Unknown message type:', type, message);
         }
     }
     

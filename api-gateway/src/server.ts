@@ -71,7 +71,7 @@ const fastify = Fastify({ logger: true });
   });
   // 🟡 REGISTRA CORS ANTES DE LOS PROXIES
   await fastify.register(fastifyCors, {
-    origin: 'http://localhost:9001',
+    origin: true, // Accept any origin for CORS (development only!)
     credentials: true
   });
 
