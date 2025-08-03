@@ -5,7 +5,8 @@ import {
   getAvailableUsersHandler,
   sendFriendRequestHandler,
   acceptFriendRequestHandler,
-  rejectFriendRequestHandler
+  rejectFriendRequestHandler,
+  deleteFriendHandler
 } from '../controllers/friends.controller';
 import { verifyToken } from '../utils/auth-middleware';
 
@@ -17,4 +18,5 @@ export default async function friendsRoutes(fastify: FastifyInstance) {
   fastify.post('/request', { preHandler: verifyToken }, sendFriendRequestHandler);
   fastify.post('/requests/accept', { preHandler: verifyToken }, acceptFriendRequestHandler);
   fastify.post('/requests/reject', { preHandler: verifyToken }, rejectFriendRequestHandler);
+  fastify.post('/delete', { preHandler: verifyToken }, deleteFriendHandler);
 }

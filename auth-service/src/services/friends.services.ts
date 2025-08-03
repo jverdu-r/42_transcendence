@@ -170,3 +170,19 @@ export async function rejectFriendRequest(requesterId: number, approverId: numbe
   await db.close();
   return true;
 }
+
+export async function deleteFriend(userId1: number, userId2: number): Promise<boolean> {
+  const db = await openDb();
+
+  await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+    sql: `
+      DELETE FROM friendships 
+      WHERE (requester_id = ? AND approver_id = ?) 
+         OR (requester_id = ? AND approver_id = ?)
+    `,
+    params: [userId1, userId2, userId2, userId1]
+  }));
+
+  await db.close();
+  return true;
+}

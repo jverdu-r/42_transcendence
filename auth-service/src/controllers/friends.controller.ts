@@ -2,7 +2,7 @@
 
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { getFriends, getPendingRequests, getAvailableUsers, sendFriendRequest } from '../services/friends.services';
-import { acceptFriendRequest, rejectFriendRequest } from '../services/friends.services';
+import { acceptFriendRequest, rejectFriendRequest, deleteFriend } from '../services/friends.services';
 
 export async function getFriendsHandler(request: FastifyRequest, reply: FastifyReply) {
   const userId = (request as any).user.user_id;
@@ -79,4 +79,21 @@ export async function rejectFriendRequestHandler(request: FastifyRequest, reply:
   }
 
   return reply.send({ message: 'Solicitud rechazada' });
+}
+
+export async function deleteFriendHandler(request: FastifyRequest, reply: FastifyReply) {
+  const userId = (request as any).user.user_id;
+  const { targetId } = request.body as { targetId: number };
+
+  if (!targetId || userId === targetId) {
+    return reply.status(400).send({ error: 'ID inválido' });
+  }
+
+  try {
+    await deleteFriend(userId, targetId);
+    return reply.send({ success: true });
+  } catch (err) {
+    console.error('Error al eliminar amigo:', err);
+    return reply.status(500).send({ error: 'Error al eliminar amigo' });
+  }
 }

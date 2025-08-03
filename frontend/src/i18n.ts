@@ -170,7 +170,10 @@ const translations: Translations = {
             requestRejected: "❌ Solicitud rechazada",
             confirmSendRequest: "¿Enviar solicitud de amistad a",
             requestSentSuccessfully: "Petición de amistad enviada correctamente",
-            requestFailed: "Error al enviar solicitud"
+            requestFailed: "Error al enviar solicitud",
+            confirmDelete: '¿Estás seguro de que quieres eliminar a este amigo?',
+            friendDeleted: 'Amigo eliminado correctamente',
+            deletingError: "Error eliminando amigo"
         },
         settings: {
             title: "Configuración",
@@ -398,7 +401,10 @@ const translations: Translations = {
             requestRejected: "❌ Request rejected",
             confirmSendRequest: "Send friend request to",
             requestSentSuccessfully: "Friend request sent successfully",
-            requestFailed: "Error sending request"
+            requestFailed: "Error sending request",
+            confirmDelete: 'Are you sure you want to delete this friend?',
+            friendDeleted: 'Friend successfully deleted',
+            deletingError: 'Error deleting friend'
         },
         settings: {
             title: "Settings",
@@ -626,7 +632,10 @@ const translations: Translations = {
             requestRejected: "❌ Solicitude rexeitada",
             confirmSendRequest: "¿Enviar solicitude de amizade a ",
             requestSentSuccessfully: "Solicitude de amizade enviada correctamente",
-            requestFailed: "Erro ao enviar solicitude"
+            requestFailed: "Erro ao enviar solicitude",
+            confirmDelete: 'Estás seguro de que queres eliminar ista amistade?',
+            friendDeleted: 'Amistade ó carallo',
+            deletingError: 'Erro ó borralo amigo'
         },
         settings: {
             title: "Configuración",
@@ -854,7 +863,10 @@ const translations: Translations = {
             requestRejected: "❌ 请求已拒绝",
             confirmSendRequest: "向",
             requestSentSuccessfully: "好友请求发送成功",
-            requestFailed: "发送请求失败"
+            requestFailed: "发送请求失败",
+            confirmDelete: '您确定要删除这个好友吗？',
+            friendDeleted: '好友已成功删除',
+            deletingError: '删除好友时出错'
         },
         settings: {
             title: "设置",
