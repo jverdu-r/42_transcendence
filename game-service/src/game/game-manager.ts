@@ -1,10 +1,11 @@
-/**
- * Enhanced Game session management with spectator support
- */
+// game/game-manager.ts
+
 import { Game } from './game.js';
 import type { IPlayer, IGameConfig, IGameDimensions, GameMode, PlayerNumber } from '../interfaces/index.js';
 import { GameConfig } from '../config/index.js';
 import { v4 as uuidv4 } from 'uuid';
+import { notifyGameStarted, notifyGameFinished, notifyScore } from '../services/game-api-client.js';
+import { fetchUserId } from '../services/game-api-client.js';
 
 export class GameManager {
   private games: Map<string, Game>;
@@ -77,7 +78,7 @@ export class GameManager {
     }
   }
 
-  public startGame(gameId: string): boolean {
+  public async startGame(gameId: string): Promise<boolean> {
     const game = this.games.get(gameId);
     if (!game) {
       console.log(`❌ Game not found: ${gameId}`);
@@ -86,13 +87,37 @@ export class GameManager {
 
     try {
       const success = game.start();
-      if (success) {
-        console.log(`🎮 Game started: ${gameId}`);
-        return true;
-      } else {
+      if (!success) {
         console.log(`❌ Cannot start game ${gameId}: insufficient players`);
         return false;
       }
+
+      const players = game.getPlayers();
+      const player1 = players[0];
+      const player2 = players[1];
+      const player1Id = player1?.isAI ? null : await fetchUserId(player1?.name || '');
+      const player2Id = player2?.isAI ? null : await fetchUserId(player2?.name || '');
+
+      await notifyGameStarted({
+        gameId,
+        player1: {
+          userId: player1Id,
+          username: player1?.name || null,
+          isBot: player1?.isAI || false,
+          teamName: 'Team A'
+        },
+        player2: {
+          userId: player2Id,
+          username: player2?.name || null,
+          isBot: player2?.isAI || false,
+          teamName: 'Team B'
+        },
+        tournamentId: null,
+        match: null
+      });
+
+      console.log(`🎮 Game started: ${gameId}`);
+      return true;
     } catch (error) {
       console.log(`❌ Failed to start game ${gameId}: ${error}`);
       return false;
