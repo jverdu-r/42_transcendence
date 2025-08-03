@@ -62,9 +62,8 @@ function renderAvailableUsersList(users: User[]): string {
         ? users.map(user => `
             <div class="flex items-center justify-between p-3 bg-[#001d3d] rounded-xl border border-[#003566] mb-2">
                 <div class="font-bold text-gray-100">${user.username}</div>
-                <button class="text-xs bg-[#ffc300] text-[#000814] font-semibold py-1 px-3 rounded-xl hover:opacity-80"
-                        onclick="handleSendRequest(${user.id}, '${user.username}', this)">
-                    ${getTranslation('friends', 'sendRequestButton')}
+                <button class="btn-send-request" data-user-id="${user.id}" data-username="${user.username}">
+                ${getTranslation('friends', 'sendRequestButton')}
                 </button>
             </div>
         `).join('') 
@@ -186,6 +185,11 @@ export async function renderFriendsPage(): Promise<void> {
 
     // Aceptar solicitud de amistad
     window.handleAcceptRequest = async (senderId: number, rowElement: HTMLElement) => {
+        const buttons = rowElement.querySelectorAll('button');
+        buttons.forEach(btn => {
+            btn.disabled = true;
+            btn.textContent = '...';
+        });
         if (!confirm('¿Aceptar solicitud de amistad?')) return;
 
         try {
@@ -206,7 +210,7 @@ export async function renderFriendsPage(): Promise<void> {
                 alert(getTranslation('friends', 'requestAccepted'));
             } else {
                 const error = await response.json();
-                alert(`Error: ${error.message || getTranslation('alerts', 'noAccept')}`);
+                alert(`Error: ${error.message} || ${getTranslation('alerts', 'noAccept')}`);
             }
         } catch (err) {
             console.error('Error aceptando solicitud:', err);
@@ -216,6 +220,11 @@ export async function renderFriendsPage(): Promise<void> {
 
     //Rechazar solicitud de amistad
     window.handleRejectRequest = async (senderId: number, rowElement: HTMLElement) => {
+        const buttons = rowElement.querySelectorAll('button');
+        buttons.forEach(btn => {
+            btn.disabled = true;
+            btn.textContent = '...';
+        });
         if (!confirm('¿Rechazar solicitud de amistad?')) return;
 
         try {

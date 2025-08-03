@@ -192,7 +192,7 @@ export function renderRegister(): void {
                         navigateTo('/login');
                     } else {
                         const error = await response.json();
-                        alert(`getTranslation('alerts', 'successLogin')${error.message}`);
+                        alert(`${getTranslation('alerts', 'successLogin')}${error.message}`);
                     }
                 } catch (error) {
                     console.error(getTranslation('alerts', 'registerError'), error);
@@ -225,7 +225,7 @@ export function renderRegister(): void {
                     alert(data.message || getTranslation('alerts', 'connection'));
                 }
             } catch (error) {
-                console.error(`getTranslation('alerts', 'google'):`, error);
+                console.error(`${getTranslation('alerts', 'google')}:`, error);
                 alert(getTranslation('alerts', 'serverError'));
             }
         };
