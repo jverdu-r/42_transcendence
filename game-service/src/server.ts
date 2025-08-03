@@ -47,8 +47,9 @@ function broadcastToGame(gameId: string, message: any): void {
   const game = activeGames.get(gameId);
   if (game && game.players) {
     game.players.forEach((player: any) => {
-      const clientId = playerToClient.get(player.id);
-      if (clientId) {
+      // player.id is the clientId in our current implementation
+      const clientId = player.id;
+      if (clientId && connections.has(clientId)) {
         sendToClient(clientId, message);
       }
     });
@@ -123,13 +124,13 @@ fastify.register(async function (fastify) {
       }
     }
     
-    // Update mappings
+    // Update mappings - Map player ID to client ID for broadcasting
     playerToClient.set(clientId, clientId);
     clientToPlayer.set(clientId, clientId);
     
     // Send welcome message
     sendToClient(clientId, {
-      type: 'game_joined',
+      type: 'gameJoined',
       gameId: gameId,
       playerNumber: playerNumber,
       playersConnected: game.players.length,
@@ -138,7 +139,7 @@ fastify.register(async function (fastify) {
     
     // Notify all players about player update
     broadcastToGame(gameId, {
-      type: 'player_joined',
+      type: 'playerJoined',
       playersConnected: game.players.length,
       playerName: username,
       playerNumber: playerNumber
@@ -175,43 +176,69 @@ fastify.register(async function (fastify) {
 
 function startCountdown(gameId: string): void {
   const game = activeGames.get(gameId);
-  if (!game) return;
+  if (!game) {
+    fastify.log.error(`❌ Cannot start countdown: Game ${gameId} not found`);
+    return;
+  }
   
+  fastify.log.info(`⏰ Starting countdown for game ${gameId}`);
   let countdown = 3;
   
   // Notificar inicio de cuenta atrás
-  broadcastToGame(gameId, {
-    type: 'countdown_start'
-  });
+  try {
+    broadcastToGame(gameId, {
+      type: 'countdownStart'
+    });
+    fastify.log.info(`📢 Sent countdownStart to game ${gameId}`);
+  } catch (error) {
+    fastify.log.error(`❌ Error sending countdownStart:`, error);
+  }
   
   const countdownInterval = setInterval(() => {
-    broadcastToGame(gameId, {
-      type: 'countdown_update',
-      count: countdown
-    });
-    
-    countdown--;
-    
-    if (countdown < 0) {
+    try {
+      fastify.log.info(`⏰ Countdown ${countdown} for game ${gameId}`);
+      broadcastToGame(gameId, {
+        type: 'countdownUpdate',
+        count: countdown
+      });
+      
+      countdown--;
+      
+      if (countdown < 0) {
+        clearInterval(countdownInterval);
+        fastify.log.info(`🚀 Countdown finished, starting game ${gameId}`);
+        startGame(gameId);
+      }
+    } catch (error) {
+      fastify.log.error(`❌ Error in countdown interval:`, error);
       clearInterval(countdownInterval);
-      startGame(gameId);
     }
   }, 1000);
 }
 
 function startGame(gameId: string): void {
   const game = activeGames.get(gameId);
-  if (!game) return;
+  if (!game) {
+    fastify.log.error(`❌ Cannot start game: Game ${gameId} not found`);
+    return;
+  }
   
+  fastify.log.info(`🎮 Starting game ${gameId} with ${game.players.length} players`);
   game.status = 'playing';
   
-  broadcastToGame(gameId, {
-    type: 'gameStarted',
-    gameId: gameId
-  });
-  
-  // Start game loop
-  startGameLoop(gameId);
+  try {
+    broadcastToGame(gameId, {
+      type: 'gameStarted',
+      gameId: gameId
+    });
+    fastify.log.info(`📢 Sent gameStarted message to game ${gameId}`);
+    
+    // Start game loop
+    startGameLoop(gameId);
+    fastify.log.info(`🔄 Game loop started for game ${gameId}`);
+  } catch (error) {
+    fastify.log.error(`❌ Error starting game ${gameId}:`, error);
+  }
 }
 
 function startGameLoop(gameId: string): void {
@@ -350,9 +377,12 @@ function endGame(gameId: string): void {
 function handleGameMessage(clientId: string, gameId: string, data: any): void {
   const game = activeGames.get(gameId);
   if (!game) return;
+
+  console.log(`[handleGameMessage] from clientId=${clientId}, gameId=${gameId}, data=`, data);
   
   switch (data.type) {
     case 'playerMove':
+      console.log(`[handleGameMessage] playerMove from clientId=${clientId}, direction=`, data.data?.direction);
       handlePlayerMove(clientId, gameId, data.data);
       break;
     case 'ready':
@@ -363,18 +393,29 @@ function handleGameMessage(clientId: string, gameId: string, data: any): void {
 
 function handlePlayerMove(clientId: string, gameId: string, data: any): void {
   const game = activeGames.get(gameId);
-  if (!game || game.status !== 'playing') return;
-  
+  if (!game || game.status !== 'playing') {
+    console.log(`[handlePlayerMove] Game not found or not playing for clientId=${clientId}, gameId=${gameId}`);
+    return;
+  }
+
   const player = game.players.find((p: any) => p.id === clientId);
-  if (!player) return;
-  
+  if (!player) {
+    console.log(`[handlePlayerMove] No player found for clientId=${clientId} in gameId=${gameId}`);
+    return;
+  }
+
   const paddle = player.numero === 1 ? game.gameState.palas.jugador1 : game.gameState.palas.jugador2;
   const speed = 8;
-  
+  console.log(`[handlePlayerMove] Moving paddle for player ${player.numero} (${player.nombre}), direction=${data.direction}, originalY=${paddle.y}`);
+
   if (data.direction === 'up' && paddle.y > 0) {
     paddle.y = Math.max(0, paddle.y - speed);
+    console.log(`[handlePlayerMove] Paddle moved up. New y=${paddle.y}`);
   } else if (data.direction === 'down' && paddle.y < 600 - game.gameState.palaAlto) {
     paddle.y = Math.min(600 - game.gameState.palaAlto, paddle.y + speed);
+    console.log(`[handlePlayerMove] Paddle moved down. New y=${paddle.y}`);
+  } else {
+    console.log(`[handlePlayerMove] No movement. direction=${data.direction}, y=${paddle.y}`);
   }
 }
 

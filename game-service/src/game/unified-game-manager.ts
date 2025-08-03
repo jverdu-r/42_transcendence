@@ -2,6 +2,7 @@
  * Unified Game Manager - Enhanced game session management
  */
 import { UnifiedGame } from './unified-game.js';
+import type { PlayerNumber } from '../interfaces/game-interfaces.js';
 import type { IPlayer, IGameConfig, IGameDimensions, GameMode } from '../interfaces/index.js';
 import { GameConfig } from '../config/index.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -115,10 +116,19 @@ export class UnifiedGameManager {
             return false;
         }
 
+        const players = game.getPlayers();
+        // Enforce: Host is always player 1, next join is always player 2
+        let joiningPlayerNumber: PlayerNumber = 2;
+        if (players.length === 1 && players[0].number === 2) {
+            // If for any reason player 2 got in first, force join as 1
+            joiningPlayerNumber = 1;
+            players[0].number = 2;
+        }
+
         try {
             const player: IPlayer = {
                 id: uuidv4(),
-                number: 2,
+                number: joiningPlayerNumber,
                 isAI: false,
                 isConnected: true,
                 name: playerName,
@@ -126,12 +136,12 @@ export class UnifiedGameManager {
 
             const success = game.addPlayer(player);
             if (success) {
-                console.log(`✅ Player ${playerName} joined game ${gameId}`);
+                console.log(`✅ Player ${playerName} joined game ${gameId} as player #${joiningPlayerNumber}`);
                 
                 // Notify about player join
                 this.broadcastCallback?.(gameId, {
                     type: 'playerJoined',
-                    data: { playerName, playerNumber: 2 }
+                    data: { playerName, playerNumber: joiningPlayerNumber }
                 });
 
                 return true;

@@ -34,8 +34,8 @@ export function renderUnifiedGameLocal(): void {
                         <h3 class="text-lg font-bold text-blue-400 mb-2">🔵 Jugador 2 (Derecha)</h3>
                         <div class="bg-blue-600 text-white rounded-lg p-3">
                             <div class="text-xl font-bold mb-2">Controles:</div>
-                            <div>⬆️ <kbd class="bg-gray-200 text-black px-2 py-1 rounded">↑</kbd> - Subir</div>
-                            <div>⬇️ <kbd class="bg-gray-200 text-black px-2 py-1 rounded">↓</kbd> - Bajar</div>
+                            <div>⬆️ <kbd class="bg-gray-200 text-black px-2 py-1 rounded">O</kbd> - Subir</div>
+                            <div>⬇️ <kbd class="bg-gray-200 text-black px-2 py-1 rounded">L</kbd> - Bajar</div>
                         </div>
                     </div>
                 </div>
