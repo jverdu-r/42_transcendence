@@ -450,7 +450,7 @@ fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request
   }
 });
  
-// Endpoint para obtener estadísticas del usuario y generar archivo de historial
+// Endpoint para obtener estadísticas del usuario
 fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, reply) => {
   let db;
   try {
@@ -470,27 +470,16 @@ fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, 
     const losses = userData.stats.losses;
     const winRate = userData.stats.win_rate;
     const elo = userData.stats.elo;
-    const matchHistory = userData.games;
+    const matchHistory = userData.games.map((game: any) => ({
+      id: game.game_id,
+      result: game.result,
+      opponent: game.opponent_name,
+      score: game.final_score,
+      date: game.date
+    }));
 
     const sortedRanking = [...rankingData].sort((a: any, b: any) => b.stats.elo - a.stats.elo);
     const ranking = sortedRanking.findIndex((u: any) => u.user_id === userId) + 1;
-
-    // Guardar historial completo en txt
-    const filePath = path.resolve('/app/data/historial_partidas.txt');
-    const matchHistoryText = matchHistory.map((entry: {
-      game_id: number;
-      result: string;
-      opponent_name: string;
-      tournament_name: string;
-      final_score: string;
-      date: string;
-    }) =>
-      `Partida ${entry.game_id} | Resultado: ${entry.result} | Oponente: ${entry.opponent_name} | Torneo: ${entry.tournament_name} | Marcador: ${entry.final_score} | Fecha: ${entry.date}`
-    );
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-    fs.writeFileSync(filePath, matchHistoryText.join('\n'));
 
     // Avatar
     const profile = await db.get('SELECT avatar_url FROM user_profiles WHERE user_id = ?', [userId]);
@@ -510,6 +499,55 @@ fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, 
   } catch (err) {
     console.error('Error obteniendo estadísticas:', err);
     return reply.code(500).send({ message: 'Error interno del servidor' });
+  }
+});
+
+// Descarga de historial
+fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, async (request, reply) => {
+  const userId = (request as any).user.user_id;
+
+  try {
+    const db = await openDb();
+    const rankingData = await generateRankingWithStats(db);
+    const userData = rankingData.find((u: any) => u.user_id === userId);
+    await db.close();
+
+    if (!userData) {
+      return reply.code(404).send({ message: 'Usuario no encontrado en el ranking' });
+    }
+
+    const matchHistory = userData.games;
+
+    const matchHistoryText = matchHistory.map((entry: {
+      game_id: number;
+      result: string;
+      opponent_name: string;
+      tournament_name: string;
+      final_score: string;
+      date: string;
+    }) =>
+      `Partida ${entry.game_id} | Resultado: ${entry.result} | Oponente: ${entry.opponent_name} | Torneo: ${entry.tournament_name} | Marcador: ${entry.final_score} | Fecha: ${entry.date}`
+    );
+
+    // Crear carpeta /app/data/historiales si no existe
+    const dirPath = path.resolve('/app/data/historiales');
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+
+    // Escribir archivo personalizado
+    const fileName = `historial_${userId}.txt`;
+    const filePath = path.join(dirPath, fileName);
+    fs.writeFileSync(filePath, matchHistoryText.join('\n') + '\n');
+
+    return reply
+      .type('text/plain')
+      .header('Content-Disposition', `attachment; filename=${fileName}`)
+      .send(fs.createReadStream(filePath));
+
+  } catch (err) {
+    console.error('Error generando o descargando historial:', err);
+    return reply.code(500).send({ message: 'Error interno al generar historial' });
   }
 });
 
@@ -825,21 +863,6 @@ fastify.post('/auth/google', async (request, reply) => {
     console.error('Error con Google Sign-In:', err);
     return reply.code(500).send({ message: 'Error con Google Sign-In' });
   }
-});
-
-// Endpoint para descargar historial
-fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, async (request, reply) => {
-  const userId = (request as any).user.user_id;
-  const filePath = path.resolve('/app/data/historial_partidas.txt');
-
-  if (!fs.existsSync(filePath)) {
-    return reply.code(404).send({ message: 'Historial no encontrado' });
-  }
-
-  return reply
-    .type('text/plain')
-    .header('Content-Disposition', `attachment; filename=historial_${userId}.txt`)
-    .send(fs.createReadStream(filePath));
 });
 
 // Inicializar base de datos y Redis

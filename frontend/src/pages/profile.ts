@@ -265,7 +265,7 @@ export async function renderProfilePage(): Promise<void> {
 
           const link = document.createElement('a');
           link.href = url;
-          link.download = 'historial_partidas.txt';
+          link.download = `historial_${user.id}.txt`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
