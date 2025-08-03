@@ -39,6 +39,7 @@ export class WebSocketController {
           await this.handleStartGame(clientId, data);
           break;
         case MESSAGE_TYPES.PLAYER_MOVE:
+          this.fastify.log.info(`[WS] PLAYER_MOVE received`, { from: clientId, data });
           await this.handlePlayerMove(clientId, data);
           break;
         case MESSAGE_TYPES.GET_GAMES:
@@ -78,6 +79,11 @@ export class WebSocketController {
         const player = players[0]; // First player
         if (player) {
           this.connectionService.mapPlayerToClient(player.id, clientId);
+          const playerId = player.id;
+          this.connectionService.sendToClient(clientId, {
+            type: MESSAGE_TYPES.GAME_CREATED,
+            data: { gameId, playerNumber: 1, playerId, gameMode },
+          });
         }
       }
       
@@ -85,11 +91,6 @@ export class WebSocketController {
       if (gameMode === 'pve') {
         this.gameManager.joinGame(gameId, `AI (${aiDifficulty})`);
       }
-      
-      this.connectionService.sendToClient(clientId, {
-        type: MESSAGE_TYPES.GAME_CREATED,
-        data: { gameId, playerNumber: 1, gameMode },
-      });
       
       this.fastify.log.info(`🎮 Game created: ${gameId} by ${sanitizedPlayerName}`);
     } catch (error) {
@@ -118,13 +119,13 @@ export class WebSocketController {
           const player = players.find(p => p.name === sanitizedPlayerName && !p.isAI);
           if (player) {
             this.connectionService.mapPlayerToClient(player.id, clientId);
+            const playerId = player.id;
+            this.connectionService.sendToClient(clientId, {
+              type: MESSAGE_TYPES.GAME_JOINED,
+              data: { gameId: sanitizedGameId, playerNumber: 2, playerId },
+            });
           }
         }
-        
-        this.connectionService.sendToClient(clientId, {
-          type: MESSAGE_TYPES.GAME_JOINED,
-          data: { gameId: sanitizedGameId, playerNumber: 2 },
-        });
         
         this.broadcastService.notifyPlayerJoined(sanitizedGameId, sanitizedPlayerName, 2);
         
