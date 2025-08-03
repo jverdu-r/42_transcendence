@@ -26,7 +26,7 @@ interface User {
 async function fetchWithToken<T>(url: string): Promise<T> {
     const token = localStorage.getItem('jwt');
     if (!token) throw new Error('No JWT token found');
-    
+
     const response = await fetch(url, {
         headers: {
             'Authorization': `Bearer ${token}`,
@@ -54,27 +54,35 @@ async function getAvailableUsers(): Promise<User[]> {
     return await fetchWithToken<User[]>('/api/auth/friends/available');
 }
 
-let cachedAvailableUsers: User[] = []; // Variable para almacenar usuarios disponibles
+let cachedAvailableUsers: User[] = [];
+let isRenderingFriends = false; // ✅ evitar renderizaciones múltiples
 
-// Función auxiliar para renderizar la lista de usuarios disponibles
 function renderAvailableUsersList(users: User[]): string {
-    return users.length > 0 
+    return users.length > 0
         ? users.map(user => `
             <div class="flex items-center justify-between p-3 bg-[#001d3d] rounded-xl border border-[#003566] mb-2">
-                <div class="font-bold text-gray-100">${user.username}</div>
-                <button class="btn-send-request" data-user-id="${user.id}" data-username="${user.username}">
+              <div class="font-bold text-gray-100">${user.username}</div>
+              <button
+                class="btn-send-request text-xs font-semibold py-1 px-3 rounded-xl transition-all duration-200 
+                        bg-[#ffc300] text-[#000814] hover:opacity-80 cursor-pointer"
+                data-user-id="${user.id}"
+                data-username="${user.username}">
                 ${getTranslation('friends', 'sendRequestButton')}
-                </button>
+              </button>
             </div>
-        `).join('') 
+          `).join('')
         : `<p class="text-gray-400 text-center">${getTranslation('friends', 'noUsersAvailable')}</p>`;
 }
 
 export async function renderFriendsPage(): Promise<void> {
+    if (isRenderingFriends) return; // ✅ evitar duplicados
+    isRenderingFriends = true;
+
     const currentUser = getCurrentUser();
     const pageContent = document.getElementById('page-content') as HTMLElement;
     if (!pageContent) {
         console.error('Elemento con id "page-content" no encontrado para renderizar la página de amigos.');
+        isRenderingFriends = false;
         return;
     }
 
@@ -84,7 +92,6 @@ export async function renderFriendsPage(): Promise<void> {
         getAvailableUsers()
     ]);
 
-    // Guardar usuarios disponibles para usar en el filtro
     cachedAvailableUsers = [...availableUsers];
 
     pageContent.innerHTML = `
@@ -121,6 +128,11 @@ export async function renderFriendsPage(): Promise<void> {
                                 onclick="${friend.isOnline ? `handleChallenge(${friend.id}, '${friend.username}')` : ''}"
                             >
                                 ${getTranslation('friends', 'challengeButton')}
+                            </button>
+                            <button 
+                                class="text-xs bg-red-600 text-white font-semibold py-1 px-3 rounded-xl hover:opacity-80"
+                                onclick="handleDeleteFriend(${friend.id}, this.parentElement.parentElement)">
+                                ❌
                             </button>
                         </div>
                     `).join('') : `<p class="text-gray-400 text-center">${getTranslation('friends', 'noFriends')}</p>`}
@@ -160,15 +172,14 @@ export async function renderFriendsPage(): Promise<void> {
         </main>
     `;
 
-    // Configurar el buscador de usuarios disponibles
     const searchInput = document.getElementById('search-available-users') as HTMLInputElement;
     if (searchInput) {
-        searchInput.addEventListener('input', function() {
+        searchInput.addEventListener('input', function () {
             const searchTerm = this.value.toLowerCase();
-            const filteredUsers = cachedAvailableUsers.filter(user => 
+            const filteredUsers = cachedAvailableUsers.filter(user =>
                 user.username.toLowerCase().includes(searchTerm)
             );
-            
+
             const container = document.getElementById('available-users-list-container');
             if (container) {
                 container.innerHTML = renderAvailableUsersList(filteredUsers);
@@ -176,14 +187,11 @@ export async function renderFriendsPage(): Promise<void> {
         });
     }
 
-    // Añadir funcionalidad al botón de desafío (opcional)
     window.handleChallenge = (userId: number, username: string) => {
         console.log(`Desafiando a ${username} (ID: ${userId})`);
-        // Aquí puedes abrir un modal, redirigir, etc.
         alert(`${getTranslation('friends', 'challenging')} ${username}!`);
     };
 
-    // Aceptar solicitud de amistad
     window.handleAcceptRequest = async (senderId: number, rowElement: HTMLElement) => {
         const buttons = rowElement.querySelectorAll('button');
         buttons.forEach(btn => {
@@ -204,7 +212,6 @@ export async function renderFriendsPage(): Promise<void> {
             });
 
             if (response.ok) {
-                // Eliminar la fila de la UI
                 rowElement.remove();
                 await renderFriendsPage();
                 alert(getTranslation('friends', 'requestAccepted'));
@@ -218,7 +225,33 @@ export async function renderFriendsPage(): Promise<void> {
         }
     };
 
-    //Rechazar solicitud de amistad
+    (window as any).handleDeleteFriend = async (targetId: number, rowElement: HTMLElement) => {
+        if (!confirm(getTranslation('friends', 'confirmDelete'))) return;
+
+        const token = localStorage.getItem('jwt');
+        try {
+            const res = await fetch('/api/auth/friends/delete', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ targetId })
+            });
+
+            if (res.ok) {
+                alert(getTranslation('friends', 'friendDeleted'));
+                await renderFriendsPage();
+            } else {
+                const err = await res.json();
+                alert(`Error: ${err.error || getTranslation('friends', 'deletingError')}`);
+            }
+        } catch (err) {
+            console.error('Error eliminando amigo:', err);
+            alert(getTranslation('alerts', 'network'));
+        }
+    };
+
     window.handleRejectRequest = async (senderId: number, rowElement: HTMLElement) => {
         const buttons = rowElement.querySelectorAll('button');
         buttons.forEach(btn => {
@@ -239,7 +272,6 @@ export async function renderFriendsPage(): Promise<void> {
             });
 
             if (response.ok) {
-                // Eliminar la fila de la UI
                 rowElement.remove();
                 await renderFriendsPage();
                 alert(`${getTranslation('friends', 'requestRejected')}`);
@@ -253,7 +285,18 @@ export async function renderFriendsPage(): Promise<void> {
         }
     };
 
-    // Enviar solicitud de amistad
+    // ✅ Mejora: limpiar listeners duplicados
+    document.querySelectorAll('.btn-send-request').forEach(btn => {
+        const clone = btn.cloneNode(true) as HTMLElement;
+        btn.replaceWith(clone);
+        clone.addEventListener('click', (event) => {
+            const target = event.currentTarget as HTMLElement;
+            const targetId = parseInt(target.getAttribute('data-user-id') || '0');
+            const username = target.getAttribute('data-username') || '';
+            (window as any).handleSendRequest(targetId, username, target);
+        });
+    });
+
     (window as any).handleSendRequest = async (targetId: number, username: string, buttonElement: HTMLElement) => {
         if (typeof targetId !== 'number' || isNaN(targetId) || targetId <= 0) {
             console.error('Invalid targetId:', targetId);
@@ -274,15 +317,14 @@ export async function renderFriendsPage(): Promise<void> {
 
         try {
             const response = await fetch('/api/auth/friends/request', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ targetId })
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ targetId })
             });
 
-            // ✅ Si el servidor no responde con JSON, manejarlo
             let data;
             try {
                 data = await response.json();
@@ -293,10 +335,10 @@ export async function renderFriendsPage(): Promise<void> {
             }
 
             if (response.ok && data.success) {
-                if (buttonElement instanceof HTMLButtonElement || 
+                if (buttonElement instanceof HTMLButtonElement ||
                     buttonElement instanceof HTMLInputElement) {
-                        buttonElement.disabled = true;
-                    }
+                    buttonElement.disabled = true;
+                }
                 buttonElement.innerText = getTranslation('friends', 'requestSent');
                 buttonElement.classList.remove('bg-[#ffc300]', 'hover:opacity-80');
                 buttonElement.classList.add('bg-gray-500', 'cursor-not-allowed');
@@ -311,4 +353,6 @@ export async function renderFriendsPage(): Promise<void> {
             alert(`${getTranslation('alerts', 'failRequest')} ${err.message || ''}`);
         }
     };
+
+    isRenderingFriends = false; // ✅ liberar bloqueo
 }
