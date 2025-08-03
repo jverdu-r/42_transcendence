@@ -169,12 +169,12 @@ export function renderRegister(): void {
                 const confirmPassword = confirmPasswordInput?.value || '';
                 
                 if (!username || !email || !password || !confirmPassword) {
-                    alert('Por favor, completa todos los campos');
+                    alert(getTranslation('alerts', 'emptyFields'));
                     return;
                 }
                 
                 if (password !== confirmPassword) {
-                    alert('Las contraseñas no coinciden');
+                    alert(getTranslation('alerts', 'passError'));
                     return;
                 }
 
@@ -188,15 +188,15 @@ export function renderRegister(): void {
                     });
 
                     if (response.ok) {
-                        alert('✅ Registro exitoso! Ahora puedes iniciar sesión');
+                        alert(getTranslation('alerts', 'successLogin'));
                         navigateTo('/login');
                     } else {
                         const error = await response.json();
-                        alert(`❌ Error: ${error.message}`);
+                        alert(`${getTranslation('alerts', 'successLogin')}${error.message}`);
                     }
                 } catch (error) {
-                    console.error('Error en registro:', error);
-                    alert('Error de conexión');
+                    console.error(getTranslation('alerts', 'registerError'), error);
+                    alert(getTranslation('alerts', 'connection'));
                 }
             });
         }
@@ -222,11 +222,11 @@ export function renderRegister(): void {
                     localStorage.setItem('jwt', data.token);
                     navigateTo('/home');
                 } else {
-                    alert(data.message || 'Error en autenticación con Google');
+                    alert(data.message || getTranslation('alerts', 'connection'));
                 }
             } catch (error) {
-                console.error('Error en autenticación con Google:', error);
-                alert('Error de conexión con el servidor');
+                console.error(`${getTranslation('alerts', 'google')}:`, error);
+                alert(getTranslation('alerts', 'serverError'));
             }
         };
 

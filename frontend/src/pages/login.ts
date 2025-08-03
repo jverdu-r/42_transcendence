@@ -100,7 +100,8 @@ export function renderLoginPage(): void {
                 event.preventDefault();
                 const email = (document.getElementById('email') as HTMLInputElement)?.value || '';
                 const password = (document.getElementById('password') as HTMLInputElement)?.value || '';
-                if (!email || !password) return alert('Por favor, completa todos los campos');
+
+                if (!email || !password) return alert(getTranslation('alerts', 'emptyFields'));
 
                 try {
                     const res = await fetch('/api/auth/login', {
@@ -111,17 +112,21 @@ export function renderLoginPage(): void {
                     const data = await res.json();
                     if (res.ok && data.token) {
                         localStorage.setItem('jwt', data.token);
-                        await applyUserSettings();
-                        const lang = localStorage.getItem('language');
-                        if (lang) {
-                            setLanguage(lang);
+                        
+                        // Guardar idioma en localStorage
+                        if (data.user.language) {
+                            localStorage.setItem('language', data.user.language);
                         }
-                    navigateTo('/home');
+                        
+                        // Aplicar el idioma inmediatamente
+                        setLanguage(data.user.language || 'es');
+                        
+                        navigateTo('/home');
                     } else {
-                        alert(data.message || 'Login fallido');
+                        alert(data.message || getTranslation('alerts', 'failLogin'));
                     }
                 } catch (e) {
-                    alert('Error de conexión');
+                    alert(getTranslation('alerts', 'connection'));
                     console.error(e);
                 }
             });
@@ -138,18 +143,22 @@ export function renderLoginPage(): void {
                 const data = await res.json();
                 if (res.ok && data.token) {
                     localStorage.setItem('jwt', data.token);
-                    await applyUserSettings();
-                    const lang = localStorage.getItem('language');
-                    if (lang) {
-                        setLanguage(lang);
+                    
+                    // Guardar idioma en localStorage
+                    if (data.user.language) {
+                        localStorage.setItem('language', data.user.language);
                     }
+                    
+                    // Aplicar el idioma inmediatamente
+                    setLanguage(data.user.language || 'es');
+                    
                     navigateTo('/home');
                 } else {
-                    alert(data.message || 'Error en autenticación con Google');
+                    alert(data.message || getTranslation('alerts', 'google'));
                 }
             } catch (error) {
                 console.error('Error en autenticación con Google:', error);
-                alert('Error de conexión con el servidor');
+                alert(getTranslation('alerts', 'connection'));
             }
         };
 

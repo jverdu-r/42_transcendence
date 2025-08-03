@@ -155,10 +155,10 @@ export async function renderSettingsPage(): Promise<void> {
                 <!-- Header -->
                 <div class="text-center mb-12">
                     <h1 class="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold mb-6 text-[#ffc300] drop-shadow-md leading-tight">
-                        ⚙️ Configuración
+                        ⚙️ ${getTranslation('settings', 'title')}
                     </h1>
                     <p class="text-base sm:text-lg md:text-xl text-gray-300 mb-8">
-                        Personaliza tu experiencia de juego y gestiona tu cuenta
+                        ${getTranslation('settings', 'subtitle')}
                     </p>
                 </div>
 
@@ -172,51 +172,51 @@ export async function renderSettingsPage(): Promise<void> {
                             </div>
                             <div>
                                 <h2 class="text-2xl font-display font-bold text-[#ffc300]">
-                                    Cuenta de Usuario
+                                    ${getTranslation('settings', 'userAccountSectionTitle')}
                                 </h2>
-                                <p class="text-gray-300">Gestiona tu información personal</p>
+                                <p class="text-gray-300">${getTranslation('settings', 'userAccountSectionSubtitle')}</p>
                             </div>
                         </div>
                         
                         <form id="profile-form" class="space-y-6">
                             <div class="space-y-2">
                                 <label class="block text-sm font-medium text-gray-300">
-                                    📝 Nombre de usuario
+                                    📝 ${getTranslation('settings', 'usernameLabel')}
                                 </label>
                                 <input type="text" id="username" value="${user.username}" 
                                        class="w-full px-4 py-3 bg-[#001d3d] border border-[#003566] rounded-xl text-gray-100 focus:outline-none focus:border-[#ffc300] focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-50 transition-all duration-200 placeholder-gray-400"
-                                       placeholder="Tu nombre de usuario">
+                                       placeholder="${getTranslation('settings', 'usernameLabelPlaceholder')}">
                             </div>
                             
                             <div class="space-y-2">
                                 <label class="block text-sm font-medium text-gray-300">
-                                    📧 Dirección de correo electrónico
+                                    📧 ${getTranslation('settings', 'emailLabel')}
                                 </label>
                                 <input type="email" id="email" value="${user.email}" 
                                        class="w-full px-4 py-3 bg-[#001d3d] border border-[#003566] rounded-xl text-gray-100 focus:outline-none focus:border-[#ffc300] focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-50 transition-all duration-200 placeholder-gray-400"
-                                       placeholder="tu@ejemplo.com">
+                                       placeholder="${getTranslation('settings', 'emailLabelPlaceholder')}">
                             </div>
                             
                             <div class="border-t border-[#003566] pt-6">
-                                <h3 class="text-lg font-semibold text-[#ffc300] mb-4">🔒 Cambiar Contraseña</h3>
+                                <h3 class="text-lg font-semibold text-[#ffc300] mb-4">🔒 ${getTranslation('settings', 'changePassword')}</h3>
                                 
                                 <div class="space-y-4">
                                     <div class="space-y-2">
                                         <label class="block text-sm font-medium text-gray-300">
-                                            Contraseña actual
+                                            ${getTranslation('settings', 'currentPasswordLabel')}
                                         </label>
                                         <input type="password" id="current-password" 
                                                class="w-full px-4 py-3 bg-[#001d3d] border border-[#003566] rounded-xl text-gray-100 focus:outline-none focus:border-[#ffc300] focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-50 transition-all duration-200 placeholder-gray-400"
-                                               placeholder="Ingresa tu contraseña actual">
+                                               placeholder="${getTranslation('settings', 'currentPasswordPlaceholder')}">
                                     </div>
                                     
                                     <div class="space-y-2">
                                         <label class="block text-sm font-medium text-gray-300">
-                                            Nueva contraseña
+                                            ${getTranslation('settings', 'newPasswordLabel')}
                                         </label>
                                         <input type="password" id="new-password" 
                                                class="w-full px-4 py-3 bg-[#001d3d] border border-[#003566] rounded-xl text-gray-100 focus:outline-none focus:border-[#ffc300] focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-50 transition-all duration-200 placeholder-gray-400"
-                                               placeholder="Ingresa tu nueva contraseña">
+                                               placeholder="${getTranslation('settings', 'newPasswordPlaceholder')}">
                                     </div>
                                 </div>
                             </div>
@@ -224,7 +224,7 @@ export async function renderSettingsPage(): Promise<void> {
                         
                         <div class="flex flex-col sm:flex-row gap-4 mt-8">
                             <button id="save-profile-btn" class="flex-1 py-3 px-6 bg-gradient-to-r from-[#ffc300] to-[#ffd60a] text-[#000814] font-bold rounded-xl hover:from-[#ffd60a] hover:to-[#ffc300] transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg">
-                                💾 Guardar Cambios
+                                💾 ${getTranslation('settings', 'saveChanges')}
                             </button>
                         </div>
                     </div>
@@ -237,9 +237,9 @@ export async function renderSettingsPage(): Promise<void> {
                             </div>
                             <div>
                                 <h2 class="text-2xl font-display font-bold text-[#ffc300]">
-                                    Configuración del Juego
+                                    ${getTranslation('settings', 'gameConfigSectionTitle')}
                                 </h2>
-                                <p class="text-gray-300">Personaliza tu experiencia de juego</p>
+                                <p class="text-gray-300">${getTranslation('settings', 'gameConfigSectionSubtitle')}</p>
                             </div>
                         </div>
                         
@@ -252,15 +252,15 @@ export async function renderSettingsPage(): Promise<void> {
                                             <span class="text-lg">🌐</span>
                                         </div>
                                         <div>
-                                            <div class="font-semibold text-gray-100">Idioma de la Interfaz</div>
-                                            <div class="text-sm text-gray-400">Selecciona tu idioma preferido</div>
+                                            <div class="font-semibold text-gray-100">${getTranslation('settings', 'language')}</div>
+                                            <div class="text-sm text-gray-400">${getTranslation('settings', 'languageText')}</div>
                                         </div>
                                     </div>
                                     <select id="language" class="bg-[#003566] text-gray-100 px-4 py-2 rounded-lg border border-[#ffc300] focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-50 transition-all duration-200">
-                                        <option value="es" ${settings.language === 'es' ? 'selected' : ''}>🇪🇸 Español</option>
-                                        <option value="en" ${settings.language === 'en' ? 'selected' : ''}>🇺🇸 English</option>
-                                        <option value="gl" ${settings.language === 'gl' ? 'selected' : ''}>🏴󠁥󠁳󠁧󠁡󠁿 Galego</option>
-                                        <option value="zh" ${settings.language === 'zh' ? 'selected' : ''}>🇨🇳 中文</option>
+                                        <option value="gl" ${settings.language === 'gl' ? 'selected' : ''}>GL Galego</option>
+                                        <option value="es" ${settings.language === 'es' ? 'selected' : ''}>ES Castellano</option>
+                                        <option value="en" ${settings.language === 'en' ? 'selected' : ''}>EN English</option>
+                                        <option value="zh" ${settings.language === 'zh' ? 'selected' : ''}>ZH 中文</option>
                                     </select>
                                 </div>
                             </div>
@@ -273,8 +273,8 @@ export async function renderSettingsPage(): Promise<void> {
                                             <span class="text-lg">🔔</span>
                                         </div>
                                         <div>
-                                            <div class="font-semibold text-gray-100">Notificaciones</div>
-                                            <div class="text-sm text-gray-400">Recibir notificaciones de partidas</div>
+                                            <div class="font-semibold text-gray-100">${getTranslation('settings', 'notifications')}</div>
+                                            <div class="text-sm text-gray-400">${getTranslation('settings', 'notificationsText')}</div>
                                         </div>
                                     </div>
                                     <label class="relative inline-flex items-center cursor-pointer">
@@ -292,8 +292,8 @@ export async function renderSettingsPage(): Promise<void> {
                                             <span class="text-lg">🔊</span>
                                         </div>
                                         <div>
-                                            <div class="font-semibold text-gray-100">Efectos de Sonido</div>
-                                            <div class="text-sm text-gray-400">Activar sonidos del juego</div>
+                                            <div class="font-semibold text-gray-100">${getTranslation('settings', 'sound')}</div>
+                                            <div class="text-sm text-gray-400">${getTranslation('settings', 'soundText')}</div>
                                         </div>
                                     </div>
                                     <label class="relative inline-flex items-center cursor-pointer">
@@ -311,21 +311,21 @@ export async function renderSettingsPage(): Promise<void> {
                                             <span class="text-lg">🎯</span>
                                         </div>
                                         <div>
-                                            <div class="font-semibold text-gray-100">Dificultad por Defecto</div>
-                                            <div class="text-sm text-gray-400">Nivel predeterminado contra IA</div>
+                                            <div class="font-semibold text-gray-100">${getTranslation('settings', 'difficulty')}</div>
+                                            <div class="text-sm text-gray-400">${getTranslation('settings', 'difficultyText')}</div>
                                         </div>
                                     </div>
                                     <select id="game-difficulty" class="bg-[#003566] text-gray-100 px-4 py-2 rounded-lg border border-[#ffc300] focus:outline-none focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-50 transition-all duration-200">
-                                        <option value="easy" ${settings.game_difficulty === 'easy' ? 'selected' : ''}>🟢 Fácil</option>
-                                        <option value="normal" ${settings.game_difficulty === 'normal' ? 'selected' : ''}>🟡 Normal</option>
-                                        <option value="hard" ${settings.game_difficulty === 'hard' ? 'selected' : ''}>🔴 Difícil</option>
+                                        <option value="easy" ${settings.game_difficulty === 'easy' ? 'selected' : ''}>🟢 ${getTranslation('settings', 'dif1')}</option>
+                                        <option value="normal" ${settings.game_difficulty === 'normal' ? 'selected' : ''}>🟡 ${getTranslation('settings', 'dif2')}</option>
+                                        <option value="hard" ${settings.game_difficulty === 'hard' ? 'selected' : ''}>🔴 ${getTranslation('settings', 'dif3')}</option>
                                     </select>
                                 </div>
                             </div>
                         </form>
                         
                         <button id="save-game-settings-btn" class="w-full mt-8 py-3 px-6 bg-gradient-to-r from-[#003566] to-[#001d3d] text-[#ffc300] font-bold rounded-xl border-2 border-[#ffc300] hover:bg-[#ffc300] hover:text-[#000814] transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg">
-                            🎮 Guardar Configuración del Juego
+                            🎮 ${getTranslation('settings', 'saveConfig')}
                         </button>
                     </div>
                 </div>
@@ -334,23 +334,23 @@ export async function renderSettingsPage(): Promise<void> {
                 <div class="mt-12 bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl p-8 border border-[#003566] shadow-2xl">
                     <div class="text-center">
                         <h3 class="text-2xl font-display font-bold text-[#ffc300] mb-4">
-                            ℹ️ Información Adicional
+                            ℹ️ ${getTranslation('settings', 'moreInfo')}
                         </h3>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-gray-300">
                             <div class="p-4 bg-[#001d3d] rounded-xl border border-[#003566]">
                                 <div class="text-2xl mb-2">🎲</div>
-                                <div class="font-semibold">Partidas Jugadas</div>
-                                <div class="text-sm text-gray-400">Visualiza tus estadísticas en tu perfil</div>
+                                <div class="font-semibold">${getTranslation('settings', 'playedGames')}s</div>
+                                <div class="text-sm text-gray-400">${getTranslation('settings', 'playedGamesText')}</div>
                             </div>
                             <div class="p-4 bg-[#001d3d] rounded-xl border border-[#003566]">
                                 <div class="text-2xl mb-2">🏆</div>
-                                <div class="font-semibold">Ranking Global</div>
-                                <div class="text-sm text-gray-400">Compite por el primer lugar</div>
+                                <div class="font-semibold">${getTranslation('settings', 'globalRanking')}</div>
+                                <div class="text-sm text-gray-400">${getTranslation('settings', 'globalRankingText')}</div>
                             </div>
                             <div class="p-4 bg-[#001d3d] rounded-xl border border-[#003566]">
                                 <div class="text-2xl mb-2">🔒</div>
-                                <div class="font-semibold">Seguridad</div>
-                                <div class="text-sm text-gray-400">Tus datos están protegidos</div>
+                                <div class="font-semibold">${getTranslation('settings', 'security')}</div>
+                                <div class="text-sm text-gray-400">${getTranslation('settings', 'securityText')}</div>
                             </div>
                         </div>
                     </div>
@@ -386,21 +386,21 @@ function setupEventListeners(): void {
 }
 
         saveProfileBtn.disabled = true;
-        saveProfileBtn.innerHTML = '⏳ Guardando...';
+        saveProfileBtn.innerHTML = getTranslation('settings', 'saving');
 
         const result = await updateUserProfile(profileData);
         
         if (result.success) {
-            alert('✅ Perfil actualizado exitosamente');
+            alert(getTranslation('alerts', 'successProfile'));
             // Limpiar campos de contraseña
             (document.getElementById('current-password') as HTMLInputElement).value = '';
             (document.getElementById('new-password') as HTMLInputElement).value = '';
         } else {
-            alert(`❌ Error: ${result.message}`);
+            alert(`${getTranslation('alerts', 'errorLogin')}${result.message}`);
         }
 
         saveProfileBtn.disabled = false;
-        saveProfileBtn.innerHTML = '💾 Guardar Cambios';
+        saveProfileBtn.innerHTML = getTranslation('settings', 'saveChanges');
     });
 
     // Botón para guardar configuraciones del juego
@@ -421,12 +421,12 @@ function setupEventListeners(): void {
         };
 
         saveGameSettingsBtn.disabled = true;
-        saveGameSettingsBtn.innerHTML = '⏳ Guardando...';
+        saveGameSettingsBtn.innerHTML = getTranslation('settings', 'saving');
 
         const success = await updateUserSettings(gameSettings);
         
         if (success) {
-            alert('✅ Configuraciones del juego guardadas exitosamente');
+            alert(getTranslation('alerts', 'successChanges'));
             
             // Aplicar configuraciones localmente
             setSetting('language', language);
@@ -441,7 +441,7 @@ function setupEventListeners(): void {
             }
             
         } else {
-            alert('❌ Error al guardar las configuraciones del juego');
+            alert(getTranslation('alerts', 'errorChanges'));
         }
 
         saveGameSettingsBtn.disabled = false;
