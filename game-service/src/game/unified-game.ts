@@ -41,23 +41,23 @@ export class UnifiedGame {
         
         this.gameState = {
             ball: {
-                x: dimensions.width / 2,
-                y: dimensions.height / 2,
-                vx: 5,
-                vy: 3,
-                radius: 10
+                x: 400,
+                y: 300,
+                vx: 4,
+                vy: 2,
+                radius: 8
             },
             paddles: {
                 left: {
                     x: 30,
-                    y: (dimensions.height - 100) / 2,
-                    width: 20,
+                    y: 250,
+                    width: 15,
                     height: 100
                 },
                 right: {
-                    x: dimensions.width - 50,
-                    y: (dimensions.height - 100) / 2,
-                    width: 20,
+                    x: 755,
+                    y: 250,
+                    width: 15,
                     height: 100
                 }
             },
@@ -259,10 +259,10 @@ export class UnifiedGame {
     }
 
     private resetBall(): void {
-        this.gameState.ball.x = this.gameState.canvas.width / 2;
-        this.gameState.ball.y = this.gameState.canvas.height / 2;
-        this.gameState.ball.vx = Math.random() > 0.5 ? 5 : -5;
-        this.gameState.ball.vy = (Math.random() - 0.5) * 6;
+        this.gameState.ball.x = 400;
+        this.gameState.ball.y = 300;
+        this.gameState.ball.vx = Math.random() > 0.5 ? 4 : -4;
+        this.gameState.ball.vy = (Math.random() - 0.5) * 4;
         this.gameState.rallieCount = 0;
     }
 

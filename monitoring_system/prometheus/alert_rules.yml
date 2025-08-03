@@ -1,0 +1,175 @@
+groups:
+  - name: transcendence_critical_alerts
+    interval: 30s
+    rules:
+      # Service availability alerts using direct up metric
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.instance }} is down"
+          description: "{{ $labels.job }} service on {{ $labels.instance }} has been down for more than 2 minutes."
+
+      # Service probe failures (using blackbox exporter) - CORREGIDO
+      - alert: ServiceProbeDown
+        expr: probe_success == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service probe failed for {{ $labels.instance }}"
+          description: "Blackbox probe for {{ $labels.instance }} has been failing for more than 3 minutes."
+
+  - name: transcendence_performance_alerts
+    interval: 30s
+    rules:
+      # High CPU usage - más tolerante para desarrollo
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 95% for more than 10 minutes on {{ $labels.instance }}"
+
+      - alert: CriticalCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 98
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 98% for more than 5 minutes on {{ $labels.instance }}"
+
+      # High memory usage - más tolerante
+      - alert: HighMemoryUsage
+        expr: ((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes) * 100 > 95
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 95% for more than 10 minutes on {{ $labels.instance }}"
+
+      - alert: CriticalMemoryUsage
+        expr: ((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes) * 100 > 98
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 98% for more than 5 minutes on {{ $labels.instance }}"
+
+      # High disk usage
+      - alert: HighDiskUsage
+        expr: ((node_filesystem_size_bytes{mountpoint="/"} - node_filesystem_free_bytes{mountpoint="/"}) / node_filesystem_size_bytes{mountpoint="/"}) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High disk usage on {{ $labels.instance }}"
+          description: "Disk usage is above 90% on {{ $labels.instance }} for filesystem {{ $labels.mountpoint }}"
+
+      - alert: CriticalDiskUsage
+        expr: ((node_filesystem_size_bytes{mountpoint="/"} - node_filesystem_free_bytes{mountpoint="/"}) / node_filesystem_size_bytes{mountpoint="/"}) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical disk usage on {{ $labels.instance }}"
+          description: "Disk usage is above 95% on {{ $labels.instance }} for filesystem {{ $labels.mountpoint }}"
+
+  - name: transcendence_application_alerts
+    interval: 30s
+    rules:
+      # Redis alerts - CORREGIDO
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis server is down"
+          description: "Redis server {{ $labels.instance }} is down"
+
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is above 90% on {{ $labels.instance }}"
+
+      - alert: RedisHighConnections
+        expr: redis_connected_clients > 100
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis high number of connections"
+          description: "Redis has more than 100 connected clients on {{ $labels.instance }}"
+
+      # Container alerts - más tolerantes para desarrollo
+      - alert: ContainerHighCPU
+        expr: sum(rate(container_cpu_usage_seconds_total{image!="",name!~".*exporter.*"}[5m])) by (name) * 100 > 95
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container high CPU usage"
+          description: "Container {{ $labels.name }} CPU usage is above 95% for more than 15 minutes"
+
+      - alert: ContainerHighMemory
+        expr: (container_memory_usage_bytes{image!="",name!~".*exporter.*"} / container_spec_memory_limit_bytes{image!="",name!~".*exporter.*"} * 100 > 90) and (container_spec_memory_limit_bytes{image!="",name!~".*exporter.*"} > 0)
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container high memory usage"
+          description: "Container {{ $labels.name }} memory usage is above 90% of its limit for more than 15 minutes"
+
+      # Solo alertar sobre reinicios muy frecuentes
+      - alert: ContainerFrequentRestarts
+        expr: increase(container_start_time_seconds{image!=""}[1h]) > 5
+        for: 0s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container restarting frequently"
+          description: "Container {{ $labels.name }} has restarted more than 5 times in the last hour"
+
+  - name: transcendence_network_alerts
+    interval: 30s
+    rules:
+      # High response time alerts - más tolerantes
+      - alert: HighResponseTime
+        expr: probe_duration_seconds > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time for {{ $labels.instance }}"
+          description: "Response time for {{ $labels.instance }} is above 30 seconds for more than 5 minutes"
+
+      - alert: CriticalResponseTime
+        expr: probe_duration_seconds > 60
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical response time for {{ $labels.instance }}"
+          description: "Response time for {{ $labels.instance }} is above 60 seconds for more than 2 minutes"
+
+      # HTTP error rate alerts - más específico
+      - alert: HTTPErrorRate
+        expr: probe_http_status_code >= 500 and probe_success == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP server errors detected for {{ $labels.instance }}"
+          description: "{{ $labels.instance }} is returning HTTP status code {{ $value }} for more than 5 minutes"
