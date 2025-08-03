@@ -144,6 +144,10 @@ async function createNewGame(): Promise<void> {
   const createButton = document.getElementById('create-game') as HTMLButtonElement;
   if (!createButton) return;
 
+  // LAN manual input prompt
+  let serverHost = window.prompt('Introduce la IP o hostname del host (LAN):', window.location.hostname);
+  if (!serverHost) serverHost = window.location.hostname;
+
   // Deshabilitar botón mientras se crea la partida
   createButton.disabled = true;
   createButton.innerHTML = '⏳ Creando partida...';
@@ -354,6 +358,10 @@ function updateServerStats(games: any[]): void {
 async function joinGame(gameId: string): Promise<void> {
   const joinButton = document.querySelector(`[data-game-id="${gameId}"]`) as HTMLButtonElement;
   if (!joinButton) return;
+
+  // LAN manual input prompt
+  let serverHost = window.prompt('Introduce la IP o hostname del host (LAN):', window.location.hostname);
+  if (!serverHost) serverHost = window.location.hostname;
 
   // Deshabilitar botón mientras se une a la partida
   const originalText = joinButton.innerHTML;
