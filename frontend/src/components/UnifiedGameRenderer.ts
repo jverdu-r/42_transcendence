@@ -188,9 +188,8 @@ export class UnifiedGameRenderer {
                 return;
             }
 
-            // Prompt for LAN host/IP
-            let serverHost = window.prompt('Introduce la IP o hostname del host (LAN):', window.location.hostname);
-            if (!serverHost) serverHost = window.location.hostname;
+            // Use current hostname automatically
+            const serverHost = window.location.hostname;
             
             this.gameId = gameId;
             this.playerNumber = playerNumber;
