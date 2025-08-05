@@ -4,6 +4,8 @@ import { renderHomePage } from './pages/home';
 import { renderPlay } from './pages/play';
 import { renderProfilePage } from './pages/profile';
 import { renderRankingPage } from './pages/ranking';
+import { renderFriendsPage } from './pages/friends';
+import { renderChatPage } from './pages/chat';
 import { renderSettingsPage } from './pages/settings';
 import { renderLoginPage } from './pages/login';
 import { renderRegister } from './pages/register';
@@ -35,6 +37,8 @@ const routes: { [key: string]: () => void } = {
   '/profile': renderProfilePage,
   '/play': renderPlay,
   '/ranking': renderRankingPage,
+  '/friends': renderFriendsPage,
+  '/chat': renderChatPage,
   '/settings': renderSettingsPage,
   '/login': renderLoginPage,
   '/register': renderRegister,

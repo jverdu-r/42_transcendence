@@ -96,7 +96,7 @@ const fastify = Fastify({ logger: true });
   fastify.get('/health', async (request, reply) => {
     try {
       await redis.ping();
-      reply.send({ status: 'ok', redis: 'connected' });
+      return reply.send({ status: 'ok', redis: 'connected' });
     } catch (err: any) {
       reply.status(500).send({ status: 'fail', error: err?.message || String(err) });
     }
@@ -107,7 +107,7 @@ const fastify = Fastify({ logger: true });
     try {
       const job = request.body;
       await redis.lpush('job-queue', JSON.stringify(job));
-      reply.send({ queued: true });
+      return reply.send({ queued: true });
     } catch (err: any) {
       reply.status(500).send({ error: 'Failed to queue job', detail: err?.message || String(err) });
     }

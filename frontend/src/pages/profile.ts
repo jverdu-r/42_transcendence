@@ -109,9 +109,9 @@ export async function renderProfilePage(): Promise<void> {
               </h1>
               <p class="text-gray-300 mb-4">${user.email}</p>
               <div class="flex flex-wrap gap-4 justify-center lg:justify-start">
-                <span class="px-4 py-2 bg-[#001d3d] rounded-full text-sm border border-[#003566]">Ranking: #${userStats.ranking}</span>
-                <span class="px-4 py-2 bg-[#001d3d] rounded-full text-sm border border-[#003566]">ELO: ${userStats.elo}</span>
-                <span class="px-4 py-2 bg-[#001d3d] rounded-full text-sm border border-[#003566]">Partidas: ${userStats.totalGames}</span>
+                <span class="px-4 py-2 bg-[#001d3d] rounded-full text-sm border border-[#003566]">${getTranslation('profile', 'ranking')}: #${userStats.ranking}</span>
+                <span class="px-4 py-2 bg-[#001d3d] rounded-full text-sm border border-[#003566]">${getTranslation('profile', 'ELO')}: ${userStats.elo}</span>
+                <span class="px-4 py-2 bg-[#001d3d] rounded-full text-sm border border-[#003566]">${getTranslation('profile', 'games')}: ${userStats.totalGames}</span>
               </div>
             </div>
             <div class="flex flex-col gap-3">
@@ -158,7 +158,7 @@ export async function renderProfilePage(): Promise<void> {
               </h2>
               <button id="download-history"
                 class="text-sm text-blue-400 hover:underline">
-                Descargar historial
+                ${getTranslation('profile', 'download')}
               </button>
             </div>
             <div class="space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
@@ -225,9 +225,9 @@ export async function renderProfilePage(): Promise<void> {
             localStorage.setItem('user', JSON.stringify(user));
             renderProfilePage(); // Recarga perfil para que se vea
           }
-          alert('✅ Avatar subido correctamente');
+          alert(getTranslation('alerts', 'avatarOk'));
         } else {
-          alert('❌ Error al subir avatar');
+          alert(getTranslation('alerts', 'avatarFail'));
         }
       });
     }
@@ -244,7 +244,7 @@ export async function renderProfilePage(): Promise<void> {
       downloadBtn.addEventListener('click', async () => {
         const token = localStorage.getItem('jwt');
         if (!token) {
-          alert('Debes iniciar sesión para descargar el historial');
+          alert(getTranslation('alerts', 'history'));
           return;
         }
 
@@ -265,7 +265,7 @@ export async function renderProfilePage(): Promise<void> {
 
           const link = document.createElement('a');
           link.href = url;
-          link.download = 'historial_partidas.txt';
+          link.download = `historial_${user.id}.txt`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -274,7 +274,7 @@ export async function renderProfilePage(): Promise<void> {
           downloadBtn.textContent = '✔ Descargado';
         } catch (err) {
           console.error(err);
-          alert('❌ Error al descargar el historial');
+          alert(getTranslation('alerts', 'historyError'));
           downloadBtn.textContent = 'Descargar historial';
         } finally {
           setTimeout(() => {

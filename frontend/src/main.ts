@@ -25,5 +25,6 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 window.addEventListener('languageChanged', () => {
   const currentPath = window.location.pathname;
   renderNavbar(currentPath);
-  navigateTo(window.location.pathname);
+  navigateTo(currentPath);
 });
+ 
