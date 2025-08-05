@@ -46,9 +46,8 @@ class GameLobby {
                 navigateTo('/unified-game-online');
                 return;
             }
-            // LAN manual input prompt
-            let serverHost = window.prompt('Introduce la IP o hostname del host (LAN):', window.location.hostname);
-            if (!serverHost) serverHost = window.location.hostname;
+            // Use current hostname automatically
+            const serverHost = window.location.hostname;
             const currentUser = getCurrentUser();
             const username = encodeURIComponent(currentUser?.username || 'Usuario');
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
