@@ -80,6 +80,25 @@ class GameLobby {
 
 
     private handleWebSocketMessage(event: MessageEvent): void {
+        const determinePlayerInfo = (): void => {
+            const currentUser = getCurrentUser();
+            const currentUserName = currentUser?.username || 'Usuario';
+            this.state.opponentName = (this.state.playersConnected > 1 && this.state.opponentName) || 'Oponente';
+
+            const player1Info = {
+                numero: 1,
+                username: this.state.playerNumber === 1 ? currentUserName : this.state.opponentName,
+                displayName: this.state.playerNumber === 1 ? currentUserName : this.state.opponentName,
+                isCurrentUser: this.state.playerNumber === 1
+            };
+            const player2Info = {
+                numero: 2,
+                username: this.state.playerNumber === 2 ? currentUserName : this.state.opponentName,
+                displayName: this.state.playerNumber === 2 ? currentUserName : this.state.opponentName,
+                isCurrentUser: this.state.playerNumber === 2
+            };
+            this.renderer?.setPlayerInfo(player1Info, player2Info);
+        };
         try {
             const data = JSON.parse(event.data);
             console.log('Received message:', data);
@@ -96,6 +115,9 @@ class GameLobby {
                     this.state.playersConnected = data.playersConnected;
                     if (data.playerName && data.playerNumber !== this.state.playerNumber) {
                         this.state.opponentName = data.playerName;
+                        
+                        // Synchronize player information
+                        determinePlayerInfo();
                     }
                     this.updateUI();
                     break;
@@ -110,6 +132,7 @@ class GameLobby {
                     break;
 
                 case 'gameStarted':
+                    determinePlayerInfo(); // Ensure player names are set before starting
                     this.startGame();
                     break;
 
@@ -149,6 +172,24 @@ class GameLobby {
         
             // Initialize the game renderer and transfer the WebSocket connection
             this.renderer = new UnifiedGameRenderer(canvas, 'online');
+            
+            // Set player information for display
+            const currentUser = getCurrentUser();
+            const currentUserName = currentUser?.username || 'Usuario';
+            const player1Info = {
+                numero: 1,
+                username: this.state.playerNumber === 1 ? currentUserName : (this.state.opponentName || 'Oponente'),
+                displayName: this.state.playerNumber === 1 ? currentUserName : (this.state.opponentName || 'Oponente'),
+                isCurrentUser: this.state.playerNumber === 1
+            };
+            const player2Info = {
+                numero: 2,
+                username: this.state.playerNumber === 2 ? currentUserName : (this.state.opponentName || 'Oponente'),
+                displayName: this.state.playerNumber === 2 ? currentUserName : (this.state.opponentName || 'Oponente'),
+                isCurrentUser: this.state.playerNumber === 2
+            };
+            this.renderer.setPlayerInfo(player1Info, player2Info);
+            
             this.renderer.setCallbacks({
                 onScoreUpdate: (score: { left: number; right: number }) => {
                     console.log('Score updated:', score);
