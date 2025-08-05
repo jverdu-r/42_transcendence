@@ -226,6 +226,7 @@ services:
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     secrets:
       - redis_password
     volumes:
@@ -234,11 +235,7 @@ services:
     networks:
       - transcendence_net
 
-
-
-
-  # Monitoring Services
-  
+  # -----     Monitoring Services     ----- 
   # Prometheus - Metrics collection
   prometheus:
     image: prom/prometheus:latest
@@ -260,7 +257,6 @@ services:
     networks:
       - transcendence_net
     restart: unless-stopped
-
   # Grafana - Metrics visualization
   grafana:
     image: grafana/grafana:latest
@@ -280,7 +276,6 @@ services:
     depends_on:
       - prometheus
     restart: unless-stopped
-
   # Alertmanager - Alert management
   alertmanager:
     image: prom/alertmanager:latest
@@ -297,7 +292,6 @@ services:
     networks:
       - transcendence_net
     restart: unless-stopped
-
   # Node Exporter - System metrics
   node-exporter:
     image: prom/node-exporter:latest
@@ -316,7 +310,6 @@ services:
     networks:
       - transcendence_net
     restart: unless-stopped
-
   # Redis Exporter - Redis metrics
   redis-exporter:
     image: oliver006/redis_exporter:latest
@@ -331,7 +324,6 @@ services:
     depends_on:
       - redis
     restart: unless-stopped
-
   # cAdvisor - Container metrics
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
@@ -350,7 +342,6 @@ services:
     networks:
       - transcendence_net
     restart: unless-stopped
-
   # Nginx Exporter - Nginx metrics for WAF and proxy
   nginx-exporter:
     image: nginx/nginx-prometheus-exporter:latest
@@ -364,7 +355,6 @@ services:
     depends_on:
       - nginx-proxy
     restart: unless-stopped
-
   # Blackbox Exporter - HTTP/TCP/ICMP monitoring
   blackbox-exporter:
     image: prom/blackbox-exporter:latest

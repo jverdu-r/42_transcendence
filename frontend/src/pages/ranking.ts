@@ -134,7 +134,7 @@ export async function renderRankingPage(): Promise<void> {
                         ${getTranslation('ranking', 'globalRankingTitle')}
                     </h1>
                     <p class="text-base sm:text-lg md:text-xl text-gray-300 mb-8">
-                        Los mejores jugadores de Transcendence
+                        ${getTranslation('ranking', 'bestPlayers')}
                     </p>
                 </div>
 

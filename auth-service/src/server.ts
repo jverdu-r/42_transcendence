@@ -6,25 +6,33 @@ import bcrypt from 'bcryptjs';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import { openDb, initializeDb } from './database';
-import redis from './redis-client';
 import multipart from '@fastify/multipart';
 import { pipeline } from 'stream';
 import util from 'util';
-import { FastifyRequest } from 'fastify';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { MultipartFile } from '@fastify/multipart';
 import { createCanvas, loadImage } from 'canvas';
+import { verifyToken } from './utils/auth-middleware';
+import gamesRoutes from './routes/games.routes';
+import friendsRoutes from './routes/friends.routes';
+import { promisify } from 'util';
+import { connectRedis } from './redis-client'
+import redisClient from './redis-client';
 
-// Configuración del entorno (dotenv) y constantes globales (JWT_SECRET)
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
-
-// Creación e inicialización de la instancia Fastify
 const fastify = Fastify({ logger: true });
 
-// Registro de plugin multipart para subida de archivos
 fastify.register(multipart);
 
-// Registro de CORS para permitir solicitudes desde otros orígenes
+// Rutas para gestionar el guardado de partidas y estadísticas del juego
+fastify.register(gamesRoutes, { prefix: '/auth/games' });
+
+// Ruta para gestionar amistades
+fastify.register(friendsRoutes, { prefix: '/auth/friends' });
+
+// Habilitar CORS
+
 fastify.register(require('@fastify/cors'), {
   origin: true,
   credentials: true,
@@ -49,18 +57,139 @@ fastify.register(require('@fastify/static'), {
   decorateReply: false // evita conflicto
 });
 
-// Middleware para verificar JWT y extraer el usuario autenticado
-async function verifyToken(request: any, reply: any) {
-  const token = request.headers.authorization?.replace('Bearer ', '');
+// --- Función: generateRankingWithStats ---
+export async function generateRankingWithStats(db: any) {
+  const userGames = await db.all(`
+    SELECT 
+        u.id AS user_id,
+        u.username,
+        GROUP_CONCAT(DISTINCT p1.game_id) AS game_ids_str
+    FROM 
+        users u
+    JOIN participants p1 ON u.id = p1.user_id
+    JOIN games g ON g.id = p1.game_id
+    WHERE 
+        g.status = 'finished'
+        AND EXISTS (
+            SELECT 1
+            FROM participants p2
+            WHERE 
+                p2.game_id = p1.game_id
+                AND (
+                    p2.user_id IS NULL
+                    OR TRIM(p2.user_id) = ''
+                    OR p2.user_id != p1.user_id
+                )
+        )
+    GROUP BY u.id, u.username
+    ORDER BY u.id;
+  `);
 
-  if (!token) return reply.code(401).send({ message: 'Token requerido' });
+  const userGameDetails: any[] = [];
 
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
-    request.user = decoded;
-  } catch (err) {
-    return reply.code(401).send({ message: 'Token inválido' });
+  for (const user of userGames) {
+    const gameIdList = user.game_ids_str
+      ? user.game_ids_str.split(',').map((id: string) => parseInt(id.trim()))
+      : [];
+
+    const gamesDetails: any[] = [];
+    let totalGames = 0;
+    let wins = 0;
+    let losses = 0;
+    let pointsFor = 0;
+    let pointsAgainst = 0;
+    let eloWins = 0;
+    let eloLosses = 0;
+
+    for (const gameId of gameIdList) {
+      const gameDetail = await db.get(`
+        SELECT 
+            g.id AS game_id,
+            g.finished_at AS game_date,
+            t.name AS tournament_name,
+            p1.user_id AS user_id,
+            u1.username AS user_username,
+            p1.team_name AS user_team,
+            p1.is_winner AS user_won,
+            p2.user_id AS opponent_id,
+            u2.username AS opponent_username,
+            p2.team_name AS opponent_team,
+            p2.is_winner AS opponent_won,
+            COALESCE((
+              SELECT s1.point_number
+              FROM scores s1
+              WHERE s1.game_id = g.id AND (s1.scorer_id = p1.user_id OR s1.team_name = p1.team_name)
+              LIMIT 1
+            ), 0) AS user_score,
+            COALESCE((
+              SELECT s2.point_number
+              FROM scores s2
+              WHERE s2.game_id = g.id AND (s2.scorer_id = p2.user_id OR s2.team_name = p2.team_name)
+              LIMIT 1
+            ), 0) AS opponent_score
+        FROM games g
+        LEFT JOIN tournaments t ON g.tournament_id = t.id
+        JOIN participants p1 ON g.id = p1.game_id
+        JOIN users u1 ON p1.user_id = u1.id
+        JOIN participants p2 ON g.id = p2.game_id
+          AND (
+            (p2.user_id IS NULL OR TRIM(p2.user_id) = '') 
+            OR p2.user_id != p1.user_id
+          )
+        LEFT JOIN users u2 ON p2.user_id = u2.id
+        WHERE 
+            g.id = ?
+            AND p1.user_id = ?
+        GROUP BY g.id, t.name, u1.username, u2.username, p1.is_winner, p2.is_winner;
+      `, [gameId, user.user_id]);
+
+      if (!gameDetail) continue;
+
+      const { user_score, opponent_score, opponent_id } = gameDetail;
+      const won = user_score > opponent_score;
+
+      totalGames++;
+      if (won) wins++;
+      else losses++;
+
+      if (opponent_id !== null && String(opponent_id).trim() !== '') {
+        pointsFor += user_score;
+        pointsAgainst += opponent_score;
+        if (won) eloWins++;
+        else eloLosses++;
+      }
+
+      gamesDetails.push({
+        game_id: gameDetail.game_id,
+        date: gameDetail.game_date,
+        tournament_name: gameDetail.tournament_name || '-',
+        result: won ? 'win' : 'loss',
+        opponent_id: opponent_id,
+        opponent_name: gameDetail.opponent_username || (opponent_id === null ? 'AI Bot' : 'Unknown'),
+        final_score: `${user_score}-${opponent_score}`
+      });
+    }
+
+    const winRate = totalGames > 0 ? parseFloat(((wins / totalGames) * 100).toFixed(2)) : 0;
+    const elo = 1000 + (pointsFor - pointsAgainst) + (3 * eloWins) - eloLosses;
+
+    userGameDetails.push({
+      user_id: user.user_id,
+      username: user.username,
+      stats: {
+        total_games: totalGames,
+        wins,
+        losses,
+        win_rate: winRate,
+        points_for: pointsFor,
+        points_against: pointsAgainst,
+        elo: Math.round(elo)
+      },
+      games: gamesDetails
+    });
   }
+
+  return userGameDetails;
 }
 
 // Endpoint para registrar un nuevo usuario
@@ -84,7 +213,10 @@ fastify.post('/auth/register', async (request, reply) => {
     const hash = await bcrypt.hash(password, 10);
     
     // Insertar directamente en la base de datos
-    const result = await db.run('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)', [username, email, hash]);
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+      params: [username, email, hash]
+    }));
     
     await db.close();
     
@@ -121,9 +253,25 @@ fastify.post('/auth/login', async (request, reply) => {
       email: user.email,
       exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hora
     }, JWT_SECRET);
-    
-    // Obtener avatar_url
-    const profile = await db.get('SELECT avatar_url FROM user_profiles WHERE user_id = ?', [user.id]);
+
+    // Registrar sesión en DB y Redis
+    const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hora// Guardar en Redis: clave = jwt:<token>, valor = user_id
+    await redisClient.set(`jwt:${token}`, user.id.toString(), { EX: 3600 }); // 3600s = 1h
+    await redisClient.set(`user:${user.id}:online`, 'true');
+    await redisClient.sAdd('online_users', user.id.toString());
+    await redisClient.set(`user:${user.id}:last_seen`, Date.now().toString());
+
+
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `
+        INSERT INTO sessions (user_id, session_token, expires_at)
+        VALUES (?, ?, ?)
+      `,
+      params: [user.id, token, expiresAt.toISOString()]
+    }));
+
+    // Obtener avatar_url e idioma
+    const profile = await db.get('SELECT avatar_url, language FROM user_profiles WHERE user_id = ?', [user.id]);
 
     await db.close();
 
@@ -133,7 +281,8 @@ fastify.post('/auth/login', async (request, reply) => {
         id: user.id,
         username: user.username,
         email: user.email,
-        avatar_url: profile?.avatar_url || null
+        avatar_url: profile?.avatar_url || null,
+        language: profile?.language || 'es'
       }
     });
   } catch (err) {
@@ -141,6 +290,80 @@ fastify.post('/auth/login', async (request, reply) => {
     return reply.code(500).send({ message: 'Error interno del servidor' });
   }
 });
+
+// Endpoint para cerrar sesión
+fastify.post('/auth/logout', { preHandler: verifyToken }, async (request, reply) => {
+  const token = (request as any).token;
+  const userId = (request as any).user.user_id;
+
+  try {
+    const db = await openDb();
+    
+    // Eliminar de Redis
+    await redisClient.del(`jwt:${token}`); // ✅ Eliminar el token JWT
+    await redisClient.del(`user:${userId}:online`);
+    await redisClient.sRem('online_users', userId.toString());
+    await redisClient.del(`user:${userId}:last_seen`);
+    
+    return reply.send({ message: 'Sesión cerrada correctamente' });
+  } catch (err) {
+    console.error('Error en logout:', err);
+    return reply.code(500).send({ message: 'Error al cerrar sesión' });
+  }
+});
+
+// Endpoint heartbeat para mantener sesión activa
+fastify.get('/auth/heartbeat', { preHandler: verifyToken }, async (request, reply) => {
+  const userId = (request as any).user.user_id;
+  
+  try {
+    // Actualizar timestamp de última actividad
+    await redisClient.set(`user:${userId}:last_seen`, Date.now().toString());
+    return reply.send({ status: 'active' });
+  } catch (err) {
+    console.error('Error en heartbeat:', err);
+    return reply.code(500).send({ message: 'Error interno' });
+  }
+});
+
+// Endpoint para obtener usuarios conectados
+fastify.get('/auth/online-users', async (request, reply) => {
+  try {
+    const onlineUsers = await redisClient.sMembers('online_users');
+    return reply.send(onlineUsers.map(id => parseInt(id)));
+  } catch (err) {
+    console.error('Error obteniendo usuarios online:', err);
+    return reply.code(500).send({ message: 'Error interno' });
+  }
+});
+
+// Función de limpieza periódica de usuarios online
+async function cleanInactiveSessions() {
+  try {
+    const onlineUsers = await redisClient.sMembers('online_users');
+    const now = Date.now();
+    
+    for (const userId of onlineUsers) {
+      const lastSeen = await redisClient.get(`user:${userId}:last_seen`);
+      const inactiveTime = now - parseInt(lastSeen || '0');
+      
+      // Eliminar si inactivo por más de 10 minutos
+      if (inactiveTime > 600000) {
+        await redisClient.sRem('online_users', userId);
+        await redisClient.del(`user:${userId}:online`);
+        await redisClient.del(`user:${userId}:last_seen`);
+
+        const db = await openDb();
+        await db.close();
+      }
+    }
+  } catch (err) {
+    console.error('Error en limpieza de sesiones:', err);
+  }
+}
+
+// Iniciar limpieza periódica cada 10 minutos
+setInterval(cleanInactiveSessions, 600000);
 
 // Endpoint para subir y optimizar el avatar
 fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request, reply) => {
@@ -203,11 +426,14 @@ fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request
 
     // Guardar en base de datos
     const db = await openDb();
-    await db.run(`
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `
       INSERT INTO user_profiles (user_id, avatar_url)
       VALUES (?, ?)
       ON CONFLICT(user_id) DO UPDATE SET avatar_url = excluded.avatar_url
-    `, [userId, `/avatars/${filename}`]);
+      `,
+      params: [userId, `/avatars/${filename}`]
+    }));
 
     await db.close();
 
@@ -224,137 +450,36 @@ fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request
   }
 });
  
-// Endpoint para obtener estadísticas del usuario y generar archivo de historial
+// Endpoint para obtener estadísticas del usuario
 fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, reply) => {
+  let db;
   try {
-    const db = await openDb();
-    const userId = (request as any).user.user_id;
+    db = await openDb();
+    const userId = (request as any).user.user_id; 
 
-    // Obtener todas las partidas completadas con su info de jugadores
-    const games = await db.all(`
-      SELECT
-        g.id AS game_id,
-        g.finished_at,
-        g.status,
-        g.tournament_id,
-        p.user_id AS player_id,
-        p.team_name AS team,
-        u.username,
-        t.name AS tournament_name
-      FROM games g
-      JOIN participants p ON p.game_id = g.id
-      LEFT JOIN users u ON u.id = p.user_id
-      LEFT JOIN tournaments t ON g.tournament_id = t.id
-      WHERE g.status IN ('finished')
-    `);
+    const rankingData = await generateRankingWithStats(db);
+    const userData = rankingData.find((u: any) => u.user_id === userId);
 
-    // Obtener todos los scores por game + team
-    const scores = await db.all(`
-      SELECT game_id, team_name, point_number
-      FROM scores
-    `);
-
-    const scoreMap = new Map<string, number>();
-    for (const s of scores) {
-      scoreMap.set(`${s.game_id}_${s.team_name}`, s.point_number);
+    if (!userData) {
+      await db.close();
+      return reply.code(404).send({ message: 'Usuario no encontrado en el ranking' });
     }
 
-    // Agrupar los jugadores por game_id
-    const groupedGames = new Map<number, any[]>();
-    for (const g of games) {
-      if (!groupedGames.has(g.game_id)) groupedGames.set(g.game_id, []);
-      groupedGames.get(g.game_id)!.push(g);
-    }
-
-    // Preparar stats individuales
-    const userGames = new Map<number, {
-      matches: any[],
-      pointsFor: number,
-      pointsAgainst: number
-    }>();
-
-    for (const [gameId, players] of groupedGames.entries()) {
-      if (players.length < 1) continue;
-
-      for (const current of players) {
-        const opponent = players.find(p => p.player_id !== current.player_id && p.user_id !== null) || null;
-
-        const userScore = scoreMap.get(`${gameId}_${current.team}`) ?? 0;
-
-        let opponentScore = 0;
-        let opponentName = 'Bot AI';
-
-        if (opponent) {
-          opponentScore = scoreMap.get(`${gameId}_${opponent.team}`) ?? 0;
-          opponentName = opponent.username || 'Bot AI';
-        } else {
-          // Buscar en scores el otro equipo aunque no haya participant asociado
-          const allTeams = scores
-            .filter(s => s.game_id === gameId)
-            .map(s => s.team_name);
-          const otherTeam = allTeams.find(t => t !== current.team);
-          if (otherTeam) {
-            opponentScore = scoreMap.get(`${gameId}_${otherTeam}`) ?? 0;
-          }
-        }
-
-        if (!userGames.has(current.player_id)) {
-          userGames.set(current.player_id, {
-            matches: [],
-            pointsFor: 0,
-            pointsAgainst: 0
-          });
-        }
-
-        userGames.get(current.player_id)!.pointsFor += userScore;
-        userGames.get(current.player_id)!.pointsAgainst += opponentScore;
-
-        userGames.get(current.player_id)!.matches.push({
-          id: gameId,
-          result: userScore > opponentScore ? 'win' : 'loss',
-          opponent: opponentName,
-          score: `${userScore}-${opponentScore}`,
-          date: current.finished_at,
-          tournament: current.tournament_name || '-'
-        });
-      }
-    }
-
-    // Calcular ELOs
-    const eloList = Array.from(userGames.entries()).map(([uid, data]) => ({
-      user_id: uid,
-      elo: 1000 + data.pointsFor - data.pointsAgainst
+    const totalGames = userData.stats.total_games;
+    const wins = userData.stats.wins;
+    const losses = userData.stats.losses;
+    const winRate = userData.stats.win_rate;
+    const elo = userData.stats.elo;
+    const matchHistory = userData.games.map((game: any) => ({
+      id: game.game_id,
+      result: game.result,
+      opponent: game.opponent_name,
+      score: game.final_score,
+      date: game.date
     }));
 
-    // Asegurar que todos los usuarios están presentes (aun sin partidas)
-    const allUsers = await db.all(`SELECT id FROM users`);
-    for (const u of allUsers) {
-      if (!userGames.has(u.id)) {
-        userGames.set(u.id, { matches: [], pointsFor: 0, pointsAgainst: 0 });
-        eloList.push({ user_id: u.id, elo: 1000 });
-      }
-    }
-
-    eloList.sort((a, b) => b.elo - a.elo);
-    const ranking = eloList.findIndex(u => u.user_id === userId) + 1;
-
-    const userData = userGames.get(userId)!;
-    const wins = userData.matches.filter(m => m.result === 'win').length;
-    const losses = userData.matches.filter(m => m.result === 'loss').length;
-    const totalGames = wins + losses;
-    const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
-    const elo = 1000 + userData.pointsFor - userData.pointsAgainst;
-
-    const matchHistory = userData.matches.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-
-    // Guardar historial completo en txt
-    const filePath = path.resolve('/app/data/historial_partidas.txt');
-    const matchHistoryText = matchHistory.map(entry =>
-      `Partida ${entry.id} | Resultado: ${entry.result} | Oponente: ${entry.opponent} | Torneo: ${entry.tournament} | Marcador: ${entry.score} | Fecha: ${entry.date}`
-    );
-    fs.writeFileSync(filePath, matchHistoryText.join('\n'));
+    const sortedRanking = [...rankingData].sort((a: any, b: any) => b.stats.elo - a.stats.elo);
+    const ranking = sortedRanking.findIndex((u: any) => u.user_id === userId) + 1;
 
     // Avatar
     const profile = await db.get('SELECT avatar_url FROM user_profiles WHERE user_id = ?', [userId]);
@@ -377,144 +502,86 @@ fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, 
   }
 });
 
-// Endpoint para obtener el ranking global completo (top 100)
-fastify.get('/auth/ranking', async (request, reply) => {
+// Descarga de historial
+fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, async (request, reply) => {
+  const userId = (request as any).user.user_id;
+
   try {
     const db = await openDb();
+    const rankingData = await generateRankingWithStats(db);
+    const userData = rankingData.find((u: any) => u.user_id === userId);
+    await db.close();
 
-    // Obtener partidas finalizadas
-    const games = await db.all(`
-      SELECT
-        g.id AS game_id,
-        g.finished_at,
-        g.status,
-        g.tournament_id,
-        p.user_id AS player_id,
-        p.team_name AS team,
-        u.username,
-        t.name AS tournament_name
-      FROM games g
-      JOIN participants p ON p.game_id = g.id
-      LEFT JOIN users u ON u.id = p.user_id
-      LEFT JOIN tournaments t ON g.tournament_id = t.id
-      WHERE g.status IN ('finished')
-    `);
-
-    // Scores
-    const scores = await db.all(`
-      SELECT game_id, team_name, point_number
-      FROM scores
-    `);
-
-    const scoreMap = new Map<string, number>();
-    for (const s of scores) {
-      scoreMap.set(`${s.game_id}_${s.team_name}`, s.point_number);
+    if (!userData) {
+      return reply.code(404).send({ message: 'Usuario no encontrado en el ranking' });
     }
 
-    // Agrupar jugadores por partida
-    const groupedGames = new Map<number, any[]>();
-    for (const g of games) {
-      if (!groupedGames.has(g.game_id)) groupedGames.set(g.game_id, []);
-      groupedGames.get(g.game_id)!.push(g);
+    const matchHistory = userData.games;
+
+    const matchHistoryText = matchHistory.map((entry: {
+      game_id: number;
+      result: string;
+      opponent_name: string;
+      tournament_name: string;
+      final_score: string;
+      date: string;
+    }) =>
+      `Partida ${entry.game_id} | Resultado: ${entry.result} | Oponente: ${entry.opponent_name} | Torneo: ${entry.tournament_name} | Marcador: ${entry.final_score} | Fecha: ${entry.date}`
+    );
+
+    // Crear carpeta /app/data/historiales si no existe
+    const dirPath = path.resolve('/app/data/historiales');
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
     }
 
-    // Calcular estadísticas por jugador
-    const userGames = new Map<number, {
-      username: string;
-      wins: number;
-      losses: number;
-      pointsFor: number;
-      pointsAgainst: number;
-    }>();
+    // Escribir archivo personalizado
+    const fileName = `historial_${userId}.txt`;
+    const filePath = path.join(dirPath, fileName);
+    fs.writeFileSync(filePath, matchHistoryText.join('\n') + '\n');
 
-    for (const [gameId, players] of groupedGames.entries()) {
-      if (players.length < 1) continue;
+    return reply
+      .type('text/plain')
+      .header('Content-Disposition', `attachment; filename=${fileName}`)
+      .send(fs.createReadStream(filePath));
 
-      for (const current of players) {
-        const uid = current.player_id;
-        if (!uid) continue;
+  } catch (err) {
+    console.error('Error generando o descargando historial:', err);
+    return reply.code(500).send({ message: 'Error interno al generar historial' });
+  }
+});
 
-        const opponent = players.find(p => p.player_id !== uid && p.user_id !== null) || null;
-        const userScore = scoreMap.get(`${gameId}_${current.team}`) ?? 0;
+// Endpoint para obtener el ranking global completo (top 100)
+fastify.get('/auth/ranking', async (request, reply) => {
+  let db: any;
+  try {
+    db = await openDb();
 
-        let opponentScore = 0;
-        if (opponent) {
-          opponentScore = scoreMap.get(`${gameId}_${opponent.team}`) ?? 0;
-        } else {
-          // Buscar el otro equipo aunque sea contra bot
-          const allTeams = scores
-            .filter(s => s.game_id === gameId)
-            .map(s => s.team_name);
-          const otherTeam = allTeams.find(t => t !== current.team);
-          if (otherTeam) {
-            opponentScore = scoreMap.get(`${gameId}_${otherTeam}`) ?? 0;
-          }
-        }
+    const allUsers = await generateRankingWithStats(db);
 
-        if (!userGames.has(uid)) {
-          userGames.set(uid, {
-            username: current.username || `User${uid}`,
-            wins: 0,
-            losses: 0,
-            pointsFor: 0,
-            pointsAgainst: 0
-          });
-        }
-
-        const stats = userGames.get(uid)!;
-        stats.pointsFor += userScore;
-        stats.pointsAgainst += opponentScore;
-        if (userScore > opponentScore) {
-          stats.wins += 1;
-        } else {
-          stats.losses += 1;
-        }
-      }
-    }
-
-    // Asegurar que todos los usuarios están en el ranking
-    const allUsers = await db.all(`SELECT id, username FROM users`);
-    for (const u of allUsers) {
-      if (!userGames.has(u.id)) {
-        userGames.set(u.id, {
-          username: u.username,
-          wins: 0,
-          losses: 0,
-          pointsFor: 0,
-          pointsAgainst: 0
-        });
-      }
-    }
-
-    // Calcular ELO y preparar la respuesta
-    const rankingRaw = Array.from(userGames.entries()).map(([uid, data]) => {
-      const totalGames = data.wins + data.losses;
-      const winRate = totalGames > 0 ? Math.round((data.wins / totalGames) * 100) : 0;
-      const elo = 1000 + data.pointsFor - data.pointsAgainst;
-
-      return {
-        id: uid,
-        username: data.username,
-        wins: data.wins,
-        losses: data.losses,
-        totalGames,
-        winRate,
-        elo
-      };
-    });
-
-    rankingRaw.sort((a, b) => b.elo - a.elo);
+    const rankingRaw = allUsers
+      .map(user => ({
+        id: user.user_id,
+        username: user.username,
+        wins: user.stats.wins,
+        losses: user.stats.losses,
+        totalGames: user.stats.total_games,
+        winRate: user.stats.win_rate,
+        elo: user.stats.elo
+      }))
+      .sort((a, b) => b.elo - a.elo);
 
     const rankingTop100 = rankingRaw.slice(0, 100).map((entry, index) => ({
       ...entry,
       rank: index + 1,
-      points: entry.elo // puedes ajustar esto si usas un sistema distinto de puntos
+      points: entry.elo
     }));
 
     await db.close();
     return reply.send(rankingTop100);
   } catch (err) {
     console.error('Error obteniendo ranking:', err);
+    if (db) await db.close().catch(console.error);
     return reply.code(500).send({ message: 'Error interno del servidor' });
   }
 });
@@ -559,7 +626,6 @@ fastify.get('/auth/games/live', async (request, reply) => {
       scores
         .filter(s => s.game_id === game.game_id)
         .forEach(s => scoreMap.set(s.team_name, s.score));
-
       const [p1, p2] = gameParticipants;
       return {
         id: game.game_id,
@@ -622,15 +688,16 @@ fastify.put('/auth/settings/user_data', { preHandler: verifyToken }, async (requ
     }
 
     // Actualizar email, username y contraseña si es válida
-    await db.run(
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 
       `UPDATE users SET username = ?, email = ?, password_hash = ? WHERE id = ?`,
-      [
+      params: [
         username ?? user.username,
         email ?? user.email,
         updatedPasswordHash,
         userId
       ]
-    );
+  }));
 
     return reply.send({ message: 'Perfil actualizado correctamente' });
 
@@ -678,16 +745,18 @@ fastify.put('/auth/settings/config', { preHandler: verifyToken }, async (request
       game_difficulty
     } = request.body as any;
 
-    await db.run(
-      `INSERT INTO user_profiles (user_id, language, notifications, sound, difficulty)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(user_id) DO UPDATE SET
-         language = excluded.language,
-         notifications = excluded.notifications,
-         sound = excluded.sound,
-         difficulty = excluded.difficulty`,
-      [userId, language, notifications, sound_effects, game_difficulty]
-    );
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `
+        INSERT INTO user_profiles (user_id, language, notifications, sound, difficulty)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+          language = excluded.language,
+          notifications = excluded.notifications,
+          sound = excluded.sound,
+          difficulty = excluded.difficulty
+      `,
+      params: [userId, language, notifications, sound_effects, game_difficulty]
+    }));
 
     await db.close();
     return reply.send({ message: 'Configuración guardada correctamente' });
@@ -702,13 +771,16 @@ fastify.get('/auth/settings/config', { preHandler: verifyToken }, async (request
   try {
     const db = await openDb();
     const userId = (request as any).user.user_id;
-
-    const config = await db.get(`
-      SELECT language, notifications, sound AS sound_effects, difficulty AS game_difficulty
-      FROM user_profiles
-      WHERE user_id = ?
-    `, [userId]);
-
+    const config = await db.get(
+      `SELECT 
+        language, 
+        notifications, 
+        sound AS sound_effects, 
+        difficulty AS game_difficulty
+      FROM user_profiles 
+      WHERE user_id = ?`,
+      [userId]
+    );
     await db.close();
 
     if (!config) {
@@ -749,10 +821,10 @@ fastify.post('/auth/google', async (request, reply) => {
     
     if (!user) {
       // Crear nuevo usuario con Google
-      const result = await db.run(
-        'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
-        [payload.name, payload.email, ''] // Sin contraseña para usuarios de Google
-      );
+      const result = await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+        sql: 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+        params: [payload.name, payload.email, ''] // Sin contraseña para usuarios de Google
+    }));
       
       user = await db.get('SELECT * FROM users WHERE email = ?', [payload.email]);
     }
@@ -763,6 +835,19 @@ fastify.post('/auth/google', async (request, reply) => {
       email: user.email,
       exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hora
     }, JWT_SECRET);
+
+    // Registrar sesión en DB y Redis
+    const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hora
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 
+      `INSERT INTO sessions (user_id, session_token, expires_at) 
+      VALUES (?, ?, ?)`,
+      params: [user.id, jwtToken, expiresAt.toISOString()]
+    }));
+    await redisClient.set(`user:${user.id}:online`, 'true');
+    await redisClient.sAdd('online_users', user.id.toString());
+    await redisClient.set(`user:${user.id}:last_seen`, Date.now().toString());
+    await redisClient.set(`jwt:${jwtToken}`, user.id.toString(), { EX: 3600 });
 
     await db.close();
     
@@ -780,28 +865,25 @@ fastify.post('/auth/google', async (request, reply) => {
   }
 });
 
-// Endpoint para descargar historial
-fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, async (request, reply) => {
-  const userId = (request as any).user.user_id;
-  const filePath = path.resolve('/app/data/historial_partidas.txt');
-
-  if (!fs.existsSync(filePath)) {
-    return reply.code(404).send({ message: 'Historial no encontrado' });
-  }
-
-  return reply
-    .type('text/plain')
-    .header('Content-Disposition', `attachment; filename=historial_${userId}.txt`)
-    .send(fs.createReadStream(filePath));
-});
-
-// Inicializar base de datos antes de arrancar el servidor en puerto 8000
-initializeDb().then(() => {
-  fastify.listen({ port: 8000, host: '0.0.0.0' }, err => {
-    if (err) {
-      fastify.log.error(err);
-      process.exit(1);
-    }
+// Inicializar base de datos y Redis
+Promise.all([initializeDb(), connectRedis()])
+  .then(() => {
+    fastify.listen({ port: 8000, host: '0.0.0.0' }, (err, address) => {
+      if (err) {
+        fastify.log.error(err);
+        process.exit(1);
+      }
+      console.log(`Servidor escuchando en ${address}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Error al inicializar servicios:', err);
+    process.exit(1);
   });
-});
 
+// Cerrar conexiones al apagar el servidor
+process.on('SIGINT', async () => {
+  await redisClient.quit();
+  fastify.close();
+  process.exit();
+});
