@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@fastify/multipart": "^7.6.1",
     "dotenv": "^16.0.0",
     "fastify": "^4.x.x",
     "sqlite3": "^5.x.x",
@@ -22,7 +23,8 @@
     "node-fetch": "^3.x.x",
     "dotenv": "^16.x.x",
     "redis": "^4.6.7",
-    "@fastify/cors": "^9.0.0"
+    "@fastify/cors": "^9.0.0",
+    "canvas": "^2.11.2"
   },
   "devDependencies": {
     "@types/node": "^20.x.x",

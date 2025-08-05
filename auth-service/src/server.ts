@@ -1,49 +1,198 @@
 import Fastify from 'fastify';
+import fs from 'fs';
+import path from 'path';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import { openDb, initializeDb } from './database';
-import redis from './redis-client';
+import multipart from '@fastify/multipart';
+import { pipeline } from 'stream';
+import util from 'util';
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { MultipartFile } from '@fastify/multipart';
+import { createCanvas, loadImage } from 'canvas';
+import { verifyToken } from './utils/auth-middleware';
+import gamesRoutes from './routes/games.routes';
+import friendsRoutes from './routes/friends.routes';
+import { promisify } from 'util';
+import { connectRedis } from './redis-client'
+import redisClient from './redis-client';
 
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
-
 const fastify = Fastify({ logger: true });
 
+fastify.register(multipart);
+
+// Rutas para gestionar el guardado de partidas y estadísticas del juego
+fastify.register(gamesRoutes, { prefix: '/auth/games' });
+
+// Ruta para gestionar amistades
+fastify.register(friendsRoutes, { prefix: '/auth/friends' });
+
 // Habilitar CORS
+
 fastify.register(require('@fastify/cors'), {
   origin: true,
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 });
 
-// Middleware para verificar JWT
-async function verifyToken(request: any, reply: any) {
-  const token = request.headers.authorization?.replace('Bearer ', '');
-  
-  if (!token) {
-    return reply.code(401).send({ message: 'Token requerido' });
+// Asegurar que las carpetas existen
+const dataPath = path.join(__dirname, '../data');
+const avatarPath = path.join(dataPath, 'avatars');
+if (!fs.existsSync(dataPath)) fs.mkdirSync(dataPath, { recursive: true });
+if (!fs.existsSync(avatarPath)) fs.mkdirSync(avatarPath, { recursive: true });
+
+// Registro de rutas estáticas para descargas y avatares
+fastify.register(require('@fastify/static'), {
+  root: dataPath,
+  prefix: '/downloads/'
+});
+fastify.register(require('@fastify/static'), {
+  root: avatarPath,
+  prefix: '/avatars/',
+  decorateReply: false // evita conflicto
+});
+
+// --- Función: generateRankingWithStats ---
+export async function generateRankingWithStats(db: any) {
+  const userGames = await db.all(`
+    SELECT 
+        u.id AS user_id,
+        u.username,
+        GROUP_CONCAT(DISTINCT p1.game_id) AS game_ids_str
+    FROM 
+        users u
+    JOIN participants p1 ON u.id = p1.user_id
+    JOIN games g ON g.id = p1.game_id
+    WHERE 
+        g.status = 'finished'
+        AND EXISTS (
+            SELECT 1
+            FROM participants p2
+            WHERE 
+                p2.game_id = p1.game_id
+                AND (
+                    p2.user_id IS NULL
+                    OR TRIM(p2.user_id) = ''
+                    OR p2.user_id != p1.user_id
+                )
+        )
+    GROUP BY u.id, u.username
+    ORDER BY u.id;
+  `);
+
+  const userGameDetails: any[] = [];
+
+  for (const user of userGames) {
+    const gameIdList = user.game_ids_str
+      ? user.game_ids_str.split(',').map((id: string) => parseInt(id.trim()))
+      : [];
+
+    const gamesDetails: any[] = [];
+    let totalGames = 0;
+    let wins = 0;
+    let losses = 0;
+    let pointsFor = 0;
+    let pointsAgainst = 0;
+    let eloWins = 0;
+    let eloLosses = 0;
+
+    for (const gameId of gameIdList) {
+      const gameDetail = await db.get(`
+        SELECT 
+            g.id AS game_id,
+            g.finished_at AS game_date,
+            t.name AS tournament_name,
+            p1.user_id AS user_id,
+            u1.username AS user_username,
+            p1.team_name AS user_team,
+            p1.is_winner AS user_won,
+            p2.user_id AS opponent_id,
+            u2.username AS opponent_username,
+            p2.team_name AS opponent_team,
+            p2.is_winner AS opponent_won,
+            COALESCE((
+              SELECT s1.point_number
+              FROM scores s1
+              WHERE s1.game_id = g.id AND (s1.scorer_id = p1.user_id OR s1.team_name = p1.team_name)
+              LIMIT 1
+            ), 0) AS user_score,
+            COALESCE((
+              SELECT s2.point_number
+              FROM scores s2
+              WHERE s2.game_id = g.id AND (s2.scorer_id = p2.user_id OR s2.team_name = p2.team_name)
+              LIMIT 1
+            ), 0) AS opponent_score
+        FROM games g
+        LEFT JOIN tournaments t ON g.tournament_id = t.id
+        JOIN participants p1 ON g.id = p1.game_id
+        JOIN users u1 ON p1.user_id = u1.id
+        JOIN participants p2 ON g.id = p2.game_id
+          AND (
+            (p2.user_id IS NULL OR TRIM(p2.user_id) = '') 
+            OR p2.user_id != p1.user_id
+          )
+        LEFT JOIN users u2 ON p2.user_id = u2.id
+        WHERE 
+            g.id = ?
+            AND p1.user_id = ?
+        GROUP BY g.id, t.name, u1.username, u2.username, p1.is_winner, p2.is_winner;
+      `, [gameId, user.user_id]);
+
+      if (!gameDetail) continue;
+
+      const { user_score, opponent_score, opponent_id } = gameDetail;
+      const won = user_score > opponent_score;
+
+      totalGames++;
+      if (won) wins++;
+      else losses++;
+
+      if (opponent_id !== null && String(opponent_id).trim() !== '') {
+        pointsFor += user_score;
+        pointsAgainst += opponent_score;
+        if (won) eloWins++;
+        else eloLosses++;
+      }
+
+      gamesDetails.push({
+        game_id: gameDetail.game_id,
+        date: gameDetail.game_date,
+        tournament_name: gameDetail.tournament_name || '-',
+        result: won ? 'win' : 'loss',
+        opponent_id: opponent_id,
+        opponent_name: gameDetail.opponent_username || (opponent_id === null ? 'AI Bot' : 'Unknown'),
+        final_score: `${user_score}-${opponent_score}`
+      });
+    }
+
+    const winRate = totalGames > 0 ? parseFloat(((wins / totalGames) * 100).toFixed(2)) : 0;
+    const elo = 1000 + (pointsFor - pointsAgainst) + (3 * eloWins) - eloLosses;
+
+    userGameDetails.push({
+      user_id: user.user_id,
+      username: user.username,
+      stats: {
+        total_games: totalGames,
+        wins,
+        losses,
+        win_rate: winRate,
+        points_for: pointsFor,
+        points_against: pointsAgainst,
+        elo: Math.round(elo)
+      },
+      games: gamesDetails
+    });
   }
 
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
-    request.user = decoded;
-  } catch (err) {
-    return reply.code(401).send({ message: 'Token inválido' });
-  }
+  return userGameDetails;
 }
 
-// Inicializar la base de datos al arrancar
-async function initializeDatabase() {
-  try {
-    await initializeDb();
-    console.log('Base de datos inicializada correctamente');
-  } catch (error) {
-    console.error('Error al inicializar la base de datos:', error);
-  }
-}
-
+// Endpoint para registrar un nuevo usuario
 fastify.post('/auth/register', async (request, reply) => {
   const { username, email, password } = request.body as any;
   
@@ -64,7 +213,10 @@ fastify.post('/auth/register', async (request, reply) => {
     const hash = await bcrypt.hash(password, 10);
     
     // Insertar directamente en la base de datos
-    const result = await db.run('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)', [username, email, hash]);
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+      params: [username, email, hash]
+    }));
     
     await db.close();
     
@@ -78,6 +230,7 @@ fastify.post('/auth/register', async (request, reply) => {
   }
 });
 
+// Endpoint para iniciar sesión (login) y generar token JWT
 fastify.post('/auth/login', async (request, reply) => {
   const { email, password } = request.body as any;
   
@@ -101,14 +254,35 @@ fastify.post('/auth/login', async (request, reply) => {
       exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hora
     }, JWT_SECRET);
 
+    // Registrar sesión en DB y Redis
+    const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hora// Guardar en Redis: clave = jwt:<token>, valor = user_id
+    await redisClient.set(`jwt:${token}`, user.id.toString(), { EX: 3600 }); // 3600s = 1h
+    await redisClient.set(`user:${user.id}:online`, 'true');
+    await redisClient.sAdd('online_users', user.id.toString());
+    await redisClient.set(`user:${user.id}:last_seen`, Date.now().toString());
+
+
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `
+        INSERT INTO sessions (user_id, session_token, expires_at)
+        VALUES (?, ?, ?)
+      `,
+      params: [user.id, token, expiresAt.toISOString()]
+    }));
+
+    // Obtener avatar_url e idioma
+    const profile = await db.get('SELECT avatar_url, language FROM user_profiles WHERE user_id = ?', [user.id]);
+
     await db.close();
-    
+
     return reply.send({ 
       token,
       user: {
         id: user.id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        avatar_url: profile?.avatar_url || null,
+        language: profile?.language || 'es'
       }
     });
   } catch (err) {
@@ -117,368 +291,516 @@ fastify.post('/auth/login', async (request, reply) => {
   }
 });
 
-// Endpoint para obtener estadísticas del usuario
-fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, reply) => {
+// Endpoint para cerrar sesión
+fastify.post('/auth/logout', { preHandler: verifyToken }, async (request, reply) => {
+  const token = (request as any).token;
+  const userId = (request as any).user.user_id;
+
   try {
     const db = await openDb();
-    const userId = (request as any).user.user_id;
     
-    // Obtener estadísticas del usuario
-    const totalGamesResult = await db.get(
-      'SELECT COUNT(*) as total FROM games WHERE player1_id = ? OR player2_id = ?',
-      [userId, userId]
-    );
+    // Eliminar de Redis
+    await redisClient.del(`jwt:${token}`); // ✅ Eliminar el token JWT
+    await redisClient.del(`user:${userId}:online`);
+    await redisClient.sRem('online_users', userId.toString());
+    await redisClient.del(`user:${userId}:last_seen`);
     
-    const winsResult = await db.get(`
-      SELECT COUNT(*) as wins FROM games 
-      WHERE status = 'completed' AND (
-        (player1_id = ? AND score1 > score2) OR 
-        (player2_id = ? AND score2 > score1)
-      )
-    `, [userId, userId]);
+    return reply.send({ message: 'Sesión cerrada correctamente' });
+  } catch (err) {
+    console.error('Error en logout:', err);
+    return reply.code(500).send({ message: 'Error al cerrar sesión' });
+  }
+});
+
+// Endpoint heartbeat para mantener sesión activa
+fastify.get('/auth/heartbeat', { preHandler: verifyToken }, async (request, reply) => {
+  const userId = (request as any).user.user_id;
+  
+  try {
+    // Actualizar timestamp de última actividad
+    await redisClient.set(`user:${userId}:last_seen`, Date.now().toString());
+    return reply.send({ status: 'active' });
+  } catch (err) {
+    console.error('Error en heartbeat:', err);
+    return reply.code(500).send({ message: 'Error interno' });
+  }
+});
+
+// Endpoint para obtener usuarios conectados
+fastify.get('/auth/online-users', async (request, reply) => {
+  try {
+    const onlineUsers = await redisClient.sMembers('online_users');
+    return reply.send(onlineUsers.map(id => parseInt(id)));
+  } catch (err) {
+    console.error('Error obteniendo usuarios online:', err);
+    return reply.code(500).send({ message: 'Error interno' });
+  }
+});
+
+// Función de limpieza periódica de usuarios online
+async function cleanInactiveSessions() {
+  try {
+    const onlineUsers = await redisClient.sMembers('online_users');
+    const now = Date.now();
     
-    const lossesResult = await db.get(`
-      SELECT COUNT(*) as losses FROM games 
-      WHERE status = 'completed' AND (
-        (player1_id = ? AND score1 < score2) OR 
-        (player2_id = ? AND score2 < score1)
-      )
-    `, [userId, userId]);
-    
-    // Obtener el historial de partidas recientes
-    const recentGames = await db.all(`
-      SELECT 
-        g.id,
-        g.score1,
-        g.score2,
-        g.start_time,
-        g.end_time,
-        g.status,
-        u1.username as player1_username,
-        u2.username as player2_username,
-        g.player1_id,
-        g.player2_id
-      FROM games g
-      LEFT JOIN users u1 ON g.player1_id = u1.id
-      LEFT JOIN users u2 ON g.player2_id = u2.id
-      WHERE (g.player1_id = ? OR g.player2_id = ?) AND g.status = 'completed'
-      ORDER BY g.end_time DESC
-      LIMIT 10
-    `, [userId, userId]);
-    
-    // Obtener posición en el ranking (simplificado por número de victorias)
-    const rankingResult = await db.get(`
-      SELECT COUNT(*) + 1 as ranking FROM (
-        SELECT 
-          user_id,
-          COUNT(*) as wins
-        FROM (
-          SELECT player1_id as user_id FROM games 
-          WHERE status = 'completed' AND score1 > score2
-          UNION ALL
-          SELECT player2_id as user_id FROM games 
-          WHERE status = 'completed' AND score2 > score1
-        ) wins_subquery
-        GROUP BY user_id
-        HAVING wins > ?
-      )
-    `, [winsResult.wins]);
-    
-    await db.close();
-    
-    const totalGames = totalGamesResult.total;
-    const wins = winsResult.wins;
-    const losses = lossesResult.losses;
-    const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
-    
-    // Calcular ELO simplificado (base 1000 + 50 por victoria - 25 por derrota)
-    const elo = 1000 + (wins * 50) - (losses * 25);
-    
-    // Procesar historial de partidas
-    const matchHistory = recentGames.map(game => {
-      const isPlayer1 = game.player1_id === userId;
-      const isWin = isPlayer1 ? game.score1 > game.score2 : game.score2 > game.score1;
-      const opponentName = isPlayer1 ? game.player2_username : game.player1_username;
-      const userScore = isPlayer1 ? game.score1 : game.score2;
-      const opponentScore = isPlayer1 ? game.score2 : game.score1;
+    for (const userId of onlineUsers) {
+      const lastSeen = await redisClient.get(`user:${userId}:last_seen`);
+      const inactiveTime = now - parseInt(lastSeen || '0');
       
-      return {
-        id: game.id,
-        result: isWin ? 'win' : 'loss',
-        opponent: opponentName,
-        score: `${userScore}-${opponentScore}`,
-        date: game.end_time
-      };
-    });
+      // Eliminar si inactivo por más de 10 minutos
+      if (inactiveTime > 600000) {
+        await redisClient.sRem('online_users', userId);
+        await redisClient.del(`user:${userId}:online`);
+        await redisClient.del(`user:${userId}:last_seen`);
+
+        const db = await openDb();
+        await db.close();
+      }
+    }
+  } catch (err) {
+    console.error('Error en limpieza de sesiones:', err);
+  }
+}
+
+// Iniciar limpieza periódica cada 10 minutos
+setInterval(cleanInactiveSessions, 600000);
+
+// Endpoint para subir y optimizar el avatar
+fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request, reply) => {
+  const userId = (request as any).user.user_id;
+  
+  const mpRequest = request as FastifyRequest & {
+    file: () => Promise<MultipartFile>;
+  };
+
+  const data = await mpRequest.file();
+
+  if (!data) {
+    return reply.code(400).send({ message: 'No se ha enviado ningún archivo' });
+  }
+
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(data.mimetype)) {
+    return reply.code(400).send({ message: 'Tipo de archivo no permitido' });
+  }
+
+  if (data.file.truncated) {
+    return reply.code(400).send({ message: 'Archivo demasiado grande (máx 2MB)' });
+  }
+
+  try {
+    const buffer = await data.toBuffer();
+    const image = await loadImage(buffer);
     
+    // Tamaño máximo deseado
+    const MAX_SIZE = 256;
+    let width = image.width;
+    let height = image.height;
+
+    // Redimensionar manteniendo aspect ratio
+    if (width > height && width > MAX_SIZE) {
+      height = Math.round((height * MAX_SIZE) / width);
+      width = MAX_SIZE;
+    } else if (height > MAX_SIZE) {
+      width = Math.round((width * MAX_SIZE) / height);
+      height = MAX_SIZE;
+    }
+
+    // Crear canvas con nuevas dimensiones
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(image, 0, 0, width, height);
+
+    // Convertir a JPEG con calidad del 80% (más ligero que PNG)
+    const processedBuffer = canvas.toBuffer('image/jpeg', { quality: 0.8 });
+
+    const filename = `avatar_${userId}.jpg`;
+    const saveDir = '/app/data/avatars';
+    const filepath = path.join(saveDir, filename);
+
+    if (!fs.existsSync(saveDir)) {
+      fs.mkdirSync(saveDir, { recursive: true });
+    }
+
+    fs.writeFileSync(filepath, processedBuffer);
+
+    // Guardar en base de datos
+    const db = await openDb();
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `
+      INSERT INTO user_profiles (user_id, avatar_url)
+      VALUES (?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET avatar_url = excluded.avatar_url
+      `,
+      params: [userId, `/avatars/${filename}`]
+    }));
+
+    await db.close();
+
+    return reply.send({ 
+      message: '✅ Avatar optimizado y subido correctamente', 
+      avatar_url: `http://localhost:8000/avatars/${filename}`,
+      dimensions: { width, height },
+      size: `${(processedBuffer.length / 1024).toFixed(2)} KB`
+    });
+
+  } catch (err) {
+    console.error('Error procesando avatar:', err);
+    return reply.code(500).send({ message: 'Error procesando avatar' });
+  }
+});
+ 
+// Endpoint para obtener estadísticas del usuario
+fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, reply) => {
+  let db;
+  try {
+    db = await openDb();
+    const userId = (request as any).user.user_id; 
+
+    const rankingData = await generateRankingWithStats(db);
+    const userData = rankingData.find((u: any) => u.user_id === userId);
+
+    if (!userData) {
+      await db.close();
+      return reply.code(404).send({ message: 'Usuario no encontrado en el ranking' });
+    }
+
+    const totalGames = userData.stats.total_games;
+    const wins = userData.stats.wins;
+    const losses = userData.stats.losses;
+    const winRate = userData.stats.win_rate;
+    const elo = userData.stats.elo;
+    const matchHistory = userData.games.map((game: any) => ({
+      id: game.game_id,
+      result: game.result,
+      opponent: game.opponent_name,
+      score: game.final_score,
+      date: game.date
+    }));
+
+    const sortedRanking = [...rankingData].sort((a: any, b: any) => b.stats.elo - a.stats.elo);
+    const ranking = sortedRanking.findIndex((u: any) => u.user_id === userId) + 1;
+
+    // Avatar
+    const profile = await db.get('SELECT avatar_url FROM user_profiles WHERE user_id = ?', [userId]);
+
+    await db.close();
+
     return reply.send({
       totalGames,
       wins,
       losses,
       winRate,
       elo,
-      ranking: rankingResult.ranking,
-      matchHistory
+      ranking,
+      matchHistory: matchHistory.slice(0, 10),
+      avatar_url: profile?.avatar_url || null
     });
-    
   } catch (err) {
     console.error('Error obteniendo estadísticas:', err);
     return reply.code(500).send({ message: 'Error interno del servidor' });
   }
 });
 
-// Endpoint para obtener el ranking global
-fastify.get('/auth/ranking', async (request, reply) => {
+// Descarga de historial
+fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, async (request, reply) => {
+  const userId = (request as any).user.user_id;
+
   try {
     const db = await openDb();
-    
-    // Obtener el ranking de todos los usuarios
-    const rankings = await db.all(`
-      SELECT 
-        u.id,
-        u.username,
-        COALESCE(user_stats.wins, 0) as wins,
-        COALESCE(user_stats.losses, 0) as losses,
-        COALESCE(user_stats.total_games, 0) as total_games,
-        COALESCE(user_stats.elo, 1000) as elo,
-        COALESCE(user_stats.win_rate, 0) as win_rate
-      FROM users u
-      LEFT JOIN (
-        SELECT 
-          user_id,
-          SUM(wins) as wins,
-          SUM(losses) as losses,
-          SUM(total_games) as total_games,
-          (1000 + (SUM(wins) * 50) - (SUM(losses) * 25)) as elo,
-          CASE 
-            WHEN SUM(total_games) > 0 THEN ROUND((SUM(wins) * 100.0) / SUM(total_games))
-            ELSE 0 
-          END as win_rate
-        FROM (
-          SELECT 
-            player1_id as user_id,
-            COUNT(*) as total_games,
-            SUM(CASE WHEN score1 > score2 THEN 1 ELSE 0 END) as wins,
-            SUM(CASE WHEN score1 < score2 THEN 1 ELSE 0 END) as losses
-          FROM games 
-          WHERE status = 'completed'
-          GROUP BY player1_id
-          
-          UNION ALL
-          
-          SELECT 
-            player2_id as user_id,
-            COUNT(*) as total_games,
-            SUM(CASE WHEN score2 > score1 THEN 1 ELSE 0 END) as wins,
-            SUM(CASE WHEN score2 < score1 THEN 1 ELSE 0 END) as losses
-          FROM games 
-          WHERE status = 'completed'
-          GROUP BY player2_id
-        ) combined_stats
-        GROUP BY user_id
-      ) user_stats ON u.id = user_stats.user_id
-      ORDER BY elo DESC, wins DESC, total_games DESC
-      LIMIT 20
-    `);
-    
+    const rankingData = await generateRankingWithStats(db);
+    const userData = rankingData.find((u: any) => u.user_id === userId);
     await db.close();
-    
-    // Formatear los datos para el frontend
-    const formattedRankings = rankings.map((user, index) => ({
+
+    if (!userData) {
+      return reply.code(404).send({ message: 'Usuario no encontrado en el ranking' });
+    }
+
+    const matchHistory = userData.games;
+
+    const matchHistoryText = matchHistory.map((entry: {
+      game_id: number;
+      result: string;
+      opponent_name: string;
+      tournament_name: string;
+      final_score: string;
+      date: string;
+    }) =>
+      `Partida ${entry.game_id} | Resultado: ${entry.result} | Oponente: ${entry.opponent_name} | Torneo: ${entry.tournament_name} | Marcador: ${entry.final_score} | Fecha: ${entry.date}`
+    );
+
+    // Crear carpeta /app/data/historiales si no existe
+    const dirPath = path.resolve('/app/data/historiales');
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+
+    // Escribir archivo personalizado
+    const fileName = `historial_${userId}.txt`;
+    const filePath = path.join(dirPath, fileName);
+    fs.writeFileSync(filePath, matchHistoryText.join('\n') + '\n');
+
+    return reply
+      .type('text/plain')
+      .header('Content-Disposition', `attachment; filename=${fileName}`)
+      .send(fs.createReadStream(filePath));
+
+  } catch (err) {
+    console.error('Error generando o descargando historial:', err);
+    return reply.code(500).send({ message: 'Error interno al generar historial' });
+  }
+});
+
+// Endpoint para obtener el ranking global completo (top 100)
+fastify.get('/auth/ranking', async (request, reply) => {
+  let db: any;
+  try {
+    db = await openDb();
+
+    const allUsers = await generateRankingWithStats(db);
+
+    const rankingRaw = allUsers
+      .map(user => ({
+        id: user.user_id,
+        username: user.username,
+        wins: user.stats.wins,
+        losses: user.stats.losses,
+        totalGames: user.stats.total_games,
+        winRate: user.stats.win_rate,
+        elo: user.stats.elo
+      }))
+      .sort((a, b) => b.elo - a.elo);
+
+    const rankingTop100 = rankingRaw.slice(0, 100).map((entry, index) => ({
+      ...entry,
       rank: index + 1,
-      id: user.id,
-      username: user.username,
-      wins: user.wins,
-      losses: user.losses,
-      totalGames: user.total_games,
-      elo: user.elo,
-      winRate: user.win_rate,
-      points: user.elo // Usar ELO como puntos
+      points: entry.elo
     }));
-    
-    return reply.send(formattedRankings);
-    
+
+    await db.close();
+    return reply.send(rankingTop100);
   } catch (err) {
     console.error('Error obteniendo ranking:', err);
+    if (db) await db.close().catch(console.error);
     return reply.code(500).send({ message: 'Error interno del servidor' });
   }
 });
 
-// Endpoint para obtener configuraciones del usuario
-fastify.get('/auth/settings', { preHandler: verifyToken }, async (request, reply) => {
+// Endpoint de home para partidos en juego ('in_progress')
+fastify.get('/auth/games/live', async (request, reply) => {
   try {
     const db = await openDb();
-    const userId = (request as any).user.user_id;
-    
-    // Obtener todas las configuraciones del usuario
-    const settings = await db.all('SELECT setting_key, setting_value FROM user_settings WHERE user_id = ?', [userId]);
-    
-    await db.close();
-    
-    // Convertir a objeto
-    const settingsObj = settings.reduce((acc, setting) => {
-      acc[setting.setting_key] = setting.setting_value;
-      return acc;
-    }, {} as any);
-    
-    // Valores por defecto
-    const defaultSettings = {
-      language: 'es',
-      sound_effects: 'true',
-      ...settingsObj
-    };
-    
-    return reply.send(defaultSettings);
-    
-  } catch (err) {
-    console.error('Error obteniendo configuraciones:', err);
-    return reply.code(500).send({ message: 'Error interno del servidor' });
-  }
-});
 
-// Endpoint para actualizar configuraciones del usuario
-fastify.put('/auth/settings', { preHandler: verifyToken }, async (request, reply) => {
-  try {
-    const db = await openDb();
-    const userId = (request as any).user.user_id;
-    const settings = request.body as any;
-    
-    // Actualizar o insertar cada configuración
-    for (const [key, value] of Object.entries(settings)) {
-      await db.run(`
-        INSERT OR REPLACE INTO user_settings (user_id, setting_key, setting_value, updated_at)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-      `, [userId, key, value]);
-    }
-    
-    await db.close();
-    
-    return reply.send({ message: 'Configuraciones actualizadas exitosamente' });
-    
-  } catch (err) {
-    console.error('Error actualizando configuraciones:', err);
-    return reply.code(500).send({ message: 'Error interno del servidor' });
-  }
-});
+    // Buscar partidas en progreso
+    const games = await db.all(`
+      SELECT g.id AS game_id, g.status, g.started_at
+      FROM games g
+      WHERE g.status = 'in_progress'
+    `);
 
-// Endpoint para actualizar perfil del usuario
-fastify.put('/auth/profile', { preHandler: verifyToken }, async (request, reply) => {
-  try {
-    const db = await openDb();
-    const userId = (request as any).user.user_id;
-    const { username, email, currentPassword, newPassword } = request.body as any;
-    
-    // Obtener usuario actual
-    const currentUser = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
-    
-    if (!currentUser) {
+    if (!games.length) {
       await db.close();
+      return reply.send([]);
+    }
+
+    // Obtener participantes humanos (no bots) de esas partidas
+    const participants = await db.all(`
+      SELECT p.game_id, p.team_name, u.username
+      FROM participants p
+      LEFT JOIN users u ON u.id = p.user_id
+      WHERE p.game_id IN (${games.map(g => g.game_id).join(',')})
+    `);
+
+    // Obtener puntuaciones por game_id + team
+    const scores = await db.all(`
+      SELECT game_id, team_name, MAX(point_number) AS score
+      FROM scores
+      WHERE game_id IN (${games.map(g => g.game_id).join(',')})
+      GROUP BY game_id, team_name
+    `);
+
+    // Mapear resultados por partida
+    const liveMatches = games.map(game => {
+      const gameParticipants = participants.filter(p => p.game_id === game.game_id);
+      const scoreMap = new Map();
+      scores
+        .filter(s => s.game_id === game.game_id)
+        .forEach(s => scoreMap.set(s.team_name, s.score));
+      const [p1, p2] = gameParticipants;
+      return {
+        id: game.game_id,
+        player1: { username: p1?.username || 'Player 1' },
+        player2: { username: p2?.username || 'Player 2' },
+        score1: scoreMap.get(p1?.team_name) || 0,
+        score2: scoreMap.get(p2?.team_name) || 0,
+        round: Math.max(scoreMap.get(p1?.team_name) || 0, scoreMap.get(p2?.team_name) || 0)
+      };
+    });
+
+    await db.close();
+    return reply.send(liveMatches);
+  } catch (err) {
+    console.error('Error obteniendo partidas en vivo:', err);
+    return reply.code(500).send({ error: 'Error al obtener partidas en vivo' });
+  }
+});
+
+// Endpoint para cambiar datos de usuario
+fastify.put('/auth/settings/user_data', { preHandler: verifyToken }, async (request, reply) => {
+  const db = await openDb();
+
+  try {
+    const userId = (request as any).user.user_id;
+    const {
+      username,
+      email,
+      new_password,
+      current_password
+    } = request.body as any;
+
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
+    if (!user) {
       return reply.code(404).send({ message: 'Usuario no encontrado' });
     }
-    
-    // Si se proporciona una nueva contraseña, verificar la actual
-    if (newPassword && currentPassword) {
-      const isCurrentPasswordValid = await bcrypt.compare(currentPassword, currentUser.password_hash);
-      if (!isCurrentPasswordValid) {
-        await db.close();
-        return reply.code(400).send({ message: 'Contraseña actual incorrecta' });
+
+    const currentPassword = typeof current_password === 'string' ? current_password.trim() : '';
+    const newPassword = typeof new_password === 'string' ? new_password.trim() : '';
+    const quiereCambiarPassword = currentPassword !== '' || newPassword !== '';
+
+    let updatedPasswordHash = user.password_hash;
+
+    // Validaciones de cambio de contraseña
+    if (quiereCambiarPassword) {
+      if (!currentPassword) {
+        return reply.code(400).send({ message: 'Falta contraseña actual' });
       }
-    }
-    
-    // Preparar campos a actualizar
-    const fieldsToUpdate = [];
-    const values = [];
-    
-    if (username && username !== currentUser.username) {
-      // Verificar que el username no exista
-      const existingUser = await db.get('SELECT id FROM users WHERE username = ? AND id != ?', [username, userId]);
-      if (existingUser) {
-        await db.close();
-        return reply.code(409).send({ message: 'El nombre de usuario ya existe' });
+
+      const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+      if (!isMatch) {
+        return reply.code(401).send({ message: 'Contraseña actual incorrecta' });
       }
-      fieldsToUpdate.push('username = ?');
-      values.push(username);
-    }
-    
-    if (email && email !== currentUser.email) {
-      // Verificar que el email no exista
-      const existingUser = await db.get('SELECT id FROM users WHERE email = ? AND id != ?', [email, userId]);
-      if (existingUser) {
-        await db.close();
-        return reply.code(409).send({ message: 'El email ya existe' });
+
+      if (!newPassword) {
+        return reply.code(400).send({ message: 'Nueva contraseña inválida' });
       }
-      fieldsToUpdate.push('email = ?');
-      values.push(email);
+
+      updatedPasswordHash = await bcrypt.hash(newPassword, 10);
     }
-    
-    if (newPassword && currentPassword) {
-      const hash = await bcrypt.hash(newPassword, 10);
-      fieldsToUpdate.push('password_hash = ?');
-      values.push(hash);
-    }
-    
-    // Actualizar si hay campos que cambiar
-    if (fieldsToUpdate.length > 0) {
-      values.push(userId);
-      await db.run(`UPDATE users SET ${fieldsToUpdate.join(', ')} WHERE id = ?`, values);
-    }
-    
-    // Obtener usuario actualizado
-    const updatedUser = await db.get('SELECT id, username, email FROM users WHERE id = ?', [userId]);
-    
-    await db.close();
-    
-    return reply.send({
-      message: 'Perfil actualizado exitosamente',
-      user: updatedUser
-    });
-    
+
+    // Actualizar email, username y contraseña si es válida
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 
+      `UPDATE users SET username = ?, email = ?, password_hash = ? WHERE id = ?`,
+      params: [
+        username ?? user.username,
+        email ?? user.email,
+        updatedPasswordHash,
+        userId
+      ]
+  }));
+
+    return reply.send({ message: 'Perfil actualizado correctamente' });
+
   } catch (err) {
     console.error('Error actualizando perfil:', err);
-    return reply.code(500).send({ message: 'Error interno del servidor' });
+    return reply.code(500).send({ message: 'Error actualizando perfil' });
+  } finally {
+    await db.close();
   }
 });
 
-// Endpoint para eliminar cuenta
-fastify.delete('/auth/profile', { preHandler: verifyToken }, async (request, reply) => {
+// Endpoint para obtener datos de usuario (username y email)
+fastify.get('/auth/settings/user_data', { preHandler: verifyToken }, async (request, reply) => {
   try {
     const db = await openDb();
     const userId = (request as any).user.user_id;
-    const { password } = request.body as any;
-    
-    // Verificar contraseña
-    const user = await db.get('SELECT * FROM users WHERE id = ?', [userId]);
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-      await db.close();
-      return reply.code(401).send({ message: 'Contraseña incorrecta' });
-    }
-    
-    // Eliminar configuraciones del usuario
-    await db.run('DELETE FROM user_settings WHERE user_id = ?', [userId]);
-    
-    // Eliminar mensajes del usuario
-    await db.run('DELETE FROM messages WHERE user_id = ?', [userId]);
-    
-    // Eliminar usuario
-    await db.run('DELETE FROM users WHERE id = ?', [userId]);
-    
+
+    const user = await db.get(
+      `SELECT username, email FROM users WHERE id = ?`,
+      [userId]
+    );
+
     await db.close();
-    
-    return reply.send({ message: 'Cuenta eliminada exitosamente' });
-    
+
+    if (!user) {
+      return reply.code(404).send({ message: 'Usuario no encontrado' });
+    }
+
+    return reply.send(user);
   } catch (err) {
-    console.error('Error eliminando cuenta:', err);
-    return reply.code(500).send({ message: 'Error interno del servidor' });
+    console.error('Error al obtener datos de usuario:', err);
+    return reply.code(500).send({ message: 'Error al obtener datos de usuario' });
   }
 });
 
+// Endpoint para cambiar configuración juego
+fastify.put('/auth/settings/config', { preHandler: verifyToken }, async (request, reply) => {
+  try {
+    const db = await openDb();
+    const userId = (request as any).user.user_id;
+    const {
+      language,
+      notifications,
+      sound_effects,
+      game_difficulty
+    } = request.body as any;
+
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `
+        INSERT INTO user_profiles (user_id, language, notifications, sound, difficulty)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+          language = excluded.language,
+          notifications = excluded.notifications,
+          sound = excluded.sound,
+          difficulty = excluded.difficulty
+      `,
+      params: [userId, language, notifications, sound_effects, game_difficulty]
+    }));
+
+    await db.close();
+    return reply.send({ message: 'Configuración guardada correctamente' });
+  } catch (err) {
+    console.error('Error guardando configuración:', err);
+    return reply.code(500).send({ message: 'Error guardando configuración' });
+  }
+});
+
+// Obtener configuraciones del juego
+fastify.get('/auth/settings/config', { preHandler: verifyToken }, async (request, reply) => {
+  try {
+    const db = await openDb();
+    const userId = (request as any).user.user_id;
+    const config = await db.get(
+      `SELECT 
+        language, 
+        notifications, 
+        sound AS sound_effects, 
+        difficulty AS game_difficulty
+      FROM user_profiles 
+      WHERE user_id = ?`,
+      [userId]
+    );
+    await db.close();
+
+    if (!config) {
+      return reply.code(404).send({ message: 'Configuración no encontrada' });
+    }
+
+    return reply.send(config);
+  } catch (err) {
+    console.error('Error al obtener configuración:', err);
+    return reply.code(500).send({ message: 'Error al obtener configuración' });
+  }
+});
+
+// Endpoint para autenticación con Google (verifica token, crea usuario si no existe, devuelve JWT)
 type GooglePayload = {
   email: string;
   name: string;
   picture?: string;
   [key: string]: any;
 };
-
 fastify.post('/auth/google', async (request, reply) => {
   const { token } = request.body as any;
   
@@ -499,10 +821,10 @@ fastify.post('/auth/google', async (request, reply) => {
     
     if (!user) {
       // Crear nuevo usuario con Google
-      const result = await db.run(
-        'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
-        [payload.name, payload.email, ''] // Sin contraseña para usuarios de Google
-      );
+      const result = await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+        sql: 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+        params: [payload.name, payload.email, ''] // Sin contraseña para usuarios de Google
+    }));
       
       user = await db.get('SELECT * FROM users WHERE email = ?', [payload.email]);
     }
@@ -513,6 +835,19 @@ fastify.post('/auth/google', async (request, reply) => {
       email: user.email,
       exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hora
     }, JWT_SECRET);
+
+    // Registrar sesión en DB y Redis
+    const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hora
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 
+      `INSERT INTO sessions (user_id, session_token, expires_at) 
+      VALUES (?, ?, ?)`,
+      params: [user.id, jwtToken, expiresAt.toISOString()]
+    }));
+    await redisClient.set(`user:${user.id}:online`, 'true');
+    await redisClient.sAdd('online_users', user.id.toString());
+    await redisClient.set(`user:${user.id}:last_seen`, Date.now().toString());
+    await redisClient.set(`jwt:${jwtToken}`, user.id.toString(), { EX: 3600 });
 
     await db.close();
     
@@ -530,12 +865,25 @@ fastify.post('/auth/google', async (request, reply) => {
   }
 });
 
-// Inicializar base de datos antes de arrancar el servidor
-initializeDatabase().then(() => {
-  fastify.listen({ port: 8000, host: '0.0.0.0' }, err => {
-    if (err) {
-      fastify.log.error(err);
-      process.exit(1);
-    }
+// Inicializar base de datos y Redis
+Promise.all([initializeDb(), connectRedis()])
+  .then(() => {
+    fastify.listen({ port: 8000, host: '0.0.0.0' }, (err, address) => {
+      if (err) {
+        fastify.log.error(err);
+        process.exit(1);
+      }
+      console.log(`Servidor escuchando en ${address}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Error al inicializar servicios:', err);
+    process.exit(1);
   });
+
+// Cerrar conexiones al apagar el servidor
+process.on('SIGINT', async () => {
+  await redisClient.quit();
+  fastify.close();
+  process.exit();
 });

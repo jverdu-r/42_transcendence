@@ -1,5 +1,5 @@
 /**
- * Core game interfaces and types
+ * Core game interfaces and types - Enhanced for online multiplayer and spectator mode
  */
 export interface IBall {
   x: number;
@@ -16,6 +16,8 @@ export interface IPaddle {
   width: number;
   height: number;
   speed: number;
+  vx: number;
+  vy: number;
 }
 
 export interface IGameDimensions {
@@ -33,11 +35,12 @@ export interface IGameConfig {
   ballSpeed: number;
   paddleSpeed: number;
   aiDifficulty: 'easy' | 'medium' | 'hard';
+  winScore?: number;
 }
 
 export interface IPlayer {
   id: string;
-  number: 1 | 2;
+  number: PlayerNumber;
   isAI: boolean;
   isConnected: boolean;
   name?: string;

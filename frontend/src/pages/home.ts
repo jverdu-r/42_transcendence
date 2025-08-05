@@ -44,67 +44,7 @@ export function renderHomePage(): void {
                   <p class="text-base sm:text-lg text-gray-300 mb-6 text-center">
                       ${getTranslation('home', 'liveMatchesSubtitle')}
                   </p>
-                  <div class="flex-grow space-y-4 overflow-y-auto max-h-96 pr-2 custom-scrollbar">
-                      <a href="/match/1" class="block p-4 rounded-xl bg-[#001d3d] bg-opacity-50 text-gray-100 hover:bg-opacity-70 transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer group border border-[#003566]">
-                          <div class="flex justify-between items-center">
-                              <span class="font-semibold text-base sm:text-lg">
-                                  DragonSlayer <span class="text-[#ffc300]">${getTranslation('home', 'vs')}</span> PongMaster
-                              </span>
-                              <span class="text-xl sm:text-2xl font-bold text-[#ffd60a]">2 - 1</span>
-                          </div>
-                          <p class="text-sm text-gray-400 mt-1">${getTranslation('home', 'inProgressRound')} 3</p>
-                      </a>
-
-                      <a href="/match/2" class="block p-4 rounded-xl bg-[#001d3d] bg-opacity-50 text-gray-100 hover:bg-opacity-70 transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer group border border-[#003566]">
-                          <div class="flex justify-between items-center">
-                              <span class="font-semibold text-base sm:text-lg">
-                                  FirePhoenix <span class="text-[#ffc300]">${getTranslation('home', 'vs')}</span> IceWarrior
-                              </span>
-                              <span class="text-xl sm:text-2xl font-bold text-[#ffd60a]">5 - 3</span>
-                          </div>
-                          <p class="text-sm text-gray-400 mt-1">${getTranslation('home', 'tournamentSemifinal')}</p>
-                      </a>
-
-                      <a href="/match/3" class="block p-4 rounded-xl bg-[#001d3d] bg-opacity-50 text-gray-100 hover:bg-opacity-70 transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer group border border-[#003566]">
-                          <div class="flex justify-between items-center">
-                              <span class="font-semibold text-base sm:text-lg">
-                                  CodeNinja <span class="text-[#ffc300]">${getTranslation('home', 'vs')}</span> ByteHunter
-                              </span>
-                              <span class="text-xl sm:text-2xl font-bold text-[#ffd60a]">1 - 0</span>
-                          </div>
-                          <p class="text-sm text-gray-400 mt-1">${getTranslation('home', 'quickMatch')}</p>
-                      </a>
-
-                      <a href="/match/4" class="block p-4 rounded-xl bg-[#001d3d] bg-opacity-50 text-gray-100 hover:bg-opacity-70 transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer group border border-[#003566]">
-                          <div class="flex justify-between items-center">
-                              <span class="font-semibold text-base sm:text-lg">
-                                  ThunderStrike <span class="text-[#ffc300]">${getTranslation('home', 'vs')}</span> LightningBolt
-                              </span>
-                              <span class="text-xl sm:text-2xl font-bold text-[#ffd60a]">0 - 0</span>
-                          </div>
-                          <p class="text-sm text-gray-400 mt-1">${getTranslation('home', 'preparingToStart')}</p>
-                      </a>
-                      
-                      <a href="/match/5" class="block p-4 rounded-xl bg-[#001d3d] bg-opacity-50 text-gray-100 hover:bg-opacity-70 transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer group border border-[#003566]">
-                          <div class="flex justify-between items-center">
-                              <span class="font-semibold text-base sm:text-lg">
-                                  ShadowAssassin <span class="text-[#ffc300]">${getTranslation('home', 'vs')}</span> BladeMaster
-                              </span>
-                              <span class="text-xl sm:text-2xl font-bold text-[#ffd60a]">4 - 4</span>
-                          </div>
-                          <p class="text-sm text-gray-400 mt-1">${getTranslation('home', 'matchPoint')}</p>
-                      </a>
-                      
-                      <a href="/match/6" class="block p-4 rounded-xl bg-[#001d3d] bg-opacity-50 text-gray-100 hover:bg-opacity-70 transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer group border border-[#003566]">
-                          <div class="flex justify-between items-center">
-                              <span class="font-semibold text-base sm:text-lg">
-                                  PixelHero <span class="text-[#ffc300]">${getTranslation('home', 'vs')}</span> RetroGamer
-                              </span>
-                              <span class="text-xl sm:text-2xl font-bold text-[#ffd60a]">3 - 2</span>
-                          </div>
-                          <p class="text-sm text-gray-400 mt-1">${getTranslation('home', 'quickMatch')}</p>
-                      </a>
-                  </div>
+                  <div id="live-matches-container" class="flex-grow space-y-4 overflow-y-auto max-h-96 pr-2 custom-scrollbar"></div>
               </div>
           </div>
 
@@ -216,9 +156,56 @@ export function renderHomePage(): void {
                     alert(`Esta es una funcionalidad de demostración. Partida: ${href}`);
                 }
             });
+        renderLiveMatches();
         });
 
     } else {
         console.error('Elemento con id "page-content" no encontrado para renderizar la página de inicio.');
     }
+}
+
+function renderLiveMatches(): void {
+    const liveMatchesBox = document.getElementById('live-matches-box');
+    if (!liveMatchesBox) return;
+
+    // Limpiar contenido anterior si existe
+    liveMatchesBox.innerHTML = '';
+
+    const container = document.createElement('div');
+    container.className = 'flex-grow space-y-4 overflow-y-auto max-h-96 pr-2 custom-scrollbar';
+
+    fetch('/api/auth/games/live')
+        .then((res) => res.json())
+        .then((games) => {
+            if (!games.length) {
+                container.innerHTML = `
+                    <p class="text-gray-400 text-center">
+                        ${getTranslation('home', 'noLiveMatches')}
+                    </p>
+                `;
+            } else {
+                for (const game of games) {
+                    const html = `
+                        <a href="/match/${game.id}" class="block p-4 rounded-xl bg-[#001d3d] bg-opacity-50 text-gray-100 hover:bg-opacity-70 transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer group border border-[#003566]">
+                            <div class="flex justify-between items-center">
+                                <span class="font-semibold text-base sm:text-lg">
+                                    ${game.player1.username} <span class="text-[#ffc300]">${getTranslation('home', 'vs')}</span> ${game.player2.username}
+                                </span>
+                                <span class="text-xl sm:text-2xl font-bold text-[#ffd60a]">${game.score1} - ${game.score2}</span>
+                            </div>
+                            <p class="text-sm text-gray-400 mt-1">
+                                ${getTranslation('home', 'inProgressRound')} ${game.round}
+                            </p>
+                        </a>
+                    `;
+                    container.innerHTML += html;
+                }
+            }
+            liveMatchesBox.appendChild(container);
+        })
+        .catch((err) => {
+            console.error('Error al obtener partidas en vivo:', err);
+            container.innerHTML = `<p class="text-red-400 text-center">${getTranslation('home', 'errorLoadingMatches')}</p>`;
+            liveMatchesBox.appendChild(container);
+        });
 }

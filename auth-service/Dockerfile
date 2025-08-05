@@ -1,9 +1,29 @@
-FROM node:20-alpine
+FROM node:20
+
 WORKDIR /app
-RUN mkdir -p /app/data && chmod 777 /app/data
+
+# Instala dependencias del sistema necesarias para compilar 'canvas'
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libjpeg-dev \
+    libgif-dev \
+    librsvg2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copia package.json y package-lock.json
 COPY package*.json ./
-RUN npm install
+
+# Fuerza la reconstrucción de canvas desde cero
+RUN npm install --build-from-source=canvas
+
+# Copia el código fuente
 COPY . .
+
+# Compila el proyecto
 RUN npm run build
+
 EXPOSE 8000
+
 CMD ["npm", "start"]

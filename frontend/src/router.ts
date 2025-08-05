@@ -4,28 +4,26 @@ import { renderHomePage } from './pages/home';
 import { renderPlay } from './pages/play';
 import { renderProfilePage } from './pages/profile';
 import { renderRankingPage } from './pages/ranking';
+import { renderFriendsPage } from './pages/friends';
+import { renderChatPage } from './pages/chat';
 import { renderSettingsPage } from './pages/settings';
 import { renderLoginPage } from './pages/login';
 import { renderRegister } from './pages/register';
 import { renderNavbar } from './components/navbar';
 import { isAuthenticated } from './auth';
-import { renderGameSelection } from './pages/gameSelection';
 
-// Old game pages - keeping for backward compatibility
-import { renderGameLocal } from './pages/gameLocal';
-import { renderGameOnline } from './pages/gameOnline';
-import { renderGameObserver } from './pages/gameObserver';
-import { renderGameSelect } from './pages/gameSelect';
-import { renderGameLobby } from './pages/gameLobby';
-import { renderGameAI } from './pages/gameAI';
-import { renderGameMultiplayer } from './pages/gameMultiplayer';
-
-// New unified game pages
+// New unified game pages (páginas que usamos)
 import { renderUnifiedGameLocal } from './pages/unifiedGameLocal';
 import { renderUnifiedGameAI } from './pages/unifiedGameAI';
 import { renderUnifiedGameOnline } from './pages/unifiedGameOnline';
+import { renderGameLobby } from './pages/gameLobby';
 
-// Define tus rutas
+// Spectator page
+import { renderGameSpectator, startSpectatorAutoRefresh, stopSpectatorAutoRefresh, cleanupSpectator } from './pages/gameSpectator';
+
+//tournaments page under construction
+import { renderTournamentsPage } from './pages/tournaments';
+// Define las rutas que realmente usamos
 const routes: { [key: string]: () => void } = {
   '/home': renderHomePage,
   '/': () => {
@@ -39,24 +37,27 @@ const routes: { [key: string]: () => void } = {
   '/profile': renderProfilePage,
   '/play': renderPlay,
   '/ranking': renderRankingPage,
+  '/friends': renderFriendsPage,
+  '/chat': renderChatPage,
   '/settings': renderSettingsPage,
   '/login': renderLoginPage,
   '/register': renderRegister,
   
-  // Nuevas rutas de juego unificadas
+  // Rutas de juego unificadas (las que usamos)
   '/unified-game-local': renderUnifiedGameLocal,
   '/unified-game-ai': renderUnifiedGameAI,
   '/unified-game-online': renderUnifiedGameOnline,
-  
-  // Rutas de juego legacy (para compatibilidad)
-  '/game-selection': renderGameSelection,
   '/game-lobby': renderGameLobby,
-  '/game-local': renderGameLocal,
-  '/game-online': renderGameOnline,
-  '/game-observer': renderGameObserver,
-  '/game-select': renderGameSelect,
-  '/game-ai': renderGameAI,
-  '/game-multiplayer': renderGameMultiplayer
+
+  // Tournaments route
+  '/tournaments': renderTournamentsPage,
+
+  // Spectator route
+  '/spectator': () => {
+    cleanupCurrentPage();
+    renderGameSpectator();
+    startSpectatorAutoRefresh();
+  }
 };
 
 /**
@@ -90,6 +91,9 @@ export async function navigateTo(path: string): Promise<void> {
     console.error('Elemento con id "app-root" no encontrado. No se puede navegar.');
     return;
   }
+  
+  // Cleanup previous page
+  cleanupCurrentPage();
   
   // Separar la ruta de los parámetros de consulta
   const [routePath, queryString] = path.split('?');
@@ -165,3 +169,21 @@ export async function navigateTo(path: string): Promise<void> {
     window.history.pushState({}, fullPath, fullPath);
   }
 }
+
+function cleanupCurrentPage(): void {
+  // Stop spectator auto-refresh if leaving spectator page
+  stopSpectatorAutoRefresh();
+  cleanupSpectator();
+}
+
+// Event listeners for cleanup
+window.addEventListener('beforeunload', cleanupCurrentPage);
+window.addEventListener('popstate', (event) => {
+  cleanupCurrentPage();
+  navigateTo(window.location.pathname + window.location.search);
+});
+
+// Handle browser back/forward buttons
+window.addEventListener('popstate', () => {
+  navigateTo(window.location.pathname + window.location.search);
+});
