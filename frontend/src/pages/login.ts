@@ -110,20 +110,39 @@ export function renderLoginPage(): void {
                         body: JSON.stringify({ email, password }),
                     });
                     const data = await res.json();
-                    if (res.ok && data.token) {
-                        localStorage.setItem('jwt', data.token);
-                        
-                        // Guardar idioma en localStorage
-                        if (data.user.language) {
+                    if (res.ok) {
+                        if (data.requires_2fa) {
+                            const code = prompt(getTranslation('alerts', 'enter2FACode') || 'Ingresa el código de autenticador');
+                            if (!code) return;
+
+                            const verifyRes = await fetch('/api/auth/verify-2fa', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ temp_token: data.temp_token, code })
+                            });
+                            const verifyData = await verifyRes.json();
+
+                            if (verifyRes.ok && verifyData.token) {
+                            localStorage.setItem('jwt', verifyData.token);
+                            if (verifyData.user.language) {
+                                localStorage.setItem('language', verifyData.user.language);
+                                setLanguage(verifyData.user.language);
+                            }
+                            navigateTo('/home');
+                            } else {
+                            alert(verifyData.message || getTranslation('alerts', 'invalid2FACode'));
+                            }
+                        } else if (data.token) {
+                            // Login normal
+                            localStorage.setItem('jwt', data.token);
+                            if (data.user.language) {
                             localStorage.setItem('language', data.user.language);
+                            setLanguage(data.user.language);
                         }
-                        
-                        // Aplicar el idioma inmediatamente
-                        setLanguage(data.user.language || 'es');
-                        
                         navigateTo('/home');
+                    }
                     } else {
-                        alert(data.message || getTranslation('alerts', 'failLogin'));
+                    alert(data.message || getTranslation('alerts', 'failLogin'));
                     }
                 } catch (e) {
                     alert(getTranslation('alerts', 'connection'));
@@ -134,32 +153,54 @@ export function renderLoginPage(): void {
 
         // Callback global para Google
         (window as any).handleGoogleCredentialResponse = async (response: any) => {
-            try {
-                const res = await fetch('/api/auth/google', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token: response.credential })
+        try {
+            const res = await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: response.credential })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+            if (data.requires_2fa) {
+                // 2FA requerido: pedir código
+                const code = prompt(getTranslation('alerts', 'enter2FACode') || 'Ingresa el código de autenticador');
+                if (!code) return;
+
+                const verifyRes = await fetch('/api/auth/verify-2fa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ temp_token: data.temp_token, code })
                 });
-                const data = await res.json();
-                if (res.ok && data.token) {
-                    localStorage.setItem('jwt', data.token);
-                    
-                    // Guardar idioma en localStorage
-                    if (data.user.language) {
-                        localStorage.setItem('language', data.user.language);
-                    }
-                    
-                    // Aplicar el idioma inmediatamente
-                    setLanguage(data.user.language || 'es');
-                    
-                    navigateTo('/home');
-                } else {
-                    alert(data.message || getTranslation('alerts', 'google'));
+                const verifyData = await verifyRes.json();
+
+                if (verifyRes.ok && verifyData.token) {
+                localStorage.setItem('jwt', verifyData.token);
+                if (verifyData.user.language) {
+                    localStorage.setItem('language', verifyData.user.language);
+                    setLanguage(verifyData.user.language);
                 }
-            } catch (error) {
-                console.error('Error en autenticación con Google:', error);
-                alert(getTranslation('alerts', 'connection'));
+                navigateTo('/home');
+                } else {
+                alert(verifyData.message || getTranslation('alerts', 'invalid2FACode'));
+                }
+            } else if (data.token) {
+                // Login normal con Google
+                localStorage.setItem('jwt', data.token);
+                if (data.user.language) {
+                localStorage.setItem('language', data.user.language);
+                setLanguage(data.user.language);
+                }
+                navigateTo('/home');
             }
+            } else {
+            // ❌ Error en autenticación
+            alert(data.message || getTranslation('alerts', 'failGoogleLogin'));
+            }
+        } catch (error) {
+            console.error('Error en autenticación con Google:', error);
+            alert(getTranslation('alerts', 'connection'));
+        }
         };
 
         // Carga el script de Google y renderiza el botón

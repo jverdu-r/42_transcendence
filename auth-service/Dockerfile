@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     librsvg2-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copia package.json y package-lock.json
+COPY types.d.ts ./ 
 COPY package*.json ./
 
 # Fuerza la reconstrucción de canvas desde cero

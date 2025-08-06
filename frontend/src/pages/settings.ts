@@ -7,7 +7,7 @@ import { getCurrentUser, getSetting, setSetting, applyUserSettings, fetchUserPro
 interface UserSettings {
     language: string;
     notifications: string;
-    sound_effects: string;
+    doubleFactor: string;
     game_difficulty: string;
 }
 
@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Cargar configuración del juego desde localStorage
   const language = getSetting('language') || 'es';
   const notifications = getSetting('notifications') || 'true';
-  const sound_effects = getSetting('sound_effects') || 'true';
+  const doubleFactor = getSetting('doubleFactor') || 'true';
   const game_difficulty = getSetting('game_difficulty') || 'normal';
 });
 
@@ -143,7 +143,7 @@ export async function renderSettingsPage(): Promise<void> {
     const defaultSettings: UserSettings = {
         language: 'es',
         notifications: 'true',
-        sound_effects: 'true',
+        doubleFactor: 'false',
         game_difficulty: 'normal'
     };
 
@@ -278,13 +278,13 @@ export async function renderSettingsPage(): Promise<void> {
                                         </div>
                                     </div>
                                     <label class="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" id="notifications" ${settings.notifications === 'true' ? 'checked' : ''} class="sr-only peer">
+                                        <input type="checkbox" id="notifications" ${['1', 'true', true, 1].includes(settings.notifications) ? 'checked' : ''} class="sr-only peer">
                                         <div class="w-14 h-8 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#ffc300] peer-focus:ring-opacity-50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-7 after:w-7 after:transition-all peer-checked:bg-[#ffc300] shadow-lg"></div>
                                     </label>
                                 </div>
                             </div>
                             
-                            <!-- Sound Effects -->
+                            <!-- Double Factor -->
                             <div class="p-6 bg-[#001d3d] rounded-xl border border-[#003566] hover:border-[#ffc300] transition-all duration-300">
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center gap-4">
@@ -292,12 +292,12 @@ export async function renderSettingsPage(): Promise<void> {
                                             <span class="text-lg">🔊</span>
                                         </div>
                                         <div>
-                                            <div class="font-semibold text-gray-100">${getTranslation('settings', 'sound')}</div>
-                                            <div class="text-sm text-gray-400">${getTranslation('settings', 'soundText')}</div>
+                                            <div class="font-semibold text-gray-100">${getTranslation('settings', 'doubleFactor')}</div>
+                                            <div class="text-sm text-gray-400">${getTranslation('settings', 'doubleFactorText')}</div>
                                         </div>
                                     </div>
                                     <label class="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" id="sound-effects" ${settings.sound_effects === 'true' ? 'checked' : ''} class="sr-only peer">
+                                        <input type="checkbox" id="double-factor" ${['1', 'true', true, 1].includes(settings.doubleFactor) ? 'checked' : ''} class="sr-only peer">
                                         <div class="w-14 h-8 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#ffc300] peer-focus:ring-opacity-50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-7 after:w-7 after:transition-all peer-checked:bg-[#ffc300] shadow-lg"></div>
                                     </label>
                                 </div>
@@ -410,13 +410,13 @@ function setupEventListeners(): void {
         
         const language = (document.getElementById('language') as HTMLSelectElement).value;
         const notifications = (document.getElementById('notifications') as HTMLInputElement).checked ? 'true' : 'false';
-        const soundEffects = (document.getElementById('sound-effects') as HTMLInputElement).checked ? 'true' : 'false';
+        const doubleFactor = (document.getElementById('double-factor') as HTMLInputElement).checked ? 'true' : 'false';
         const gameDifficulty = (document.getElementById('game-difficulty') as HTMLSelectElement).value;
 
         const gameSettings: UserSettings = {
             language,
             notifications,
-            sound_effects: soundEffects,
+            doubleFactor,
             game_difficulty: gameDifficulty
         };
 
@@ -431,7 +431,7 @@ function setupEventListeners(): void {
             // Aplicar configuraciones localmente
             setSetting('language', language);
             setSetting('notifications', notifications);
-            setSetting('sound_effects', soundEffects);
+            setSetting('doubleFactor', doubleFactor);
             setSetting('game_difficulty', gameDifficulty);
             
             // Cambiar idioma si es necesario
@@ -447,4 +447,197 @@ function setupEventListeners(): void {
         saveGameSettingsBtn.disabled = false;
         saveGameSettingsBtn.innerHTML = '🎮 Guardar Configuración del Juego';
     });
+    
+    // === Manejo del toggle de 2FA ===
+    const doubleFactorToggle = document.getElementById('double-factor') as HTMLInputElement;
+    if (doubleFactorToggle) {
+        doubleFactorToggle.addEventListener('change', async (event) => {
+        const enabled = doubleFactorToggle.checked;
+        const confirmed = enabled
+            ? await setupTwoFactor()   // Activar: guía con QR + código
+            : await disableTwoFactor(); // Desactivar: pide pwd + código
+
+        if (!confirmed) {
+            // Revertir el toggle si falla
+            doubleFactorToggle.checked = !enabled;
+        } else {
+            // Si fue exitoso, guarda el estado en localStorage
+            setSetting('doubleFactor', enabled ? 'true' : 'false');
+        }
+        });
+    }
+}
+
+// Modal HTML para código QR
+function showQRModal(qrCodeDataUrl: string, onConfirm: (code: string) => void) {
+  // Si ya existe un modal, no crear otro
+  if (document.getElementById('qr-modal')) return;
+
+  const modal = document.createElement('div');
+  modal.id = 'qr-modal';
+  modal.style.position = 'fixed';
+  modal.style.zIndex = '9999';
+  modal.style.left = '0';
+  modal.style.top = '0';
+  modal.style.width = '100%';
+  modal.style.height = '100%';
+  modal.style.overflow = 'auto';
+  modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+  modal.style.display = 'flex';
+  modal.style.justifyContent = 'center';
+  modal.style.alignItems = 'center';
+
+  modal.innerHTML = `
+    <div style="background: #001d3d; padding: 2rem; border-radius: 1rem; text-align: center; max-width: 300px; width: 90%; color: white;">
+      <h3 style="color: #ffc300; margin-bottom: 1rem;">${getTranslation('settings', 'setup2FA')}</h3>
+      <p>${getTranslation('settings', 'scanQRThenEnterCode')}</p>
+      <img src="${qrCodeDataUrl}" alt="QR Code" style="max-width: 200px; margin: 1rem auto; display: block;">
+      <p>${getTranslation('settings', 'enterCodeFromApp')}</p>
+      <input id="2fa-code-input" type="text" inputmode="numeric" maxlength="6" style="
+        padding: 0.5rem;
+        margin: 0.5rem 0;
+        width: 100%;
+        border: 1px solid #003566;
+        border-radius: 0.5rem;
+        background: #000814;
+        color: white;
+        text-align: center;
+        font-size: 1.2rem;
+      " placeholder="000000">
+      <div style="margin-top: 1rem; display: flex; gap: 1rem; justify-content: center;">
+        <button id="cancel-btn" style="
+          padding: 0.5rem 1rem;
+          background: #6b7280;
+          color: white;
+          border: none;
+          border-radius: 0.5rem;
+          cursor: pointer;
+        ">${getTranslation('common', 'cancel')}</button>
+        <button id="confirm-btn" style="
+          padding: 0.5rem 1rem;
+          background: #ffc300;
+          color: #000814;
+          font-weight: bold;
+          border: none;
+          border-radius: 0.5rem;
+          cursor: pointer;
+        ">${getTranslation('common', 'confirm')}</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const input = document.getElementById('2fa-code-input') as HTMLInputElement;
+  const confirmBtn = document.getElementById('confirm-btn');
+  const cancelBtn = document.getElementById('cancel-btn');
+
+  const close = () => modal.remove();
+
+  cancelBtn?.addEventListener('click', close);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) close();
+  });
+
+  confirmBtn?.addEventListener('click', () => {
+    const code = input.value.trim();
+    if (code.length === 6 && /^\d+$/.test(code)) {
+      close();
+      onConfirm(code);
+    } else {
+      alert(getTranslation('alerts', 'invalid2FACode'));
+    }
+  });
+
+  input?.focus();
+}
+
+// Activar 2FA
+async function setupTwoFactor(): Promise<boolean> {
+  try {
+    const response = await fetch('/api/auth/2fa/setup', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      alert(data.message || getTranslation('alerts', 'error2FAShared'));
+      return false;
+    }
+
+    const data = await response.json();
+    const qrCodeDataUrl = data.qr_code;
+
+    // ✅ Usar el modal, NO prompt()
+    return new Promise<boolean>((resolve) => {
+      showQRModal(qrCodeDataUrl, async (code) => {
+        try {
+          const verifyRes = await fetch('/api/auth/2fa/confirm', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ code })
+          });
+
+          const verifyData = await verifyRes.json();
+
+          if (verifyRes.ok) {
+            alert(getTranslation('alerts', 'twoFAEnabled'));
+            resolve(true);
+          } else {
+            alert(verifyData.message || getTranslation('alerts', 'invalid2FACode'));
+            resolve(false);
+          }
+        } catch (err) {
+          console.error('Error al confirmar 2FA:', err);
+          alert(getTranslation('alerts', 'connection'));
+          resolve(false);
+        }
+      });
+    });
+  } catch (err) {
+    console.error('Error configurando 2FA:', err);
+    alert(getTranslation('alerts', 'connection'));
+    return false;
+  }
+}
+
+// Desactivar 2FA
+async function disableTwoFactor(): Promise<boolean> {
+    const password = prompt(getTranslation('settings', 'enterCurrentPassword'));
+    if (!password) return false;
+
+    const code = prompt(getTranslation('settings', 'enterCurrent2FACode'));
+    if (!code) return false;
+
+    try {
+        const response = await fetch('/api/auth/2fa/disable', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ password, code })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+        alert(getTranslation('alerts', 'twoFADisabled'));
+        return true;
+        } else {
+        alert(data.message || getTranslation('alerts', 'error2FAShared'));
+        return false;
+        }
+    } catch (err) {
+        console.error('Error desactivando 2FA:', err);
+        alert(getTranslation('alerts', 'connection'));
+        return false;
+    }
 }
