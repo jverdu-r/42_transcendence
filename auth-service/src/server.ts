@@ -18,6 +18,8 @@ import friendsRoutes from './routes/friends.routes';
 import { promisify } from 'util';
 import { connectRedis } from './redis-client'
 import redisClient from './redis-client';
+import * as speakeasy from 'speakeasy';
+import QRCode from 'qrcode';
 
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
@@ -246,6 +248,27 @@ fastify.post('/auth/login', async (request, reply) => {
       await db.close();
       return reply.code(401).send({ message: 'Credenciales inválidas' });
     }
+    
+    // Verificar si tiene 2FA activado
+    const profile = await db.get(
+      'SELECT doubleFactor, doubleFactorSecret FROM user_profiles WHERE user_id = ?', 
+      [user.id]
+    );
+
+    if (profile?.doubleFactor !== 'false' && profile?.doubleFactor !== 0 && profile?.doubleFactor !== '0') {
+      // 2FA está activado: generar token temporal (sin acceso total)
+      const tempToken = jwt.sign(
+        { user_id: user.id, temp: true },
+        JWT_SECRET,
+        { expiresIn: '5m' }
+      );
+
+      await db.close();
+      return reply.send({
+        requires_2fa: true,
+        temp_token: tempToken
+      });
+    }
 
     const token = jwt.sign({
       user_id: user.id,
@@ -261,7 +284,6 @@ fastify.post('/auth/login', async (request, reply) => {
     await redisClient.sAdd('online_users', user.id.toString());
     await redisClient.set(`user:${user.id}:last_seen`, Date.now().toString());
 
-
     await redisClient.rPush('sqlite_write_queue', JSON.stringify({
       sql: `
         INSERT INTO sessions (user_id, session_token, expires_at)
@@ -271,7 +293,7 @@ fastify.post('/auth/login', async (request, reply) => {
     }));
 
     // Obtener avatar_url e idioma
-    const profile = await db.get('SELECT avatar_url, language FROM user_profiles WHERE user_id = ?', [user.id]);
+    const userProfile = await db.get('SELECT avatar_url, language FROM user_profiles WHERE user_id = ?', [user.id]);
 
     await db.close();
 
@@ -281,13 +303,348 @@ fastify.post('/auth/login', async (request, reply) => {
         id: user.id,
         username: user.username,
         email: user.email,
-        avatar_url: profile?.avatar_url || null,
-        language: profile?.language || 'es'
+        avatar_url: userProfile?.avatar_url || null,
+        language: userProfile?.language || 'es'
       }
     });
   } catch (err) {
     console.error('Error en login:', err);
     return reply.code(500).send({ message: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint para autenticación con Google (verifica token, crea usuario si no existe, devuelve JWT)
+type GooglePayload = {
+  email: string;
+  name: string;
+  picture?: string;
+  [key: string]: any;
+};
+fastify.post('/auth/google', async (request, reply) => {
+  const { token } = request.body as any;
+  
+  if (!token) {
+    return reply.code(400).send({ message: 'Falta token de Google' });
+  }
+
+  try {
+    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+    if (!res.ok) {
+      return reply.code(401).send({ message: 'Token de Google inválido' });
+    }
+    
+    const payload = (await res.json()) as GooglePayload;
+    
+    const db = await openDb();
+    let user = await db.get('SELECT * FROM users WHERE email = ?', [payload.email]);
+    
+    if (!user) {
+      // Crear nuevo usuario con Google
+      const result = await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+        sql: 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+        params: [payload.name, payload.email, ''] // Sin contraseña para usuarios de Google
+    }));
+      
+      user = await db.get('SELECT * FROM users WHERE email = ?', [payload.email]);
+    }
+
+    // Verificar si el usuario tiene 2FA activado
+    const userProfile = await db.get(
+      'SELECT doubleFactor FROM user_profiles WHERE user_id = ?',
+      [user.id]
+    );
+
+    if (userProfile?.doubleFactor !== 'false' && userProfile?.doubleFactor !== 0 && userProfile?.doubleFactor !== '0') {
+      // 2FA está activado: devolver temp_token
+      const tempToken = jwt.sign(
+        { user_id: user.id, temp: true },
+        JWT_SECRET,
+        { expiresIn: '5m' }
+      );
+
+      await db.close();
+      return reply.send({
+        requires_2fa: true,
+        temp_token: tempToken
+      });
+    }
+
+    // 2FA no está activado: proceder con JWT normal
+    const jwtToken = jwt.sign({
+      user_id: user.id,
+      username: user.username,
+      email: user.email,
+      exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hora
+    }, JWT_SECRET);
+
+    // Registrar sesión en DB y Redis
+    const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hora
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 
+      `INSERT INTO sessions (user_id, session_token, expires_at) 
+      VALUES (?, ?, ?)`,
+      params: [user.id, jwtToken, expiresAt.toISOString()]
+    }));
+    await redisClient.set(`user:${user.id}:online`, 'true');
+    await redisClient.sAdd('online_users', user.id.toString());
+    await redisClient.set(`user:${user.id}:last_seen`, Date.now().toString());
+    await redisClient.set(`jwt:${jwtToken}`, user.id.toString(), { EX: 3600 });
+
+    await db.close();
+    
+    return reply.send({ 
+      token: jwtToken,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email
+      }
+    });
+  } catch (err) {
+    console.error('Error con Google Sign-In:', err);
+    return reply.code(500).send({ message: 'Error con Google Sign-In' });
+  }
+});
+
+// Endpoint para validar temp_token y código TOTP
+fastify.post('/auth/verify-2fa', async (request, reply) => {
+  const { temp_token, code } = request.body as any;
+  if (!temp_token || !code) {
+    return reply.code(400).send({ message: 'Token temporal y código requeridos' });
+  }
+
+  try {
+    const decoded = jwt.verify(temp_token, JWT_SECRET) as { user_id: number; temp: boolean };
+    if (!decoded.temp) {
+      return reply.code(400).send({ message: 'Token temporal inválido' });
+    }
+
+    const db = await openDb();
+    const profile = await db.get(
+      'SELECT doubleFactorSecret, language FROM user_profiles WHERE user_id = ?',
+      [decoded.user_id]
+    );
+    const user = await db.get(
+      'SELECT id, username, email FROM users WHERE id = ?',
+      [decoded.user_id]
+    );
+
+    if (!profile?.doubleFactorSecret || !user) {
+      await db.close();
+      return reply.code(401).send({ message: '2FA no configurado o usuario inválido' });
+    }
+
+    // Verificar código TOTP
+    const verified = speakeasy.totp({
+      secret: profile.doubleFactorSecret,
+      encoding: 'base32',
+      token: code,
+      window: 1
+    });
+
+    if (!verified) {
+      await db.close();
+      return reply.code(401).send({ message: 'Código 2FA inválido' });
+    }
+
+    // Obtener avatar_url antes de cerrar la DB
+    const profileData = await db.get(
+      'SELECT avatar_url FROM user_profiles WHERE user_id = ?',
+      [user.id]
+    );
+
+    await db.close(); // ✅ Cerrar aquí, después de todas las consultas
+
+    // Generar JWT real
+    const token = jwt.sign({
+      user_id: user.id,
+      username: user.username,
+      email: user.email,
+      exp: Math.floor(Date.now() / 1000) + 3600 // 1 hora
+    }, JWT_SECRET);
+
+    const expiresAt = new Date(Date.now() + 3600 * 1000);
+
+    // Registrar en Redis
+    await redisClient.set(`jwt:${token}`, user.id.toString(), { EX: 3600 });
+    await redisClient.set(`user:${user.id}:online`, 'true');
+    await redisClient.sAdd('online_users', user.id.toString());
+    await redisClient.set(`user:${user.id}:last_seen`, Date.now().toString());
+
+    // Guardar sesión en cola
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'INSERT INTO sessions (user_id, session_token, expires_at) VALUES (?, ?, ?)',
+      params: [user.id, token, expiresAt.toISOString()]
+    }));
+
+    return reply.send({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatar_url: profileData?.avatar_url || null,
+        language: profile?.language || 'es'
+      }
+    });
+  } catch (err) {
+    if (err instanceof Error) {
+      if (err.name === 'JsonWebTokenError') {
+        return reply.code(401).send({ message: 'Token temporal inválido o expirado' });
+      }
+    }
+    console.error('Error en verificación 2FA:', err instanceof Error ? err.message : 'Unknown error');
+    return reply.code(500).send({ message: 'Error interno al verificar 2FA' });
+  }
+});
+
+// Endpoint: GET /auth/2fa/setup -> Devuelve un QR y un secreto temporal para configurar 2FA
+fastify.get('/auth/2fa/setup', { preHandler: verifyToken }, async (request, reply) => {
+  const userId = (request as any).user.user_id;
+
+  try {
+    const db = await openDb();
+    const user = await db.get('SELECT email FROM users WHERE id = ?', [userId]);
+    await db.close();
+
+    if (!user) {
+      return reply.code(404).send({ message: 'Usuario no encontrado' });
+    }
+
+    // Generar secreto con el email
+    const secret = speakeasy.generateSecret({
+      name: `Tanscendence:${user.email}`,
+      issuer: 'Transcendence',
+      length: 20
+    });
+
+    // Guardar secreto temporal en Redis (5 minutos)
+    await redisClient.set(`2fa:setup:${userId}`, secret.base32, { EX: 300 });
+
+    // Generar URL del QR
+    const otpauthUrl = secret.otpauth_url;
+    if (!otpauthUrl) {
+      return reply.code(500).send({ message: 'Error generando URL del QR' });
+    }
+
+    // Generar imagen del QR
+    const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
+
+    return reply.send({
+      qr_code: qrCodeDataUrl,
+      secret: secret.base32 // Solo para debugging o backup (no se usa en confirm)
+        });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error('Error en /auth/2fa/setup:', message);
+    return reply.code(500).send({ message: 'Error generando configuración de 2FA' });
+  }
+});
+
+// Endpoint: POST /auth/2fa/confirm -> Confirma el código del autenticador y activa 2FA
+fastify.post('/auth/2fa/confirm', { preHandler: verifyToken }, async (request, reply) => {
+  const userId = (request as any).user.user_id;
+  const { code } = request.body as any;
+
+  if (!code) {
+    return reply.code(400).send({ message: 'Código requerido' });
+  }
+
+  try {
+    // Obtener secreto temporal de Redis
+    const tempSecret = await redisClient.get(`2fa:setup:${userId}`);
+    if (!tempSecret) {
+      return reply.code(400).send({ message: 'Sesión expirada o no iniciada. Vuelve a intentarlo.' });
+    }
+
+    // Verificar código TOTP
+    const verified = speakeasy.totp({
+      secret: tempSecret,
+      encoding: 'base32',
+      token: code,
+      window: 1
+    });
+
+    if (!verified) {
+      return reply.code(401).send({ message: 'Código inválido' });
+    }
+
+    // Activar 2FA en la base de datos
+    const db = await openDb();
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `INSERT OR REPLACE INTO user_profiles (user_id, avatar_url, language, notifications, doubleFactor, doubleFactorSecret, difficulty)
+              VALUES (?, 
+                      (SELECT avatar_url FROM user_profiles WHERE user_id = ?),
+                      (SELECT language FROM user_profiles WHERE user_id = ?),
+                      (SELECT notifications FROM user_profiles WHERE user_id = ?),
+                      1,
+                      ?,
+                      (SELECT difficulty FROM user_profiles WHERE user_id = ?)
+              )`,
+      params: [userId, userId, userId, userId, tempSecret, userId]
+    }));
+    await db.close();
+
+    // Limpiar secreto temporal
+    await redisClient.del(`2fa:setup:${userId}`);
+
+    return reply.send({ success: true, message: '2FA activado correctamente' });
+  } catch (err) {
+    console.error('Error en /auth/2fa/confirm:', err);
+    return reply.code(500).send({ message: 'Error interno al activar 2FA' });
+  }
+});
+
+// Endpoint: POST /auth/2fa/disable -> Desactiva 2FA tras verificar contraseña y código
+fastify.post('/auth/2fa/disable', { preHandler: verifyToken }, async (request, reply) => {
+  const userId = (request as any).user.user_id;
+  const { password, code } = request.body as any;
+
+  if (!password || !code) {
+    return reply.code(400).send({ message: 'Contraseña y código requeridos' });
+  }
+
+  try {
+    const db = await openDb();
+
+    // Verificar contraseña
+    const user = await db.get('SELECT password_hash, email FROM users WHERE id = ?', [userId]);
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      await db.close();
+      return reply.code(401).send({ message: 'Contraseña inválida' });
+    }
+
+    // Verificar código TOTP
+    const profile = await db.get('SELECT doubleFactorSecret FROM user_profiles WHERE user_id = ?', [userId]);
+
+
+    if (!profile?.doubleFactorSecret) {
+      await db.close();
+      return reply.code(400).send({ message: '2FA no está activado' });
+    }
+
+    const verified = speakeasy.totp({
+      secret: profile.doubleFactorSecret,
+      encoding: 'base32',
+      token: code,
+      window: 1
+    });
+
+    if (!verified) {
+      return reply.code(401).send({ message: 'Código 2FA inválido' });
+    }
+
+    // Desactivar 2FA
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `UPDATE user_profiles SET doubleFactor = 0, doubleFactorSecret = NULL WHERE user_id = ?`,
+      params: [userId]
+  }));
+    await db.close();
+
+    return reply.send({ success: true, message: '2FA desactivado correctamente' });
+  } catch (err) {
+    console.error('Error en /auth/2fa/disable:', err);
+    return reply.code(500).send({ message: 'Error interno al desactivar 2FA' });
   }
 });
 
@@ -741,21 +1098,21 @@ fastify.put('/auth/settings/config', { preHandler: verifyToken }, async (request
     const {
       language,
       notifications,
-      sound_effects,
+      doubleFactor,
       game_difficulty
     } = request.body as any;
 
     await redisClient.rPush('sqlite_write_queue', JSON.stringify({
       sql: `
-        INSERT INTO user_profiles (user_id, language, notifications, sound, difficulty)
+        INSERT INTO user_profiles (user_id, language, notifications, doubleFactor, difficulty)
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(user_id) DO UPDATE SET
           language = excluded.language,
           notifications = excluded.notifications,
-          sound = excluded.sound,
+          doubleFactor = excluded.doubleFactor,
           difficulty = excluded.difficulty
       `,
-      params: [userId, language, notifications, sound_effects, game_difficulty]
+      params: [userId, language, notifications, doubleFactor, game_difficulty]
     }));
 
     await db.close();
@@ -775,7 +1132,7 @@ fastify.get('/auth/settings/config', { preHandler: verifyToken }, async (request
       `SELECT 
         language, 
         notifications, 
-        sound AS sound_effects, 
+        doubleFactor, 
         difficulty AS game_difficulty
       FROM user_profiles 
       WHERE user_id = ?`,
@@ -791,77 +1148,6 @@ fastify.get('/auth/settings/config', { preHandler: verifyToken }, async (request
   } catch (err) {
     console.error('Error al obtener configuración:', err);
     return reply.code(500).send({ message: 'Error al obtener configuración' });
-  }
-});
-
-// Endpoint para autenticación con Google (verifica token, crea usuario si no existe, devuelve JWT)
-type GooglePayload = {
-  email: string;
-  name: string;
-  picture?: string;
-  [key: string]: any;
-};
-fastify.post('/auth/google', async (request, reply) => {
-  const { token } = request.body as any;
-  
-  if (!token) {
-    return reply.code(400).send({ message: 'Falta token de Google' });
-  }
-
-  try {
-    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
-    if (!res.ok) {
-      return reply.code(401).send({ message: 'Token de Google inválido' });
-    }
-    
-    const payload = (await res.json()) as GooglePayload;
-    
-    const db = await openDb();
-    let user = await db.get('SELECT * FROM users WHERE email = ?', [payload.email]);
-    
-    if (!user) {
-      // Crear nuevo usuario con Google
-      const result = await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-        sql: 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
-        params: [payload.name, payload.email, ''] // Sin contraseña para usuarios de Google
-    }));
-      
-      user = await db.get('SELECT * FROM users WHERE email = ?', [payload.email]);
-    }
-
-    const jwtToken = jwt.sign({
-      user_id: user.id,
-      username: user.username,
-      email: user.email,
-      exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1 hora
-    }, JWT_SECRET);
-
-    // Registrar sesión en DB y Redis
-    const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hora
-    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-      sql: 
-      `INSERT INTO sessions (user_id, session_token, expires_at) 
-      VALUES (?, ?, ?)`,
-      params: [user.id, jwtToken, expiresAt.toISOString()]
-    }));
-    await redisClient.set(`user:${user.id}:online`, 'true');
-    await redisClient.sAdd('online_users', user.id.toString());
-    await redisClient.set(`user:${user.id}:last_seen`, Date.now().toString());
-    await redisClient.set(`jwt:${jwtToken}`, user.id.toString(), { EX: 3600 });
-
-    await db.close();
-    
-    return reply.send({ 
-      token: jwtToken,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email
-      }
-    });
-  } catch (err) {
-    console.error('Error con Google Sign-In:', err);
-    return reply.code(500).send({ message: 'Error con Google Sign-In' });
   }
 });
 
