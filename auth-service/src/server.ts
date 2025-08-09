@@ -13,8 +13,8 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { MultipartFile } from '@fastify/multipart';
 import { createCanvas, loadImage } from 'canvas';
 import { verifyToken } from './utils/auth-middleware';
-import gamesRoutes from './routes/games.routes';
 import friendsRoutes from './routes/friends.routes';
+import gameDbRoutes from './routes/game-db.routes';
 import { promisify } from 'util';
 import { connectRedis } from './redis-client'
 import redisClient from './redis-client';
@@ -27,11 +27,11 @@ const fastify = Fastify({ logger: true });
 
 fastify.register(multipart);
 
-// Rutas para gestionar el guardado de partidas y estadísticas del juego
-fastify.register(gamesRoutes, { prefix: '/auth/games' });
-
 // Ruta para gestionar amistades
 fastify.register(friendsRoutes, { prefix: '/auth/friends' });
+
+// Ruta para guardar partidas en bbdd
+fastify.register(gameDbRoutes, { prefix: '/auth/games' });
 
 // Habilitar CORS
 

@@ -16,7 +16,7 @@ COPY types.d.ts ./
 COPY package*.json ./
 
 # Fuerza la reconstrucción de canvas desde cero
-RUN npm install --build-from-source=canvas
+RUN npm install --build-from-source=canvas && npm install --save-dev @types/nodemailer
 
 # Copia el código fuente
 COPY . .
