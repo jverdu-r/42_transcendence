@@ -46,7 +46,7 @@ export function renderPlay(): void {
         <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-green-400" 
              id="ai-game-card">
           <div class="text-6xl mb-4">🤖</div>
-          <h2 class="text-xl font-bold text-green-400 mb-2">vs Inteligencia Artificial</h2>
+          <h2 class="text-xl font-bold text-green-400 mb-2">vs IA</h2>
           <p class="text-gray-300 mb-4 text-sm">
             Enfréntate a la IA con físicas realistas del Pong original. 
             Elige tu nivel de desafío.
@@ -88,8 +88,8 @@ export function renderPlay(): void {
           <div class="text-6xl mb-4">👁️</div>
           <h2 class="text-xl font-bold text-purple-400 mb-2">Modo Espectador</h2>
           <p class="text-gray-300 mb-4 text-sm">
-            Observa partidas en vivo de otros jugadores.
-            Aprende estrategias y disfruta del espectáculo.
+            Partidas en vivo de otros jugadores.
+            Aprende estrategias de otros jugadores.
           </p>
           <div class="text-xs text-gray-400 mb-4 space-y-1">
             <div>📺 Visualización en tiempo real</div>

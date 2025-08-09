@@ -144,7 +144,6 @@ export async function initializeDb() {
             INSERT OR IGNORE INTO games (id, status, started_at, finished_at) VALUES (83, 'finished', datetime('now', '-114 hours'), datetime('now', '-114 hours', '+12 minutes'));
             INSERT OR IGNORE INTO games (id, status, started_at, finished_at) VALUES (84, 'finished', datetime('now', '-120 hours'), datetime('now', '-120 hours', '+5 minutes'));
             INSERT OR IGNORE INTO games (id, status, started_at, finished_at) VALUES (85, 'finished', datetime('now', '-126 hours'), datetime('now', '-126 hours', '+9 minutes'));
-            INSERT OR IGNORE INTO games (id, status, started_at) VALUES (86, 'pending', datetime('now', '-1 hours', '+57 minutes'));
             INSERT OR IGNORE INTO participants (id, game_id, user_id, is_bot, is_winner, team_name) VALUES (1, 1, 2, 0, 1, 'Team A');
             INSERT OR IGNORE INTO participants (id, game_id, user_id, is_bot, is_winner, team_name) VALUES (2, 1, 3, 0, 0, 'Team B');
             INSERT OR IGNORE INTO participants (id, game_id, user_id, is_bot, is_winner, team_name) VALUES (3, 2, 4, 0, 1, 'Team A');
@@ -315,8 +314,6 @@ export async function initializeDb() {
             INSERT OR IGNORE INTO participants (id, game_id, user_id, is_bot, is_winner, team_name) VALUES (168, 84, NULL, 1, 0, 'Easy Bot');
             INSERT OR IGNORE INTO participants (id, game_id, user_id, is_bot, is_winner, team_name) VALUES (169, 85, 6, 0, 0, 'Team A');
             INSERT OR IGNORE INTO participants (id, game_id, user_id, is_bot, is_winner, team_name) VALUES (170, 85, NULL, 1, 1, 'Medium Bot');
-            INSERT OR IGNORE INTO participants (id, game_id, user_id, is_bot, is_winner, team_name) VALUES (171, 86, 6, 0, 0, 'Team A');
-            INSERT OR IGNORE INTO participants (id, game_id, user_id, is_bot, is_winner, team_name) VALUES (172, 86, 2, 0, 0, 'Team B');
             INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (1, 1, 2, 'Team A', 5);
             INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (2, 1, 3, 'Team B', 3);
             INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (3, 2, 4, 'Team A', 5);
@@ -487,8 +484,6 @@ export async function initializeDb() {
             INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (168, 84, NULL, 'Easy Bot', 2);
             INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (169, 85, 6, 'Team A', 3);
             INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (170, 85, NULL, 'Medium Bot', 5);
-            INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (171, 86, 6, 'Team A', 1);
-            INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (172, 86, 2, 'Team B', 2);
         `);
         console.log('Base de datos inicializada y tablas creadas (si no existían).');
     } finally {
