@@ -6,6 +6,7 @@
 import { navigateTo } from '../router';
 import { getCurrentUser } from '../auth';
 import { PlayerDisplay, PlayerInfo } from './playerDisplay';
+import { showNotification, checkRankingChange } from '../utils/utils';
 
 export interface UnifiedGameState {
     ball: {
@@ -31,6 +32,12 @@ export interface GameCallbacks {
     onGameEnd?: (winner: string, score: { left: number; right: number }) => void;
     onStatusUpdate?: (status: string) => void;
     onGameStateUpdate?: (state: UnifiedGameState) => void;
+}
+
+interface GameNotificationEvent {
+  message: string;
+  type?: 'toast' | 'snackbar';
+  duration?: number;
 }
 
 export type GameMode = 'local' | 'online' | 'ai';
@@ -81,6 +88,16 @@ export class UnifiedGameRenderer {
         this.initializeGameState();
         this.setupEventListeners();
         this.drawInitialState();
+        
+        document.addEventListener('gameNotification', (e: Event) => {
+            const customEvent = e as CustomEvent<GameNotificationEvent>;
+            const { message, type = 'toast', duration = 5000 } = customEvent.detail;
+            showNotification(message, type, duration);
+        });
+
+        document.addEventListener('rankingUpdate', (e: Event) => {
+            checkRankingChange();
+        });
     }
     
     private initializeGameState(): void {
