@@ -381,9 +381,9 @@ function setupEventListeners(): void {
         const profileData: any = { username, email };
         
         if (currentPassword || newPassword) {
-        profileData.current_password = currentPassword;
-        profileData.new_password = newPassword;
-}
+            profileData.current_password = currentPassword;
+            profileData.new_password = newPassword;
+        }
 
         saveProfileBtn.disabled = true;
         saveProfileBtn.innerHTML = getTranslation('settings', 'saving');
@@ -392,13 +392,23 @@ function setupEventListeners(): void {
         
         if (result.success) {
             alert(getTranslation('alerts', 'successProfile'));
+
             // Limpiar campos de contraseña
             (document.getElementById('current-password') as HTMLInputElement).value = '';
             (document.getElementById('new-password') as HTMLInputElement).value = '';
-        } else {
-            alert(`${getTranslation('alerts', 'errorLogin')}${result.message}`);
-        }
 
+            const currentUser = getCurrentUser();
+            if (currentUser) {
+                const updatedUser = { ...currentUser, username, email };
+                localStorage.setItem('user', JSON.stringify(updatedUser));
+                
+                // ✅ Disparar evento para que otras páginas se enteren
+                window.dispatchEvent(new CustomEvent('userUpdated', {
+                detail: updatedUser
+                }));
+            }
+        }
+        
         saveProfileBtn.disabled = false;
         saveProfileBtn.innerHTML = getTranslation('settings', 'saveChanges');
     });

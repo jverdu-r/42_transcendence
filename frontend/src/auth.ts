@@ -130,6 +130,23 @@ export function getCurrentUser(): User | null {
   const payload = parseJwt(token);
   if (!payload?.user_id) return null;
   
+  // Leer datos actualizados de localStorage si existen
+  const localUser = localStorage.getItem('user');
+  if (localUser) {
+    try {
+      const user = JSON.parse(localUser);
+      if (user.id === payload.user_id) {
+        return {
+          id: user.id,
+          username: user.username || 'Usuario',
+          email: user.email || 'desconocido@example.com'
+        };
+      }
+    } catch (e) {
+      console.error('Error parsing local user:', e);
+    }
+  }
+  
   return {
     id: payload.user_id,
     username: payload.username || 'Usuario',
@@ -154,6 +171,9 @@ export function logout(): void {
   localStorage.removeItem('notifications');
   localStorage.removeItem('doubleFactor');
   localStorage.removeItem('game_difficulty');
+  localStorage.removeItem('user_id');
+  localStorage.removeItem('username');
+  localStorage.removeItem('email');
   
   console.log(':candado: Sesión cerrada');
   window.location.href = '/login';
