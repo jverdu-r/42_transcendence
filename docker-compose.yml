@@ -8,7 +8,8 @@ services:
       - "8001:8000" # Mapea el puerto 8000 interno a 8001 en el host
     environment:
       DB_SERVICE_URL: "http://db-service:8005"
-      VAULT_ADDR: "http://vault:8200"
+      VAULT_ADDR: "https://vault:8200"
+      VAULT_SKIP_VERIFY: "true"
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
       REDIS_PASSWORD: "${REDIS_PASSWORD}"
@@ -39,7 +40,8 @@ services:
       - "8002:8000" # Mapea el puerto 8000 interno a 8002 en el host
     environment:
       DB_SERVICE_URL: "http://db-service:8005"
-      VAULT_ADDR: "http://vault:8200"
+      VAULT_ADDR: "https://vault:8200"
+      VAULT_SKIP_VERIFY: "true"
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
       REDIS_PASSWORD: "${REDIS_PASSWORD}"
@@ -62,7 +64,8 @@ services:
       - "8003:8000" # Mapea el puerto 8000 interno a 8003 en el host
     environment:
       DB_SERVICE_URL: "http://db-service:8005"
-      VAULT_ADDR: "http://vault:8200"
+      VAULT_ADDR: "https://vault:8200"
+      VAULT_SKIP_VERIFY: "true"
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
       REDIS_PASSWORD: "${REDIS_PASSWORD}"
@@ -84,6 +87,8 @@ services:
     ports:
       - "9000:8000" # Mapea el puerto 8000 interno a 9000 en el host
     environment:
+      VAULT_ADDR: "https://vault:8200"
+      VAULT_SKIP_VERIFY: "true"
       AUTH_SERVICE_URL: "${AUTH_SERVICE_URL}"
       GAME_SERVICE_URL: "${GAME_SERVICE_URL}"
       CHAT_SERVICE_URL: "${CHAT_SERVICE_URL}"
@@ -114,19 +119,34 @@ services:
     restart: on-failure
 
   # HashiCorp Vault
+  # HashiCorp Vault - Production Configuration
   vault:
-    image: hashicorp/vault:latest
+    build: ./vault
+    image: vault-production
     container_name: hashicorp_vault
     ports:
-      - "8200:8200" # Vault ya usa un puerto no privilegiado por defecto
+      - "8200:8200" # Vault API
+      - "8201:8201" # Vault cluster port
     environment:
-      VAULT_DEV_ROOT_TOKEN_ID: "dev-root-token"
-      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
-    cap_add:
-      - IPC_LOCK
+      VAULT_ADDR: "https://localhost:8200"
+      VAULT_API_ADDR: "https://vault:8200"
+      VAULT_CLUSTER_ADDR: "https://vault:8201"
+      VAULT_SKIP_VERIFY: "true"  # For self-signed certificates in development
+    volumes:
+      - vault_data:/vault/file
+      - vault_logs:/vault/logs
+      - ./vault/scripts:/vault/scripts:rw
+      - ./vault/certs:/vault/certs:ro
+    user: "0:0"
     networks:
       - transcendence_net
-    restart: on-failure
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "VAULT_SKIP_VERIFY=true vault status || exit 0"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # WAF (Web Application Firewall) - Nginx con ModSecurity como ejemplo
   waf:
@@ -185,7 +205,8 @@ services:
     volumes:
       - db_data:/app/data # Monta un volumen para persistir la base de datos SQLite
     environment:
-      VAULT_ADDR: "http://vault:8200"
+      VAULT_ADDR: "https://vault:8200"
+      VAULT_SKIP_VERIFY: "true"
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
       REDIS_PASSWORD: "${REDIS_PASSWORD}"
@@ -408,6 +429,18 @@ volumes:
       type: none
       o: bind
       device: ${DATA_PATH}/prometheus
+  vault_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH}/vault
+  vault_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH}/vault-logs
   grafana_data:
     driver: local
     driver_opts:
