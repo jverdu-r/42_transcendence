@@ -98,6 +98,11 @@ if [ "$IS_INITIALIZED" = "false" ]; then
     docker cp hashicorp_vault:/vault/generated/vault-keys.json ./vault/generated/vault-keys.json 2>/dev/null || echo "$INIT_OUTPUT" > ./vault/generated/vault-keys.json
     chown $(id -u):$(id -g) ./vault/generated/vault-keys.json
     chmod 666 ./vault/generated/vault-keys.json
+    UNSEAL_KEY_1=$(jq -r '.unseal_keys_b64[0]' ./vault/generated/vault-keys.json)
+    UNSEAL_KEY_2=$(jq -r '.unseal_keys_b64[1]' ./vault/generated/vault-keys.json)
+
+    # Extraer root token del archivo generado
+    ROOT_TOKEN=$(jq -r '.root_token' ./vault/generated/vault-keys.json)
     else
         echo -e "${RED}❌ Failed to initialize Vault${NC}"
         exit 1
@@ -177,30 +182,26 @@ fi
 # Create service tokens
 echo -e "${BLUE}🔑 Creating service tokens...${NC}"
 
-SERVICE_TOKENS=$(docker exec hashicorp_vault sh -c "
+SERVICE_TOKENS=$(docker exec hashicorp_vault sh -c '
     export VAULT_ADDR=https://localhost:8200
     export VAULT_SKIP_VERIFY=true
-    export VAULT_TOKEN=$ROOT_TOKEN
-    
-    # Create tokens for each service con su propia policy
-    AUTH_TOKEN=\$(vault write -field=token auth/token/create policies='auth-service-policy' ttl=720h renewable=true display_name='auth-service')
-    GAME_TOKEN=\$(vault write -field=token auth/token/create policies='game-service-policy' ttl=720h renewable=true display_name='game-service')
-    CHAT_TOKEN=\$(vault write -field=token auth/token/create policies='chat-service-policy' ttl=720h renewable=true display_name='chat-service')
-    DB_TOKEN=\$(vault write -field=token auth/token/create policies='db-service-policy' ttl=720h renewable=true display_name='db-service')
-    API_TOKEN=\$(vault write -field=token auth/token/create policies='api-gateway-policy' ttl=720h renewable=true display_name='api-gateway')
-    
-    # Output JSON
+    export VAULT_TOKEN='"$ROOT_TOKEN"'
+    AUTH_TOKEN=$(vault write -field=token auth/token/create policies="auth-service-policy" ttl=720h renewable=true display_name="auth-service" 2>/dev/null || echo "")
+    GAME_TOKEN=$(vault write -field=token auth/token/create policies="game-service-policy" ttl=720h renewable=true display_name="game-service" 2>/dev/null || echo "")
+    CHAT_TOKEN=$(vault write -field=token auth/token/create policies="chat-service-policy" ttl=720h renewable=true display_name="chat-service" 2>/dev/null || echo "")
+    DB_TOKEN=$(vault write -field=token auth/token/create policies="db-service-policy" ttl=720h renewable=true display_name="db-service" 2>/dev/null || echo "")
+    API_TOKEN=$(vault write -field=token auth/token/create policies="api-gateway-policy" ttl=720h renewable=true display_name="api-gateway" 2>/dev/null || echo "")
     cat <<EOF
 {
-    \"root_token\": \"$ROOT_TOKEN\",
-    \"auth_service_token\": \"$AUTH_TOKEN\",
-    \"game_service_token\": \"$GAME_TOKEN\",
-    \"chat_service_token\": \"$CHAT_TOKEN\",
-    \"db_service_token\": \"$DB_TOKEN\",
-    \"api_gateway_token\": \"$API_TOKEN\"
+    "root_token": "'"$ROOT_TOKEN"'",
+    "auth_service_token": "$AUTH_TOKEN",
+    "game_service_token": "$GAME_TOKEN",
+    "chat_service_token": "$CHAT_TOKEN",
+    "db_service_token": "$DB_TOKEN",
+    "api_gateway_token": "$API_TOKEN"
 }
 EOF
-")
+')
 
 # Save tokens to file
 mkdir -p vault/generated
@@ -254,6 +255,36 @@ else
     echo "$FINAL_STATUS" | jq .
 fi
 
+
+# =====================
+# Crear secretos en Vault leyendo del .env
+# =====================
+
+# Cargar variables del .env de la raíz
+set -a
+[ -f "$SCRIPT_DIR/../../.env" ] && source "$SCRIPT_DIR/../../.env"
+set +a
+
+echo -e "${BLUE}🔐 Creating initial secrets in Vault...${NC}"
+
+docker exec hashicorp_vault sh -c "
+    export VAULT_ADDR=https://localhost:8200
+    export VAULT_SKIP_VERIFY=true
+    export VAULT_TOKEN='$ROOT_TOKEN'
+    vault kv put secret/redis REDIS_PASSWORD='${REDIS_PASSWORD:-}'
+    vault kv put secret/jwt JWT_SECRET='${JWT_SECRET:-}'
+    vault kv put secret/grafana GRAFANA_USER='${GRAFANA_USER:-}' GRAFANA_PASSWORD='${GRAFANA_PASSWORD:-}'
+    vault kv put secret/prometheus PROMETHEUS_USER='${PROMETHEUS_USER:-}' PROMETHEUS_PASSWORD='${PROMETHEUS_PASSWORD:-}'
+"
+
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✅ Initial secrets created in Vault!${NC}"
+else
+    echo -e "${RED}❌ Failed to create initial secrets in Vault${NC}"
+    exit 1
+fi
+
+
 # Summary
 echo ""
 echo -e "${GREEN}🎉 Vault setup completed successfully!${NC}"
@@ -267,6 +298,7 @@ echo -e "  ✅ Data directory: ${BLUE}$DATA_PATH${NC}"
 echo -e "  ✅ TLS certificates: ${BLUE}vault/certs/${NC}"
 echo -e "  ✅ Configuration files: ${BLUE}vault/generated/vault-keys.json, vault/generated/service-tokens.json${NC}"
 echo -e "  ✅ Environment tokens: ${BLUE}vault/generated/.env.tokens${NC}"
+echo -e "  ✅ Secrets in Vault:"
 echo ""
 echo -e "${BLUE}🚀 Next Steps:${NC}"
 echo -e "  1. Review tokens: ${YELLOW}cat vault/generated/.env.tokens${NC}"
