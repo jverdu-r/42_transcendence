@@ -16,16 +16,28 @@ ip:
 all: prepare build up
 
 prepare:
-	mkdir -p /tmp/trascender-data/vault
-	mkdir -p /tmp/trascender-data/vault-logs
-	echo "Vault data directory prepared at: /tmp/trascender-data/vault"
-	echo "Vault logs directory prepared at: /tmp/trascender-data/vault-logs"
+	@echo "� Generando certificados TLS para Vault..."
+	./vault/scripts/generate-certs.sh
+
+	mkdir -p "$(HOME)/data/transcendence/vault"
+	chmod -R 755 "$(HOME)/data/transcendence/vault"
+	@echo "Vault data directory prepared at: $(HOME)/data/transcendence/vault"
+
+	mkdir -p "$(HOME)/data/transcendence/vault/logs"
+	chmod -R 755 "$(HOME)/data/transcendence/vault/logs"
+	@echo "Vault logs directory prepared at: $(HOME)/data/transcendence/vault/logs"
+
+	mkdir -p "$(HOME)/data/transcendence/vault/data"
+	chmod -R 755 "$(HOME)/data/transcendence/vault/data"
+	@echo "Vault data directory prepared at: $(HOME)/data/transcendence/vault/data"
+
+	mkdir -p ./vault/generated
+	chmod -R 777 ./vault/generated
+	@echo "Vault generated directory prepared at: ./vault/generated"
+
 	mkdir -p "$(HOME)/data/transcendence/sqlite"
 	chmod -R 777 "$(HOME)/data/transcendence/sqlite"
 	@echo "SQLite data directory prepared at: $(HOME)/data/transcendence/sqlite"
-	
-	@echo "� Generando certificados TLS para Vault..."
-	./vault/scripts/generate-certs.sh
 
 	mkdir -p "$(HOME)/data/transcendence/sqlite"
 	chmod -R 777 "$(HOME)/data/transcendence/sqlite"

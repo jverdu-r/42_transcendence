@@ -81,11 +81,11 @@ if [ "$IS_INITIALIZED" = "false" ]; then
     INIT_OUTPUT=$(docker exec hashicorp_vault sh -c '
         export VAULT_ADDR=https://localhost:8200
         export VAULT_SKIP_VERIFY=true
-        vault operator init -key-shares=3 -key-threshold=2 -format=json
+        vault operator init -key-shares=3 -key-threshold=2 -format=json > /vault/generated/vault-keys.json
     ')
     
     if [ $? -eq 0 ]; then
-        echo "$INIT_OUTPUT" > /tmp/vault-keys.json
+#        echo "$INIT_OUTPUT" > ./vault/generated/vault-keys.json
         echo -e "${GREEN}✅ Vault initialized successfully!${NC}"
         
         # Extract keys and token
@@ -95,7 +95,9 @@ if [ "$IS_INITIALIZED" = "false" ]; then
         
         # Copy keys to organized location in vault/generated/
         mkdir -p vault/generated
-        docker cp hashicorp_vault:/tmp/vault-keys.json ./vault/generated/vault-keys.json 2>/dev/null || echo "$INIT_OUTPUT" > ./vault/generated/vault-keys.json
+    docker cp hashicorp_vault:/vault/generated/vault-keys.json ./vault/generated/vault-keys.json 2>/dev/null || echo "$INIT_OUTPUT" > ./vault/generated/vault-keys.json
+    chown $(id -u):$(id -g) ./vault/generated/vault-keys.json
+    chmod 666 ./vault/generated/vault-keys.json
     else
         echo -e "${RED}❌ Failed to initialize Vault${NC}"
         exit 1
@@ -114,6 +116,9 @@ else
     fi
 fi
 
+echo "Unseal key 1: $UNSEAL_KEY_1"
+echo "Unseal key 2: $UNSEAL_KEY_2"
+
 # Unseal Vault if sealed
 if [ "$IS_SEALED" = "true" ]; then
     echo -e "${BLUE}🔓 Unsealing Vault...${NC}"
@@ -121,8 +126,8 @@ if [ "$IS_SEALED" = "true" ]; then
     docker exec hashicorp_vault sh -c "
         export VAULT_ADDR=https://localhost:8200
         export VAULT_SKIP_VERIFY=true
-        vault operator unseal $UNSEAL_KEY_1
-        vault operator unseal $UNSEAL_KEY_2
+        vault operator unseal \"$UNSEAL_KEY_1\"
+        vault operator unseal \"$UNSEAL_KEY_2\"
     "
     
     if [ $? -eq 0 ]; then
