@@ -9,17 +9,11 @@ services:
     environment:
       DB_SERVICE_URL: "http://db-service:8005"
       VAULT_ADDR: "https://vault:8200"
-      VAULT_SKIP_VERIFY: "true"
+      VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
       REDIS_PASSWORD: "${REDIS_PASSWORD}"
       JWT_SECRET: "${JWT_SECRET}"
-      EMAIL_HOST: "smtp.gmail.com"
-      EMAIL_PORT: "587"
-      EMAIL_SECURE: "false"
-      EMAIL_USER: "transcendence.notifier@gmail.com"
-      EMAIL_PASS_FILE: "/run/secrets/email_password"
-      EMAIL_FROM: "transcendence.notifier@noreply.com"
     depends_on:
       - db-service
       - vault
@@ -27,8 +21,6 @@ services:
       - db_data:/app/data
     networks:
       - transcendence_net
-    secrets:
-      - email_password
     restart: on-failure
 
   # Servicio de Juego (Pong)
@@ -41,7 +33,7 @@ services:
     environment:
       DB_SERVICE_URL: "http://db-service:8005"
       VAULT_ADDR: "https://vault:8200"
-      VAULT_SKIP_VERIFY: "true"
+      VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
       REDIS_PASSWORD: "${REDIS_PASSWORD}"
@@ -65,7 +57,7 @@ services:
     environment:
       DB_SERVICE_URL: "http://db-service:8005"
       VAULT_ADDR: "https://vault:8200"
-      VAULT_SKIP_VERIFY: "true"
+      VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
       REDIS_PASSWORD: "${REDIS_PASSWORD}"
@@ -87,8 +79,6 @@ services:
     ports:
       - "9000:8000" # Mapea el puerto 8000 interno a 9000 en el host
     environment:
-      VAULT_ADDR: "https://vault:8200"
-      VAULT_SKIP_VERIFY: "true"
       AUTH_SERVICE_URL: "${AUTH_SERVICE_URL}"
       GAME_SERVICE_URL: "${GAME_SERVICE_URL}"
       CHAT_SERVICE_URL: "${CHAT_SERVICE_URL}"
@@ -118,8 +108,6 @@ services:
       - transcendence_net
     restart: on-failure
 
-  # HashiCorp Vault
-  # HashiCorp Vault - Production Configuration
   vault:
     build: ./vault
     image: vault-production
@@ -137,6 +125,7 @@ services:
       - vault_logs:/vault/logs
       - ./vault/scripts:/vault/scripts:rw
       - ./vault/certs:/vault/certs:ro
+      - ./vault/generated:/vault/generated:rw
     user: "0:0"
     networks:
       - transcendence_net
@@ -147,6 +136,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
 
   # WAF (Web Application Firewall) - Nginx con ModSecurity como ejemplo
   waf:
@@ -206,7 +196,7 @@ services:
       - db_data:/app/data # Monta un volumen para persistir la base de datos SQLite
     environment:
       VAULT_ADDR: "https://vault:8200"
-      VAULT_SKIP_VERIFY: "true"
+      VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
       REDIS_PASSWORD: "${REDIS_PASSWORD}"
@@ -233,12 +223,6 @@ services:
     command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "o-meu-contrasinal.42", "--maxmemory", "256mb"]
     networks:
       - transcendence_net
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
   redis-commander:
     image: rediscommander/redis-commander:latest
     container_name: redis_commander
@@ -261,7 +245,6 @@ services:
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
     secrets:
       - redis_password
     volumes:
@@ -270,7 +253,11 @@ services:
     networks:
       - transcendence_net
 
-  # -----     Monitoring Services     ----- 
+
+
+
+  # Monitoring Services
+  
   # Prometheus - Metrics collection
   prometheus:
     image: prom/prometheus:latest
@@ -292,6 +279,7 @@ services:
     networks:
       - transcendence_net
     restart: unless-stopped
+
   # Grafana - Metrics visualization
   grafana:
     image: grafana/grafana:latest
@@ -311,6 +299,7 @@ services:
     depends_on:
       - prometheus
     restart: unless-stopped
+
   # Alertmanager - Alert management
   alertmanager:
     image: prom/alertmanager:latest
@@ -327,6 +316,7 @@ services:
     networks:
       - transcendence_net
     restart: unless-stopped
+
   # Node Exporter - System metrics
   node-exporter:
     image: prom/node-exporter:latest
@@ -345,6 +335,7 @@ services:
     networks:
       - transcendence_net
     restart: unless-stopped
+
   # Redis Exporter - Redis metrics
   redis-exporter:
     image: oliver006/redis_exporter:latest
@@ -359,6 +350,7 @@ services:
     depends_on:
       - redis
     restart: unless-stopped
+
   # cAdvisor - Container metrics
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
@@ -377,6 +369,7 @@ services:
     networks:
       - transcendence_net
     restart: unless-stopped
+
   # Nginx Exporter - Nginx metrics for WAF and proxy
   nginx-exporter:
     image: nginx/nginx-prometheus-exporter:latest
@@ -390,6 +383,7 @@ services:
     depends_on:
       - nginx-proxy
     restart: unless-stopped
+
   # Blackbox Exporter - HTTP/TCP/ICMP monitoring
   blackbox-exporter:
     image: prom/blackbox-exporter:latest
@@ -407,8 +401,6 @@ services:
 secrets:
   redis_password:
     file: ./secrets/redis/password.txt
-  email_password:
-    file: ./secrets/email/email_password.txt
 
 volumes:
   db_data:
@@ -429,18 +421,6 @@ volumes:
       type: none
       o: bind
       device: ${DATA_PATH}/prometheus
-  vault_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${DATA_PATH}/vault
-  vault_logs:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${DATA_PATH}/vault-logs
   grafana_data:
     driver: local
     driver_opts:
@@ -453,6 +433,18 @@ volumes:
       type: none
       o: bind
       device: ${DATA_PATH}/alertmanager
+  vault_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH}/vault/data
+  vault_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH}/vault/logs
 
 networks:
   transcendence_net:
