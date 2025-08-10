@@ -16,6 +16,17 @@ ip:
 all: prepare build up
 
 prepare:
+	mkdir -p /tmp/trascender-data/vault
+	mkdir -p /tmp/trascender-data/vault-logs
+	echo "Vault data directory prepared at: /tmp/trascender-data/vault"
+	echo "Vault logs directory prepared at: /tmp/trascender-data/vault-logs"
+	mkdir -p "$(HOME)/data/transcendence/sqlite"
+	chmod -R 777 "$(HOME)/data/transcendence/sqlite"
+	@echo "SQLite data directory prepared at: $(HOME)/data/transcendence/sqlite"
+	
+	@echo "� Generando certificados TLS para Vault..."
+	./vault/scripts/generate-certs.sh
+
 	mkdir -p "$(HOME)/data/transcendence/sqlite"
 	chmod -R 777 "$(HOME)/data/transcendence/sqlite"
 	@echo "SQLite data directory prepared at: $(HOME)/data/transcendence/sqlite"
@@ -57,6 +68,8 @@ build:
 
 up:
 	@$(COMPOSE) up -d
+	@echo "🚀 Ejecutando setup de Vault desde el host..."
+	@./vault/scripts/setup-vault.sh
 
 show:
 	@./show_services.sh
@@ -66,6 +79,8 @@ down:
 
 start:
 	@$(COMPOSE) start
+	@echo "🔓 Unsealing Vault..."
+	@bash vault/scripts/unseal-vault.sh
 
 stop:
 	@$(COMPOSE) stop
@@ -91,8 +106,15 @@ fclean: clean
 	docker network rm transcendence_net || true
 	@echo "Pruning volumes..."
 	@docker volume prune -f 2>/dev/null || true
+	@echo "Cleaning up Vault files and tokens..."
+	@rm -f vault/scripts/vault-keys.json vault/scripts/service-tokens.json vault/scripts/vault-keys.txt .env.tokens .env.generated 2>/dev/null || true
+	@rm -f vault-keys.json service-tokens.json .env.vault .env.tokens 2>/dev/null || true
+	@rm -rf vault/generated/* vault/generated/.* 2>/dev/null || true
+	@echo "Cleaning up Vault certificates..."
+	@rm -rf vault/certs/* vault/certs/.* 2>/dev/null || true	
 	@echo "Removing data directory..."
 	@sudo rm -rf "$(DATA_PATH)"
+	@sudo rm -rf "/tmp/trascender-data" 2>/dev/null || true
 
 # REBUILD_______________________________________________________________________
 quick-re: clean
