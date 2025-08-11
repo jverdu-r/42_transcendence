@@ -228,7 +228,6 @@ if [ -f "./vault/generated/service-tokens.json" ]; then
     
     # Create tokens file for services in vault/generated/
     cat > "./vault/generated/.env.tokens" << EOF
-# Vault Service Tokens - Source this file or add to your .env
 export VAULT_TOKEN_ROOT="$ROOT_TOKEN_SAVED"
 export VAULT_TOKEN_AUTH_SERVICE="$AUTH_TOKEN"
 export VAULT_TOKEN_GAME_SERVICE="$GAME_TOKEN"
@@ -236,7 +235,7 @@ export VAULT_TOKEN_CHAT_SERVICE="$CHAT_TOKEN"
 export VAULT_TOKEN_DB_SERVICE="$DB_TOKEN"
 export VAULT_TOKEN_API_GATEWAY="$API_TOKEN"
 EOF
- 
+
     echo -e "${GREEN}✅ Service tokens saved to vault/generated/.env.tokens${NC}"
 fi
 
