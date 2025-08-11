@@ -403,10 +403,10 @@ function setupEventListeners(): void {
                 localStorage.setItem('user', JSON.stringify(updatedUser));
                 
                 // ✅ Disparar evento para que otras páginas se enteren
-                window.dispatchEvent(new CustomEvent('userUpdated', {
-                detail: updatedUser
-                }));
+                window.dispatchEvent(new CustomEvent('userUpdated', { detail: updatedUser }));
             }
+        } else {
+            alert(result.message);
         }
         
         saveProfileBtn.disabled = false;
@@ -506,7 +506,6 @@ function showQRModal(qrCodeDataUrl: string, onConfirm: (code: string) => void) {
       <input id="2fa-code-input" type="text" inputmode="numeric" maxlength="6" style="
         padding: 0.5rem;
         margin: 0.5rem 0;
-        width: 100%;
         border: 1px solid #003566;
         border-radius: 0.5rem;
         background: #000814;

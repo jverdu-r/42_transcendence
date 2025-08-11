@@ -17,7 +17,8 @@
     "fastify": "^4.x.x",
     "sqlite3": "^5.x.x",
     "sqlite": "^5.x.x",
-    "redis": "^4.6.7"
+    "redis": "^4.6.7",
+    "concurrently": "^9.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.x.x",

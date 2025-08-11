@@ -20,7 +20,9 @@ const transporter = nodemailer.createTransport({
   auth: {
     user: process.env.EMAIL_USER,
     pass: EMAIL_PASS
-  }
+  },
+  debug: true,
+  logger: true
 });
 
 export async function sendEmail({ to, subject, html }: SendEmailParams): Promise<void> {

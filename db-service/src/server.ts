@@ -9,7 +9,7 @@ const fastify = Fastify({
 // Usar fastify.ready() en lugar de fastify.onReady()
 fastify.ready(async (err) => {
     if (err) {
-        fastify.log.error('Error durante la inicialización de Fastify:', err);
+        fastify.log.error('Error durante la inicialización de Fastify:', err as any);
         process.exit(1);
     }
     await initializeDb();
@@ -51,8 +51,6 @@ fastify.post('/users', async (request, reply) => {
 });
 
 // Nuevo endpoint para guardar estadísticas del juego
-// --- Tournament Endpoints ---
-// List all tournaments
 fastify.get('/tournaments', async (request, reply) => {
     const db = await openDb();
     try {

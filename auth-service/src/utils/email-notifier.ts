@@ -34,7 +34,7 @@ export async function sendGameResultEmail({
     : '';
 
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #111827; border: 1px solid #e0e0e0; border-radius: 10px;">
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #404040; border: 1px solid #e0e0e0; border-radius: 10px;">
       <div style="text-align: center; padding: 20px 0;">
         <h1 style="color: #4f46e5;">Transcendence</h1>
         <h2 style="color: ${isWinner ? '#10b981' : '#ef4444'};">${resultText}</h2>
@@ -55,9 +55,14 @@ export async function sendGameResultEmail({
     </div>
   `;
 
-  await sendEmail({
-    to,
-    subject,
-    html
-  });
+try {
+    await sendEmail({
+      to,
+      subject,
+      html
+    });
+    console.log(`✅ Correo enviado exitosamente a: ${to}`);
+  } catch (error) {
+    console.error(`❌ Error al enviar correo a ${to}:`, error instanceof Error ? error.message : error);
+  }
 } 

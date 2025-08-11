@@ -40,7 +40,6 @@ export default async function gameDbRoutes(fastify: FastifyInstance) {
             `SELECT id FROM games WHERE status = 'pending' AND started_at = ?`,
             [startedAt]
             );
-            await db.close();
 
             if (row) {
             reply.send({ gameId: row.id });
@@ -95,12 +94,18 @@ export default async function gameDbRoutes(fastify: FastifyInstance) {
                     isTournamentGame: false
                 });
             }
+            reply.status(200).send({ success: true });
         } catch (err) {
-            console.error('Error enviando correo:', err);
+            console.error('Error procesando el fin de partida AI:', err);
+            reply.status(500).send({ success: false, message: 'Error interno' });
         } finally {
-            await db.close();
+            if (db) {
+                try {
+                    await db.close();
+                } catch (closeError) {
+                    console.error('Error al cerrar la base de datos:', closeError);
+                }
+            }
         }
-
-        reply.status(200).send({ success: true });
     });
 }

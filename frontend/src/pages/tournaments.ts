@@ -35,17 +35,59 @@ export function renderTournamentsPage() {
                             Tournament Name:<br>
                             <input type="text" name="name" required class="mt-1 p-2 rounded w-full bg-[#003566] text-[#ffc300] border border-[#ffc300]" />
                         </label>
-                        <button type="submit" class="px-4 py-2 rounded bg-[#ffc300] text-[#003566] font-bold hover:bg-[#003566] hover:text-[#ffc300] transition">Create</button>
+
+                        <label class="font-semibold text-[#ffc300]">
+                            Max Players:<br>
+                            <select name="maxPlayers" required class="mt-1 p-2 rounded w-full bg-[#003566] text-[#ffc300] border border-[#ffc300]">
+                                <option value="4">4 Players</option>
+                                <option value="8">8 Players</option>
+                                <option value="16">16 Players</option>
+                            </select>
+                        </label>
+
+                        <label class="font-semibold text-[#ffc300] flex items-center gap-2 mt-2">
+                            <input type="checkbox" name="allowEarlyStart" class="w-5 h-5 accent-[#ffc300]" />
+                            Allow early start with AI bots
+                        </label>
+
+                        <div id="bot-options" class="hidden pl-4 border-l-2 border-[#003566] pt-2">
+                            <label class="font-semibold text-[#ffc300] block mb-2">
+                                Bot Difficulty:<br>
+                                <select name="botDifficulty" class="mt-1 p-2 rounded w-full bg-[#003566] text-[#ffc300] border border-[#ffc300]">
+                                    <option value="easy">Easy</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="hard">Hard</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <button type="submit" class="px-4 py-2 rounded bg-[#ffc300] text-[#003566] font-bold hover:bg-[#003566] hover:text-[#ffc300] transition mt-4">
+                            Create Tournament
+                        </button>
                     </form>
                 `;
+
                 const form = document.getElementById('create-tournament-form') as HTMLFormElement | null;
+                const allowEarlyStart = form?.querySelector('input[name="allowEarlyStart"]') as HTMLInputElement;
+                const botOptions = document.getElementById('bot-options');
+
+                // Mostrar/ocultar opciones de bots
+                if (allowEarlyStart && botOptions) {
+                    allowEarlyStart.addEventListener('change', () => {
+                        botOptions.style.display = allowEarlyStart.checked ? 'block' : 'none';
+                    });
+                }
+
                 if (form) {
                     form.addEventListener('submit', async (e) => {
                         e.preventDefault();
                         const formData = new FormData(form);
-                        const name = formData.get('name');
-                        // Get authenticated user (window.getCurrentUser, localStorage, sessionStorage, log for debug)
-                        let user = (window as any).getCurrentUser ? (window as any).getCurrentUser() : null;
+                        const name = formData.get('name') as string;
+                        const maxPlayers = parseInt(formData.get('maxPlayers') as string, 10);
+                        const allowEarlyStart = formData.get('allowEarlyStart') !== null;
+                        const botDifficulty = allowEarlyStart ? (formData.get('botDifficulty') as string) : undefined;
+
+                        let user = getCurrentUser();
                         if (!user || !user.id) {
                             try {
                                 user = JSON.parse(localStorage.getItem('user') || 'null');
@@ -66,21 +108,28 @@ export function renderTournamentsPage() {
                                 user = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
                             } catch {}
                         }
-                        console.log('[Tournaments] Detected user:', user);
-                        if (!name) return;
+
+                        if (!name || !maxPlayers) return;
                         if (!user || !user.id) {
                             alert('You must be logged in to create a tournament.');
                             return;
                         }
+
                         try {
-const res = await fetch(`${API_BASE}/api/tournaments`, {
+                            const res = await fetch(`${API_BASE}/api/tournaments`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ name, created_by: user.id })
+                                body: JSON.stringify({
+                                    name,
+                                    created_by: user.id,
+                                    max_players: maxPlayers,
+                                    allow_early_start: allowEarlyStart,
+                                    bot_difficulty: botDifficulty // puede ser undefined si no se activa
+                                })
                             });
+
                             if (!res.ok) throw new Error(await res.text());
-                            // Refresh the join list after creation
-                            showJoinList();
+                            showJoinList(); // Actualiza la lista
                         } catch (err) {
                             alert('Error creating tournament: ' + err);
                         }
@@ -107,23 +156,50 @@ const res = await fetch(`${API_BASE}/api/tournaments`, {
                             content.innerHTML = `
                                 <h3 class="text-xl font-bold text-[#ffc300] mb-4">Available Tournaments</h3>
                                 <ul class="space-y-4">
-                                ${tournaments.map((t: any, i:number) => {
-const players = Array.isArray(allPlayersArr[i]) ? allPlayersArr[i] : [];
-const joined = !!(currentUser && currentUser.id && players.find((p:any) => p.id==currentUser.id));
+                                ${tournaments.map((t: any, i: number) => {
+                                    const players = Array.isArray(allPlayersArr[i]) ? allPlayersArr[i] : [];
+                                    const nPlayers = players.length;
+                                    const joined = !!(currentUser && currentUser.id && players.find((p: any) => p.id === currentUser.id));
+
+                                    const allowsBots = t.allow_early_start;
+                                    const botDiff = t.bot_difficulty
+                                        ? t.bot_difficulty.charAt(0).toUpperCase() + t.bot_difficulty.slice(1)
+                                        : 'N/A';
+
+                                    const statusColor = t.status === 'started'
+                                        ? 'text-red-400'
+                                        : t.status === 'pending'
+                                        ? 'text-yellow-400'
+                                        : 'text-green-400';
+
                                     if (currentUser && currentUser.id && t.created_by === currentUser.id) {
                                         return `
-                                            <li class="border border-[#ffc300] rounded-lg p-4 flex items-center justify-between bg-[#003566]">
-                                                <span class="font-semibold text-[#ffc300]">${t.name}</span>
-                                                <span class="text-[#ffd60a]">Status: ${t.status}</span>
-                                                <button data-manage-id="${t.id}" class="ml-4 px-3 py-1 rounded bg-green-400 text-[#003566] font-bold hover:bg-green-600 hover:text-white transition">Manage</button>
+                                            <li class="border border-[#ffc300] rounded-lg p-4 bg-[#003566]">
+                                                <div class="flex items-center justify-between mb-2">
+                                                    <span class="font-semibold text-[#ffc300]">${t.name}</span>
+                                                    <span class="text-sm ${statusColor}">Status: ${t.status}</span>
+                                                </div>
+                                                <div class="text-xs text-gray-300 space-y-1 mb-3">
+                                                    <div>Players: ${nPlayers}/${t.max_players}</div>
+                                                    <div>Bots: ${allowsBots ? `<span class="text-green-300">Allowed (${botDiff})</span>` : 'Not allowed'}</div>
+                                                </div>
+                                                <button data-manage-id="${t.id}" class="w-full px-3 py-1 rounded bg-green-400 text-[#003566] font-bold hover:bg-green-600 hover:text-white transition">Manage</button>
                                             </li>
                                         `;
                                     } else {
                                         return `
-                                            <li class="border border-[#ffc300] rounded-lg p-4 flex items-center justify-between bg-[#003566]">
-                                                <span class="font-semibold text-[#ffc300]">${t.name}</span>
-                                                <span class="text-[#ffd60a]">Status: ${t.status}</span>
-                                                <button data-id="${t.id}" class="ml-4 px-3 py-1 rounded bg-[#ffc300] text-[#003566] font-bold hover:bg-[#003566] hover:text-[#ffc300] transition" ${joined ? 'disabled style="opacity:0.7;cursor:not-allowed"' : ''}>${joined ? 'Joined' : 'Join'}</button>
+                                            <li class="border border-[#ffc300] rounded-lg p-4 bg-[#003566]">
+                                                <div class="flex items-center justify-between mb-2">
+                                                    <span class="font-semibold text-[#ffc300]">${t.name}</span>
+                                                    <span class="text-sm ${statusColor}">Status: ${t.status}</span>
+                                                </div>
+                                                <div class="text-xs text-gray-300 space-y-1 mb-3">
+                                                    <div>Players: ${nPlayers}/${t.max_players}</div>
+                                                    <div>Bots: ${allowsBots ? `<span class="text-green-300">Allowed (${botDiff})</span>` : 'Not allowed'}</div>
+                                                </div>
+                                                <button data-id="${t.id}" class="w-full px-3 py-1 rounded bg-[#ffc300] text-[#003566] font-bold hover:bg-[#003566] hover:text-[#ffc300] transition ${joined ? 'opacity-70 cursor-not-allowed' : ''}" ${joined ? 'disabled' : ''}>
+                                                    ${joined ? 'Joined' : 'Join'}
+                                                </button>
                                             </li>
                                         `;
                                     }
@@ -204,8 +280,12 @@ const joined = !!(currentUser && currentUser.id && players.find((p:any) => p.id=
                                     // Start Tournament handler
                                     panel.querySelector('.start-btn')?.addEventListener('click', async () => {
                                         try {
+                                            // Podrías pedir confirmación si hay bots
                                             const res = await fetch(`${API_BASE}/api/tournaments/${tournamentId}/start`, {
                                                 method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                })
                                             });
                                             if (!res.ok) throw new Error(await res.text());
                                             alert('Tournament started!');

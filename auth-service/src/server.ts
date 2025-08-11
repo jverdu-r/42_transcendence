@@ -657,10 +657,17 @@ fastify.post('/auth/logout', { preHandler: verifyToken }, async (request, reply)
     const db = await openDb();
     
     // Eliminar de Redis
-    await redisClient.del(`jwt:${token}`); // ✅ Eliminar el token JWT
+    await redisClient.del(`jwt:${token}`);
     await redisClient.del(`user:${userId}:online`);
     await redisClient.sRem('online_users', userId.toString());
     await redisClient.del(`user:${userId}:last_seen`);
+    await redisClient.del(`user:${userId}:username`);
+    await redisClient.del(`user:${userId}:email`);
+
+    localStorage.removeItem('jwt');
+    localStorage.removeItem('user');
+    localStorage.removeItem('username');
+    localStorage.removeItem('email');
     
     return reply.send({ message: 'Sesión cerrada correctamente' });
   } catch (err) {
@@ -850,7 +857,7 @@ fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, 
       winRate,
       elo,
       ranking,
-      matchHistory: matchHistory.slice(0, 10),
+      matchHistory: matchHistory.slice(-10).reverse(),
       avatar_url: profile?.avatar_url || null
     });
   } catch (err) {

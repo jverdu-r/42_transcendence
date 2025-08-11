@@ -125,3 +125,5 @@ const fastify = Fastify({ logger: true });
     process.exit(1);
   }
 })();
+
+
