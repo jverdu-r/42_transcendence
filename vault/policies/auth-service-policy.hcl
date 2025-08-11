@@ -5,15 +5,19 @@ path "secret/data/auth-service/*" {
   capabilities = ["read", "list"]
 }
 
-path "secret/data/common/*" {
-  capabilities = ["read", "list"]
-}
-
-path "secret/data/database/*" {
+path "secret/data/auth-service" {
   capabilities = ["read", "list"]
 }
 
 path "secret/data/jwt/*" {
+  capabilities = ["read", "list"]
+}
+
+path "secret/data/jwt" {
+  capabilities = ["read", "list"]
+}
+
+path "secret/data/redis" {
   capabilities = ["read", "list"]
 }
 
