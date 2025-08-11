@@ -35,14 +35,13 @@ let JWT_SECRET: string;
 vault.read('secret/data/jwt')
   .then(secret => {
     JWT_SECRET = secret.data.data.JWT_SECRET;
+    (global as any).JWT_SECRET = JWT_SECRET;
     // Aquí puedes arrancar el servidor o continuar la inicialización
   })
   .catch(err => {
     console.error('Error obteniendo JWT_SECRET de Vault:', err);
     process.exit(1);
   });
-
-(global as any).JWT_SECRET = JWT_SECRET;
 
 const fastify = Fastify({ logger: true });
 
