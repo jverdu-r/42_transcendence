@@ -13,7 +13,6 @@ declare module 'fastify' {
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
 
 export const verifyToken = async (
   request: FastifyRequest,
@@ -31,7 +30,7 @@ export const verifyToken = async (
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as {
+    const decoded = jwt.verify(token, (global as any).JWT_SECRET) as {
       user_id: number;
       username: string;
       email: string;
