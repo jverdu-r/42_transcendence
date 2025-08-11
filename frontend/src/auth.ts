@@ -7,7 +7,7 @@ export interface User {
 export interface UserSettings {
   language: string;
   notifications: string;
-  sound_effects: string;
+  doubleFactor: string;
   game_difficulty: string;
 }
 
@@ -100,7 +100,7 @@ export async function applyUserSettings(): Promise<void> {
 
   // Guardar configuraciones
   localStorage.setItem('notifications', settings.notifications);
-  localStorage.setItem('sound_effects', settings.sound_effects);
+  localStorage.setItem('doubleFactor', settings.doubleFactor);
   localStorage.setItem('game_difficulty', settings.game_difficulty);
 }
 
@@ -130,6 +130,23 @@ export function getCurrentUser(): User | null {
   const payload = parseJwt(token);
   if (!payload?.user_id) return null;
   
+  // Leer datos actualizados de localStorage si existen
+  const localUser = localStorage.getItem('user');
+  if (localUser) {
+    try {
+      const user = JSON.parse(localUser);
+      if (user.id === payload.user_id) {
+        return {
+          id: user.id,
+          username: user.username || 'Usuario',
+          email: user.email || 'desconocido@example.com'
+        };
+      }
+    } catch (e) {
+      console.error('Error parsing local user:', e);
+    }
+  }
+  
   return {
     id: payload.user_id,
     username: payload.username || 'Usuario',
@@ -152,8 +169,11 @@ export function logout(): void {
   // Limpiar configuraciones
   localStorage.removeItem('language');
   localStorage.removeItem('notifications');
-  localStorage.removeItem('sound_effects');
+  localStorage.removeItem('doubleFactor');
   localStorage.removeItem('game_difficulty');
+  localStorage.removeItem('user_id');
+  localStorage.removeItem('username');
+  localStorage.removeItem('email');
   
   console.log(':candado: Sesión cerrada');
   window.location.href = '/login';
