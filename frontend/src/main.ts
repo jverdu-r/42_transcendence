@@ -3,6 +3,10 @@
 import { navigateTo } from './router';
 import { renderNavbar } from './components/navbar';
 import { getCurrentLanguage, setLanguage } from './i18n';
+import { showNotification, checkRankingChange } from './utils/utils';
+
+window.showNotification = showNotification;
+window.checkRankingChange = checkRankingChange;
 
 // Función para inicializar la aplicación
 function initializeApp(): void {
@@ -27,4 +31,3 @@ window.addEventListener('languageChanged', () => {
   renderNavbar(currentPath);
   navigateTo(currentPath);
 });
- 

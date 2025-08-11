@@ -13,6 +13,12 @@ services:
       REDIS_PORT: "${REDIS_PORT}"
       REDIS_PASSWORD: "${REDIS_PASSWORD}"
       JWT_SECRET: "${JWT_SECRET}"
+      EMAIL_HOST: "smtp.gmail.com"
+      EMAIL_PORT: "587"
+      EMAIL_SECURE: "false"
+      EMAIL_USER: "transcendence.notifier@gmail.com"
+      EMAIL_PASS_FILE: "/run/secrets/email_password"
+      EMAIL_FROM: "transcendence.notifier@noreply.com"
     depends_on:
       - db-service
       - vault
@@ -20,6 +26,8 @@ services:
       - db_data:/app/data
     networks:
       - transcendence_net
+    secrets:
+      - email_password
     restart: on-failure
 
   # Servicio de Juego (Pong)
@@ -204,6 +212,12 @@ services:
     command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "o-meu-contrasinal.42", "--maxmemory", "256mb"]
     networks:
       - transcendence_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
   redis-commander:
     image: rediscommander/redis-commander:latest
     container_name: redis_commander
@@ -372,6 +386,8 @@ services:
 secrets:
   redis_password:
     file: ./secrets/redis/password.txt
+  email_password:
+    file: ./secrets/email/email_password.txt
 
 volumes:
   db_data:
