@@ -243,19 +243,6 @@ EOF
     echo -e "${GREEN}✅ Service tokens saved to vault/generated/.env.tokens${NC}"
 fi
 
-# Final status check
-echo -e "${BLUE}🔍 Final status check...${NC}"
-FINAL_STATUS=$(curl -k -s https://localhost:8200/v1/sys/health)
-IS_READY=$(echo "$FINAL_STATUS" | jq -r '.initialized and (.sealed | not)')
-
-if [ "$IS_READY" = "true" ]; then
-    echo -e "${GREEN}✅ Vault is fully operational!${NC}"
-else
-    echo -e "${YELLOW}⚠️ Vault status check:${NC}"
-    echo "$FINAL_STATUS" | jq .
-fi
-
-
 # =====================
 # Crear secretos en Vault leyendo del .env
 # =====================
@@ -283,6 +270,20 @@ else
     echo -e "${RED}❌ Failed to create initial secrets in Vault${NC}"
     exit 1
 fi
+
+# Final status check
+echo -e "${BLUE}🔍 Final status check...${NC}"
+FINAL_STATUS=$(curl -k -s https://localhost:8200/v1/sys/health)
+IS_READY=$(echo "$FINAL_STATUS" | jq -r '.initialized and (.sealed | not)')
+
+if [ "$IS_READY" = "true" ]; then
+    echo -e "${GREEN}✅ Vault is fully operational!${NC}"
+else
+    echo -e "${YELLOW}⚠️ Vault status check:${NC}"
+    echo "$FINAL_STATUS" | jq .
+fi
+
+
 
 
 # Summary
