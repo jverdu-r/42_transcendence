@@ -214,9 +214,6 @@ services:
     volumes:
       - redis_data:/data
     environment:
-      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
-    secrets:
-      - redis_password
     command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "o-meu-contrasinal.42", "--maxmemory", "256mb"]
     networks:
       - transcendence_net
@@ -239,11 +236,8 @@ services:
       - redis
       - db-service
     environment:
-      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
-    secrets:
-      - redis_password
     volumes:
       - db_data:/app/data
     restart: on-failure
@@ -394,10 +388,6 @@ services:
     depends_on:
       - nginx-proxy
     restart: unless-stopped
-
-secrets:
-  redis_password:
-    file: ./secrets/redis/password.txt
 
 volumes:
   db_data:
