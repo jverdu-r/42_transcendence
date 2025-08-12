@@ -1,39 +1,20 @@
 import Fastify from 'fastify';
 import httpProxy from '@fastify/http-proxy';
 import fastifyCors from '@fastify/cors'; // 🟡 <-- CORS IMPORTADO
-import Redis, { Redis as RedisType } from 'ioredis';
+import Redis from 'ioredis';
 import dotenv from 'dotenv';
 dotenv.config();
-
-const vault = require('node-vault')({
-  apiVersion: 'v1',
-  endpoint: process.env.VAULT_ADDR || 'https://localhost:8200',
-  token: process.env.VAULT_TOKEN_API_GATEWAY
-});
 
 // -- Redis connection setup from env --
 const redisHost = process.env.REDIS_HOST || 'redis';
 const redisPort = Number(process.env.REDIS_PORT) || 6379;
+const redisPassword = process.env.REDIS_PASSWORD || '';
+let redis = new Redis({ host: redisHost, port: redisPort, password: redisPassword });
 
+// -- fastify instance --
+const fastify = Fastify({ logger: true });
 
-// Función asíncrona para obtener la contraseña de Redis desde Vault y crear el cliente
-async function createRedisClient() {
-  const secret = await vault.read('secret/data/redis');
-  const redisPassword = secret.data.data.REDIS_PASSWORD;
-  return new Redis({ host: redisHost, port: redisPort, password: redisPassword });
-}
-
-// Inicializa Redis de forma asíncrona
-
-let redis: RedisType;
-
-// Inicializa Redis y luego arranca Fastify
-async function startServer() {
-  redis = await createRedisClient();
-
-  // -- fastify instance --
-  const fastify = Fastify({ logger: true });
-
+(async () => {
   // --- Tournament Endpoints (proxy to db-service) ---
   const DB_SERVICE_URL = process.env.DB_SERVICE_URL || 'http://db-service:8000';
   const fetch = (await import('node-fetch')).default;
@@ -88,7 +69,6 @@ async function startServer() {
       return reply.code(500).send({ error: 'Failed to join tournament' });
     }
   });
-
   // 🟡 REGISTRA CORS ANTES DE LOS PROXIES
   await fastify.register(fastifyCors, {
     origin: true, // Accept any origin for CORS (development only!)
@@ -136,14 +116,12 @@ async function startServer() {
   // -- Start server --
   try {
     await redis.ping();
-    fastify.log.info('Redis connection successfully established from Vault');
+    fastify.log.info('Redis connection successfully established from .env or environment variables');
+    
     await fastify.listen({ port: 8000, host: '0.0.0.0' });
     fastify.log.info('API Gateway listening on port 8000');
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
   }
-}
-
-startServer();
-
+})();

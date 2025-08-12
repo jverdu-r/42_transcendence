@@ -129,6 +129,8 @@ fclean: clean
 	@echo "Cleaning up Vault files and tokens..."
 	@rm -f vault/scripts/vault-keys.json vault/scripts/service-tokens.json vault/scripts/vault-keys.txt .env.tokens .env.generated 2>/dev/null || true
 	@rm -f vault-keys.json service-tokens.json .env.vault .env.tokens 2>/dev/null || true
+	# Borrar archivos de token y .env.tokens generados por Vault
+	@rm -f vault/generated/*.token vault/generated/.env.tokens vault/generated/service-tokens.json vault/generated/root.token 2>/dev/null || true
 	@rm -rf vault/generated/* vault/generated/.* 2>/dev/null || true
 	@echo "Cleaning up Vault certificates..."
 	@rm -rf vault/certs/* vault/certs/.* 2>/dev/null || true	

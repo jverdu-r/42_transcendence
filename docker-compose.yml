@@ -19,6 +19,7 @@ services:
       - vault
     volumes:
       - db_data:/app/data
+      - ./vault/generated/auth-service.token:/vault/token.txt:ro
     networks:
       - transcendence_net
     restart: on-failure
@@ -92,6 +93,8 @@ services:
       - game-service
       - chat-service
       - redis
+    volumes:
+      - ./vault/generated/api-gateway.token:/vault/token.txt:ro
     networks:
       - transcendence_net
     restart: on-failure
