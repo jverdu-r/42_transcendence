@@ -261,9 +261,9 @@ fi
 # Crear secretos en Vault leyendo del .env
 # =====================
 
-# Cargar variables del .env de la raíz
+# Cargar variables del secrets.txt
 set -a
-[ -f "$SCRIPT_DIR/../../.env" ] && source "$SCRIPT_DIR/../../.env"
+[ -f "$SCRIPT_DIR/../../secrets/secrets.txt" ] && source "$SCRIPT_DIR/../../secrets/secrets.txt"
 set +a
 
 echo -e "${BLUE}🔐 Creating initial secrets in Vault...${NC}"
