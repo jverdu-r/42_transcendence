@@ -266,6 +266,7 @@ docker exec hashicorp_vault sh -c "
     vault kv put secret/jwt JWT_SECRET='${JWT_SECRET:-}'
     vault kv put secret/grafana GRAFANA_USER='${GRAFANA_USER:-}' GRAFANA_PASSWORD='${GRAFANA_PASSWORD:-}'
     vault kv put secret/prometheus PROMETHEUS_USER='${PROMETHEUS_USER:-}' PROMETHEUS_PASSWORD='${PROMETHEUS_PASSWORD:-}'
+    vault kv put secret/email EMAIL_PASS='${EMAIL_PASS:-}'
 "
 
 if [ $? -eq 0 ]; then
