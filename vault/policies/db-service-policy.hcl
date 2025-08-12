@@ -9,6 +9,13 @@ path "secret/data/redis" {
   capabilities = ["read", "list"]
 }
 
+path "secret/data/jwt" {
+  capabilities = ["read", "list"]
+}
+path "secret/data/jwt/*" {
+  capabilities = ["read", "list"]
+}
+
 # Allow token renewal
 path "auth/token/renew-self" {
   capabilities = ["update"]
