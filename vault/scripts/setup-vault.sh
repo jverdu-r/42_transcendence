@@ -121,9 +121,6 @@ else
     fi
 fi
 
-echo "Unseal key 1: $UNSEAL_KEY_1"
-echo "Unseal key 2: $UNSEAL_KEY_2"
-
 # Unseal Vault if sealed
 if [ "$IS_SEALED" = "true" ]; then
     echo -e "${BLUE}🔓 Unsealing Vault...${NC}"
@@ -220,20 +217,31 @@ echo -e "${BLUE}� Creating environment files...${NC}"
 # Extract tokens from service-tokens.json
 if [ -f "./vault/generated/service-tokens.json" ]; then
     ROOT_TOKEN_SAVED=$(jq -r '.root_token' ./vault/generated/service-tokens.json)
+    echo "$ROOT_TOKEN_SAVED" > ./vault/generated/root.token
+
     AUTH_TOKEN=$(jq -r '.auth_service_token' ./vault/generated/service-tokens.json)
+    echo "$AUTH_TOKEN" > ./vault/generated/auth-service.token
+
     GAME_TOKEN=$(jq -r '.game_service_token' ./vault/generated/service-tokens.json)
+    echo "$GAME_TOKEN" > ./vault/generated/game-service.token
+
     CHAT_TOKEN=$(jq -r '.chat_service_token' ./vault/generated/service-tokens.json)
+    echo "$CHAT_TOKEN" > ./vault/generated/chat-service.token
+
     DB_TOKEN=$(jq -r '.db_service_token' ./vault/generated/service-tokens.json)
+    echo "$DB_TOKEN" > ./vault/generated/db-service.token
+
     API_TOKEN=$(jq -r '.api_gateway_token' ./vault/generated/service-tokens.json)
+    echo "$API_TOKEN" > ./vault/generated/api-gateway.token
     
     # Create tokens file for services in vault/generated/
     cat > "./vault/generated/.env.tokens" << EOF
-export VAULT_TOKEN_ROOT="$ROOT_TOKEN_SAVED"
-export VAULT_TOKEN_AUTH_SERVICE="$AUTH_TOKEN"
-export VAULT_TOKEN_GAME_SERVICE="$GAME_TOKEN"
-export VAULT_TOKEN_CHAT_SERVICE="$CHAT_TOKEN"
-export VAULT_TOKEN_DB_SERVICE="$DB_TOKEN"
-export VAULT_TOKEN_API_GATEWAY="$API_TOKEN"
+VAULT_TOKEN_ROOT="$ROOT_TOKEN_SAVED"
+VAULT_TOKEN_AUTH_SERVICE="$AUTH_TOKEN"
+VAULT_TOKEN_GAME_SERVICE="$GAME_TOKEN"
+VAULT_TOKEN_CHAT_SERVICE="$CHAT_TOKEN"
+VAULT_TOKEN_DB_SERVICE="$DB_TOKEN"
+VAULT_TOKEN_API_GATEWAY="$API_TOKEN"
 EOF
 
     echo -e "${GREEN}✅ Service tokens saved to vault/generated/.env.tokens${NC}"
@@ -242,7 +250,7 @@ fi
 # Añadir tokens al .env general (en la raíz del proyecto)
 if [ -f "$SCRIPT_DIR/../../.env" ]; then
     # Elimina líneas antiguas de tokens
-    grep -v '^export VAULT_TOKEN_' "$SCRIPT_DIR/../../.env" > "$SCRIPT_DIR/../../.env.tmp" || true
+    grep -v '^VAULT_TOKEN_' "$SCRIPT_DIR/../../.env" > "$SCRIPT_DIR/../../.env.tmp" || true
     # Añade los nuevos tokens al final
     cat "$SCRIPT_DIR/../generated/.env.tokens" >> "$SCRIPT_DIR/../../.env.tmp"
     mv "$SCRIPT_DIR/../../.env.tmp" "$SCRIPT_DIR/../../.env"

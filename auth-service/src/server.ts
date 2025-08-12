@@ -20,29 +20,9 @@ import { connectRedis } from './redis-client'
 import redisClient from './redis-client';
 import * as speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
-import vaultFactory from 'node-vault';
 
 dotenv.config();
-
-const vault = vaultFactory({
-  apiVersion: 'v1',
-  endpoint: process.env.VAULT_ADDR || 'https://localhost:8200',
-  token: process.env.VAULT_TOKEN_AUTH_SERVICE
-});
-
-let JWT_SECRET: string;
-
-vault.read('secret/data/jwt')
-  .then(secret => {
-    JWT_SECRET = secret.data.data.JWT_SECRET;
-    (global as any).JWT_SECRET = JWT_SECRET;
-    // Aquí puedes arrancar el servidor o continuar la inicialización
-  })
-  .catch(err => {
-    console.error('Error obteniendo JWT_SECRET de Vault:', err);
-    process.exit(1);
-  });
-
+const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
 const fastify = Fastify({ logger: true });
 
 fastify.register(multipart);
