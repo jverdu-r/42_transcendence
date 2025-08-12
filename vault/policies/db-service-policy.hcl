@@ -1,15 +1,11 @@
 # DB Service Policy
 # Allows access to database service secrets
 
-path "secret/data/db-service/*" {
+path "secret/data/redis/*" {
   capabilities = ["read", "list"]
 }
 
-path "secret/data/database/*" {
-  capabilities = ["read", "list", "create", "update", "delete"]
-}
-
-path "secret/data/redis/*" {
+path "secret/data/redis" {
   capabilities = ["read", "list"]
 }
 
