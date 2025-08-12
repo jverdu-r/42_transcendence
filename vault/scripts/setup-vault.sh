@@ -247,16 +247,6 @@ EOF
     echo -e "${GREEN}✅ Service tokens saved to vault/generated/.env.tokens${NC}"
 fi
 
-# Añadir tokens al .env general (en la raíz del proyecto)
-if [ -f "$SCRIPT_DIR/../../.env" ]; then
-    # Elimina líneas antiguas de tokens
-    grep -v '^VAULT_TOKEN_' "$SCRIPT_DIR/../../.env" > "$SCRIPT_DIR/../../.env.tmp" || true
-    # Añade los nuevos tokens al final
-    cat "$SCRIPT_DIR/../generated/.env.tokens" >> "$SCRIPT_DIR/../../.env.tmp"
-    mv "$SCRIPT_DIR/../../.env.tmp" "$SCRIPT_DIR/../../.env"
-    echo -e "${GREEN}🔄 Vault tokens merged into .env${NC}"
-fi
-
 # =====================
 # Crear secretos en Vault leyendo del .env
 # =====================
