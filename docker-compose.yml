@@ -10,7 +10,6 @@ services:
       DB_SERVICE_URL: "http://db-service:8005"
       VAULT_ADDR: "https://vault:8200"
       VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
-
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
     depends_on:
@@ -60,8 +59,7 @@ services:
       VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
-      REDIS_PASSWORD: "${REDIS_PASSWORD}"
-      JWT_SECRET: "${JWT_SECRET}"
+
     depends_on:
       - db-service
       - auth-service
@@ -86,7 +84,6 @@ services:
       REDIS_PORT: "${REDIS_PORT}"
       VAULT_ADDR: "https://vault:8200"
       VAULT_SKIP_VERIFY: "true"
-      VAULT_TOKEN_API_GATEWAY: "${VAULT_TOKEN_API_GATEWAY}"
     depends_on:
       - auth-service
       - game-service
@@ -197,13 +194,12 @@ services:
       - "8005:8000" # Mapea el puerto 8000 interno a 8005 en el host
     volumes:
       - db_data:/app/data # Monta un volumen para persistir la base de datos SQLite
+      - ./vault/generated/db-service.token:/vault/token.txt:ro
     environment:
       VAULT_ADDR: "https://vault:8200"
       VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
-      REDIS_PASSWORD: "${REDIS_PASSWORD}"
-      JWT_SECRET: "${JWT_SECRET}"
     depends_on:
       - vault
       - redis
