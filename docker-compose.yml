@@ -12,6 +12,11 @@ services:
       VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
+      EMAIL_HOST: "${EMAIL_HOST}"
+      EMAIL_PORT: "${EMAIL_PORT}"
+      EMAIL_SECURE: "${EMAIL_SECURE}"
+      EMAIL_USER: "${EMAIL_USER}"
+      EMAIL_FROM: "${EMAIL_FROM}"
     depends_on:
       - db-service
       - vault
@@ -35,6 +40,7 @@ services:
       VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
+
     depends_on:
       - db-service
       - auth-service
