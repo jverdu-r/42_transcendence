@@ -22,6 +22,11 @@ import * as speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 
 dotenv.config();
+// Recarga de variables de entorno en caliente al recibir SIGHUP
+process.on('SIGHUP', () => {
+  dotenv.config();
+  fastify.log.info('Variables de entorno recargadas tras SIGHUP');
+});
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
 const fastify = Fastify({ logger: true });
 
