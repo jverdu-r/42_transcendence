@@ -1,13 +1,12 @@
 // auth-service/src/services/friends.services.ts
-
-import { openDb } from '../database';
 import redisClient from '../redis-client';
+import { getUserById } from '../database'; // ← Usa el nuevo database.ts
 
 interface Friend {
-    id: number;
-    username: string;
-    isOnline: boolean;
-    elo: number;
+  id: number;
+  username: string;
+  isOnline: boolean;
+  elo: number;
 }
 
 export async function getOnlineUserIds(): Promise<Set<string>> {
@@ -21,73 +20,73 @@ export async function getOnlineUserIds(): Promise<Set<string>> {
 }
 
 export async function getFriends(userId: number): Promise<Friend[]> {
-  const db = await openDb();
+  try {
+    // 1. Obtener amigos desde db-service
+    const res = await fetch(`${process.env.DB_SERVICE_URL}/api/friends/${userId}`);
+    if (!res.ok) {
+      console.warn(`No se pudieron obtener amigos para el usuario ${userId}`);
+      return [];
+    }
+    const friendsRaw = await res.json();
 
-  const friendsRaw = await db.all(`
-    SELECT u.id, u.username,
-      IFNULL(SUM(CASE WHEN p.user_id = u.id THEN s.point_number ELSE 0 END), 0) AS pointsFor,
-      IFNULL(SUM(CASE WHEN p.user_id != u.id THEN s.point_number ELSE 0 END), 0) AS pointsAgainst
-    FROM friendships f
-    JOIN users u ON (u.id = f.requester_id OR u.id = f.approver_id) AND u.id != ?
-    LEFT JOIN participants p ON p.user_id = u.id
-    LEFT JOIN scores s ON s.game_id = p.game_id AND s.team_name = p.team_name
-    WHERE f.status = 'accepted'
-      AND (f.requester_id = ? OR f.approver_id = ?)
-    GROUP BY u.id;
-  `, [userId, userId, userId]);
+    // 2. Obtener usuarios online
+    const onlineUserIds = await getOnlineUserIds();
 
-  // Opcional: obtener usuarios online de Redis
-  // const onlineIds = await getOnlineUserIdsFromRedis();
+    // 3. Mapear amigos con ELO
+    const friends: Friend[] = await Promise.all(
+      friendsRaw.map(async (f: any) => {
+        // Obtener estadísticas de partidas entre ambos (opcional, si db-service no lo da)
+        const statsRes = await fetch(`${process.env.DB_SERVICE_URL}/api/friends/${userId}/stats/${f.id}`);
+        const stats = await statsRes.json().catch(() => ({}));
 
-  const onlineUserIds = await getOnlineUserIds();
+        const pointsFor = stats.pointsFor || 0;
+        const pointsAgainst = stats.pointsAgainst || 0;
 
-  const friends: Friend[] = friendsRaw.map(f => ({
-    id: f.id,
-    username: f.username,
-    elo: 1000 + (f.pointsFor - f.pointsAgainst),
-    isOnline: onlineUserIds.has(f.id.toString()),
-  }));
+        return {
+          id: f.id,
+          username: f.username,
+          isOnline: onlineUserIds.has(f.id.toString()),
+          elo: 1000 + (pointsFor - pointsAgainst)
+        };
+      })
+    );
 
-  await db.close();
-  return friends;
+    return friends;
+  } catch (err) {
+    console.error('Error obteniendo amigos:', err);
+    return [];
+  }
 }
 
 export async function getPendingRequests(userId: number) {
-  const db = await openDb();
-  const result = await db.all(`
-    SELECT u.id, u.username
-    FROM friendships f
-    JOIN users u ON u.id = f.requester_id
-    WHERE f.status = 'pending'
-      AND f.approver_id = ?;
-  `, [userId]);
-  await db.close();
-  return result;
+  try {
+    const res = await fetch(`${process.env.DB_SERVICE_URL}/api/friends/${userId}/requests/pending`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (err) {
+    console.error('Error obteniendo solicitudes pendientes:', err);
+    return [];
+  }
 }
 
 export async function getAvailableUsers(userId: number) {
-  const db = await openDb();
-  return db.all(`
-    SELECT u.id, u.username
-    FROM users u
-    WHERE u.id != ?
-      AND u.id NOT IN (
-        SELECT requester_id FROM friendships WHERE approver_id = ?
-        UNION
-        SELECT approver_id FROM friendships WHERE requester_id = ?
-      );
-  `, [userId, userId, userId]);
+  try {
+    const res = await fetch(`${process.env.DB_SERVICE_URL}/api/friends/${userId}/available`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (err) {
+    console.error('Error obteniendo usuarios disponibles:', err);
+    return [];
+  }
 }
 
 export async function sendFriendRequest(requesterId: number, targetId: number): Promise<boolean> {
   console.log('🔍 [sendFriendRequest] requesterId:', requesterId, 'targetId:', targetId);
 
-  const db = await openDb();
-
   try {
-    // Verificar que ambos usuarios existen
-    const requester = await db.get('SELECT id FROM users WHERE id = ?', [requesterId]);
-    const target = await db.get('SELECT id FROM users WHERE id = ?', [targetId]);
+    // 1. Verificar que ambos usuarios existen
+    const requester = await getUserById(requesterId.toString());
+    const target = await getUserById(targetId.toString());
 
     if (!requester) {
       console.error('❌ requester no existe:', requesterId);
@@ -98,91 +97,89 @@ export async function sendFriendRequest(requesterId: number, targetId: number): 
       return false;
     }
 
-    // Verificar si ya existe una solicitud
-    const existing = await db.get(`SELECT * FROM friendships 
-      WHERE (requester_id = ? AND approver_id = ?) 
-         OR (requester_id = ? AND approver_id = ?)`, 
-      [requesterId, targetId, targetId, requesterId]
+    // 2. Verificar si ya existe una solicitud
+    const checkRes = await fetch(
+      `${process.env.DB_SERVICE_URL}/api/friends/request/check?requesterId=${requesterId}&targetId=${targetId}`
     );
+    const existing = await checkRes.json().catch(() => null);
 
     if (existing) {
       console.log('⚠️  Solicitud duplicada:', existing);
-      await db.close();
       return false;
     }
 
-    // Insertar nueva solicitud
+    // 3. Insertar nueva solicitud
     await redisClient.rPush('sqlite_write_queue', JSON.stringify({
       sql: `INSERT OR IGNORE INTO friendships (requester_id, approver_id, status) VALUES (?, ?, 'pending')`,
       params: [requesterId, targetId]
     }));
 
     console.log('✅ Solicitud añadida a la cola Redis');
-    await db.close();
     return true;
   } catch (err) {
     console.error('❌ [sendFriendRequest] Error en la base de datos:', err);
-    await db.close().catch(console.error);
-    throw err; // Propagar el error para que el handler lo vea
+    throw err;
   }
 }
 
 export async function acceptFriendRequest(requesterId: number, approverId: number): Promise<boolean> {
-  const db = await openDb();
+  try {
+    const checkRes = await fetch(
+      `${process.env.DB_SERVICE_URL}/api/friends/request/check?requesterId=${requesterId}&approverId=${approverId}&status=pending`
+    );
+    if (!checkRes.ok) return false;
 
-  const requestExists = await db.get(
-    'SELECT * FROM friendships WHERE requester_id = ? AND approver_id = ? AND status = "pending"',
-    [requesterId, approverId]
-  );
+    const requestExists = await checkRes.json();
+    if (!requestExists) return false;
 
-  if (!requestExists) {
-    await db.close();
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'UPDATE friendships SET status = "accepted", created_at = datetime("now") WHERE requester_id = ? AND approver_id = ?',
+      params: [requesterId, approverId]
+    }));
+
+    return true;
+  } catch (err) {
+    console.error('❌ [acceptFriendRequest] Error:', err);
     return false;
   }
-
-  await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-    sql: 'UPDATE friendships SET status = "accepted", created_at = datetime("now") WHERE requester_id = ? AND approver_id = ?',
-    params: [requesterId, approverId]
-  }));
-
-  await db.close();
-  return true;
 }
 
 export async function rejectFriendRequest(requesterId: number, approverId: number): Promise<boolean> {
-  const db = await openDb();
+  try {
+    const checkRes = await fetch(
+      `${process.env.DB_SERVICE_URL}/api/friends/request/check?requesterId=${requesterId}&approverId=${approverId}&status=pending`
+    );
+    if (!checkRes.ok) return false;
 
-  const requestExists = await db.get(
-    'SELECT * FROM friendships WHERE requester_id = ? AND approver_id = ? AND status = "pending"',
-    [requesterId, approverId]
-  );
+    const requestExists = await checkRes.json();
+    if (!requestExists) return false;
 
-  if (!requestExists) {
-    await db.close();
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'DELETE FROM friendships WHERE requester_id = ? AND approver_id = ?',
+      params: [requesterId, approverId]
+    }));
+
+    return true;
+  } catch (err) {
+    console.error('❌ [rejectFriendRequest] Error:', err);
     return false;
   }
-
-  await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-    sql: 'DELETE FROM friendships WHERE requester_id = ? AND approver_id = ?',
-    params: [requesterId, approverId]
-  }));
-
-  await db.close();
-  return true;
 }
 
 export async function deleteFriend(userId1: number, userId2: number): Promise<boolean> {
-  const db = await openDb();
+  try {
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `
+        DELETE FROM friendships 
+        WHERE (requester_id = ? AND approver_id = ?) 
+           OR (requester_id = ? AND approver_id = ?)
+      `,
+      params: [userId1, userId2, userId2, userId1]
+    }));
 
-  await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-    sql: `
-      DELETE FROM friendships 
-      WHERE (requester_id = ? AND approver_id = ?) 
-         OR (requester_id = ? AND approver_id = ?)
-    `,
-    params: [userId1, userId2, userId2, userId1]
-  }));
-
-  await db.close();
-  return true;
+    return true;
+  } catch (err) {
+    console.error('❌ [deleteFriend] Error:', err);
+    return false;
+  }
 }

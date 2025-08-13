@@ -1,0 +1,19 @@
+{
+  "email": {
+    "subjectIsWinner": "🎉 You have won a match!",
+    "subjectIsNotWinner": "😢 You have lost a match",
+    "resultIsWinner": "Congratulations!",
+    "resultIsNotWinner": "Good fight!",
+    "versus": "against ",
+    "tournament": "Tournament",
+    "tournamentGame": "Tournament Match",
+    "player": "Player:",
+    "opponent": "Opponent:",
+    "result": "Result:",
+    "mode": "Mode:",
+    "AI": "Against AI",
+    "human": "Against human",
+    "thanks": "Thanks for playing Transcendence.",
+    "mail": "This is an automatic email, please do not reply."
+  }
+}

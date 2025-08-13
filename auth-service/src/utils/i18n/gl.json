@@ -1,0 +1,19 @@
+{
+  "email": {
+    "subjectIsWinner": "🎉 Gañaches unha partida!",
+    "subjectIsNotWinner": "😢 Perdiches unha partida",
+    "resultIsWinner": "Parabéns!",
+    "resultIsNotWinner": "Boa loita!",
+    "versus": "contra ",
+    "tournament": "Torneo",
+    "tournamentGame": "Partida de Torneo",
+    "player": "Xogador:",
+    "opponent": "Oponente:",
+    "result": "Resultado:",
+    "mode": "Modo:",
+    "AI": "Contra IA",
+    "human": "Contra humano",
+    "thanks": "Grazas por xogar a Transcendence.",
+    "mail": "Este é un correo automático, por favor non respondas."
+  }
+}

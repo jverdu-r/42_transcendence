@@ -17,9 +17,12 @@ COPY package*.json ./
 
 # Fuerza la reconstrucción de canvas desde cero
 RUN npm install --build-from-source=canvas && npm install --save-dev @types/nodemailer
+RUN npm install axios
 
 # Copia el código fuente
 COPY . .
+
+RUN mkdir -p dist/utils/i18n && cp -r src/utils/i18n/*.json dist/utils/i18n/
 
 # Compila el proyecto
 RUN npm run build
