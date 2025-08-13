@@ -167,6 +167,7 @@ docker exec hashicorp_vault sh -c "
     vault policy write chat-service-policy /vault/policies/chat-service-policy.hcl
     vault policy write db-service-policy /vault/policies/db-service-policy.hcl
     vault policy write api-gateway-policy /vault/policies/api-gateway-policy.hcl
+    vault policy write sqlite-writer-policy /vault/policies/sqlite-writer-policy.hcl
 "
 
 if [ $? -eq 0 ]; then
@@ -188,6 +189,8 @@ SERVICE_TOKENS=$(docker exec hashicorp_vault sh -c '
     CHAT_TOKEN=$(vault write -field=token auth/token/create policies="chat-service-policy" ttl=720h renewable=true display_name="chat-service" 2>/dev/null || echo "")
     DB_TOKEN=$(vault write -field=token auth/token/create policies="db-service-policy" ttl=720h renewable=true display_name="db-service" 2>/dev/null || echo "")
     API_TOKEN=$(vault write -field=token auth/token/create policies="api-gateway-policy" ttl=720h renewable=true display_name="api-gateway" 2>/dev/null || echo "")
+    SQLITE_WRITER_TOKEN=$(vault write -field=token auth/token/create policies="sqlite-writer-policy" ttl=720h renewable=true display_name="sqlite-writer" 2>/dev/null || echo "")
+    
     cat <<EOF
 {
     "root_token": "'"$ROOT_TOKEN"'",
@@ -195,10 +198,13 @@ SERVICE_TOKENS=$(docker exec hashicorp_vault sh -c '
     "game_service_token": "$GAME_TOKEN",
     "chat_service_token": "$CHAT_TOKEN",
     "db_service_token": "$DB_TOKEN",
-    "api_gateway_token": "$API_TOKEN"
+    "api_gateway_token": "$API_TOKEN",
+    "sqlite_writer_token": "$SQLITE_WRITER_TOKEN"
 }
 EOF
 ')
+
+
 
 # Save tokens to file
 mkdir -p vault/generated
@@ -234,6 +240,10 @@ if [ -f "./vault/generated/service-tokens.json" ]; then
     API_TOKEN=$(jq -r '.api_gateway_token' ./vault/generated/service-tokens.json)
     echo "$API_TOKEN" > ./vault/generated/api-gateway.token
     
+
+    SQLITE_WRITER_TOKEN=$(jq -r '.sqlite_writer_token' ./vault/generated/service-tokens.json)
+    echo "$SQLITE_WRITER_TOKEN" > ./vault/generated/sqlite-writer.token
+
     # Create tokens file for services in vault/generated/
     cat > "./vault/generated/.env.tokens" << EOF
 VAULT_TOKEN_ROOT="$ROOT_TOKEN_SAVED"
@@ -242,6 +252,7 @@ VAULT_TOKEN_GAME_SERVICE="$GAME_TOKEN"
 VAULT_TOKEN_CHAT_SERVICE="$CHAT_TOKEN"
 VAULT_TOKEN_DB_SERVICE="$DB_TOKEN"
 VAULT_TOKEN_API_GATEWAY="$API_TOKEN"
+VAULT_TOKEN_SQLITE_WRITER="$SQLITE_WRITER_TOKEN"
 EOF
 
     echo -e "${GREEN}✅ Service tokens saved to vault/generated/.env.tokens${NC}"
