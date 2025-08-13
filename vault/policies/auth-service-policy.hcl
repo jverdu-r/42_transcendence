@@ -25,6 +25,14 @@ path "secret/data/redis/*" {
   capabilities = ["read", "list"]
 }
 
+path "secret/data/email" {
+  capabilities = ["read", "list"]
+}
+
+path "secret/data/email/*" {
+  capabilities = ["read", "list"]
+}
+
 # Allow token renewal
 path "auth/token/renew-self" {
   capabilities = ["update"]
