@@ -22,6 +22,7 @@
     "@fastify/cors": "^9.0.0"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "@types/node": "^20.x.x",
     "@types/jsonwebtoken": "^9.0.0",
     "ts-node": "^10.x.x",
