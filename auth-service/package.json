@@ -27,7 +27,8 @@
     "@fastify/cors": "^9.0.0",
     "canvas": "^2.11.2",
     "nodemailer": "^6.9.13",
-    "node-vault": "0.9.17"
+    "node-vault": "0.9.17",
+    "@types/node": "^20.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.x.x",
