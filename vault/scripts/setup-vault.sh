@@ -168,6 +168,7 @@ docker exec hashicorp_vault sh -c "
     vault policy write db-service-policy /vault/policies/db-service-policy.hcl
     vault policy write api-gateway-policy /vault/policies/api-gateway-policy.hcl
     vault policy write sqlite-writer-policy /vault/policies/sqlite-writer-policy.hcl
+    vault policy write grafana-policy /vault/policies/grafana-policy.hcl
 "
 
 if [ $? -eq 0 ]; then
@@ -190,6 +191,7 @@ SERVICE_TOKENS=$(docker exec hashicorp_vault sh -c '
     DB_TOKEN=$(vault write -field=token auth/token/create policies="db-service-policy" ttl=720h renewable=true display_name="db-service" 2>/dev/null || echo "")
     API_TOKEN=$(vault write -field=token auth/token/create policies="api-gateway-policy" ttl=720h renewable=true display_name="api-gateway" 2>/dev/null || echo "")
     SQLITE_WRITER_TOKEN=$(vault write -field=token auth/token/create policies="sqlite-writer-policy" ttl=720h renewable=true display_name="sqlite-writer" 2>/dev/null || echo "")
+    GRAFANA_TOKEN=$(vault write -field=token auth/token/create policies="grafana-policy" ttl=720h renewable=true display_name="grafana" 2>/dev/null || echo "")
     
     cat <<EOF
 {
@@ -199,7 +201,8 @@ SERVICE_TOKENS=$(docker exec hashicorp_vault sh -c '
     "chat_service_token": "$CHAT_TOKEN",
     "db_service_token": "$DB_TOKEN",
     "api_gateway_token": "$API_TOKEN",
-    "sqlite_writer_token": "$SQLITE_WRITER_TOKEN"
+    "sqlite_writer_token": "$SQLITE_WRITER_TOKEN",
+    "grafana_token": "$GRAFANA_TOKEN"
 }
 EOF
 ')
@@ -243,6 +246,9 @@ if [ -f "./vault/generated/service-tokens.json" ]; then
 
     SQLITE_WRITER_TOKEN=$(jq -r '.sqlite_writer_token' ./vault/generated/service-tokens.json)
     echo "$SQLITE_WRITER_TOKEN" > ./vault/generated/sqlite-writer.token
+
+    GRAFANA_TOKEN=$(jq -r '.grafana_token' ./vault/generated/service-tokens.json)
+    echo "$GRAFANA_TOKEN" > ./vault/generated/grafana.token
 
     # Create tokens file for services in vault/generated/
     cat > "./vault/generated/.env.tokens" << EOF
