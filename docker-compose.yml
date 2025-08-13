@@ -276,7 +276,7 @@ services:
 
   # Grafana - Metrics visualization
   grafana:
-    image: grafana/grafana:latest
+    build: ./monitoring_system/grafana
     container_name: grafana
     ports:
       - "3000:3000"
@@ -284,9 +284,10 @@ services:
       - grafana_data:/var/lib/grafana
       - ./monitoring_system/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring_system/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./monitoring_system/grafana/secrets.env.tpl:/app/secrets.env.tpl:ro
+      - ./vault/generated/grafana.token:/vault/token.txt:ro
+      - ./monitoring_system/grafana/agent.hcl:/vault/agent.hcl:ro
     environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
     networks:
       - transcendence_net
