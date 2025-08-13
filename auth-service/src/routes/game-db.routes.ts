@@ -13,17 +13,17 @@ export default async function gameDbRoutes(fastify: FastifyInstance) {
 
     fastify.post('/create/local', async (request, reply) => {
         const { player1Id, tournamentId, startedAt } = request.body as any;
-            if (!player1Id || !startedAt) {
+        if (!player1Id || !startedAt) {
             return reply.status(400).send({ success: false, error: 'Faltan player1Id o startedAt' });
         }
         await createLocalGameInDB(player1Id, tournamentId, startedAt);
-        reply.status(200).send({ success: true });
+        return reply.status(200).send({ success: true });
     });
 
     fastify.post('/finish/local', async (request, reply) => {
         const { gameId, winnerTeam, score1, score2 } = request.body as any;
         await updateLocalGameInDB(gameId, winnerTeam, score1, score2);
-        reply.status(200).send({ success: true });
+        return reply.status(200).send({ success: true });
     });
 
     fastify.post('/id-by-started-at', async (request, reply) => {
@@ -37,19 +37,19 @@ export default async function gameDbRoutes(fastify: FastifyInstance) {
         try {
             db = await openDb();
             const row = await db.get(
-            `SELECT id FROM games WHERE status = 'pending' AND started_at = ?`,
-            [startedAt]
+                `SELECT id FROM games WHERE status = 'pending' AND started_at = ?`,
+                [startedAt]
             );
             await db.close();
 
             if (row) {
-            reply.send({ gameId: row.id });
+                return reply.send({ gameId: row.id });
             } else {
-            reply.send({ gameId: null });
+                return reply.send({ gameId: null });
             }
         } catch (err) {
             console.error('Error al buscar gameId por startedAt:', err);
-            reply.status(500).send({ error: 'Error interno' });
+            return reply.status(500).send({ error: 'Error interno' });
         } finally {
             if (db) await db.close().catch(console.error);
         }
@@ -61,7 +61,7 @@ export default async function gameDbRoutes(fastify: FastifyInstance) {
             return reply.status(400).send({ success: false, error: 'Faltan parámetros' });
         }
         await createAIGameInDB(player1Id, difficulty, startedAt);
-        reply.status(200).send({ success: true });
+        return reply.status(200).send({ success: true });
     });
 
     fastify.post('/finish/ai', async (request, reply) => {
@@ -72,16 +72,16 @@ export default async function gameDbRoutes(fastify: FastifyInstance) {
         const db = await openDb();
         try {
             const result = await db.get(`
-            SELECT 
-                u.email,
-                u.username,
-                up.notifications,
-                p2.team_name AS bot_name
-            FROM users u
-            JOIN participants p ON u.id = p.user_id
-            JOIN user_profiles up ON u.id = up.user_id
-            JOIN participants p2 ON p2.game_id = p.game_id AND p2.team_name != 'Team A'
-            WHERE p.game_id = ? AND p.team_name = 'Team A'
+                SELECT 
+                    u.email,
+                    u.username,
+                    up.notifications,
+                    p2.team_name AS bot_name
+                FROM users u
+                JOIN participants p ON u.id = p.user_id
+                JOIN user_profiles up ON u.id = up.user_id
+                JOIN participants p2 ON p2.game_id = p.game_id AND p2.team_name != 'Team A'
+                WHERE p.game_id = ? AND p.team_name = 'Team A'
             `, [gameId]);
 
             if (result && isNotificationEnabled(result.notifications)) {
@@ -101,6 +101,6 @@ export default async function gameDbRoutes(fastify: FastifyInstance) {
             await db.close();
         }
 
-        reply.status(200).send({ success: true });
+        return reply.status(200).send({ success: true });
     });
 }
