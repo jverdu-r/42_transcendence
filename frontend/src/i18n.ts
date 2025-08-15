@@ -225,7 +225,10 @@ const translations: Translations = {
             scanQRThenEnterCode: "Escanea este código QR con Google Authenticator o Authy, luego ingresa el código generado.",
             enterCodeFromApp: "Ingresa el código de 6 dígitos de la app",
             enterCurrentPassword: "Ingresa tu contraseña actual para desactivar 2FA",
-            enterCurrent2FACode: "Ingresa un código actual del autenticador"
+            enterCurrent2FACode: "Ingresa un código actual del autenticador",
+            wrongPassword: "Contraseña actual incorrecta",
+            emptyNewPassword: "Falta nueva contraseña",
+            emptyCurrentPassword: "Falta contraseña actual"
         },
         alerts: {
             failGoogleLogin: "Error al iniciar sesión con Google",
@@ -517,7 +520,10 @@ const translations: Translations = {
             scanQRThenEnterCode: "Scan this QR code with Google Authenticator or Authy, then enter the generated code.",
             enterCodeFromApp: "Enter the 6-digit code from the app",
             enterCurrentPassword: "Enter your current password to disable 2FA",
-            enterCurrent2FACode: "Enter a current code from the authenticator"
+            enterCurrent2FACode: "Enter a current code from the authenticator",
+            wrongPassword: "Current password is incorrect",
+            emptyNewPassword: "New password is missing",
+            emptyCurrentPassword: "Current password is missing"
         },
         alerts: {
             failGoogleLogin: "Error logging in with Google",
@@ -806,7 +812,10 @@ const translations: Translations = {
             scanQRThenEnterCode: "Escanea iste código QR con Google Authenticator ou Authy, logo introduce o código xerado.",
             enterCodeFromApp: "Introduce o código de 6 díxitos da aplicación",
             enterCurrentPassword: "Introduce o teu contrasinal actual para desactivar o 2FA",
-            enterCurrent2FACode: "Introduce un código actual do autenticador"
+            enterCurrent2FACode: "Introduce un código actual do autenticador",
+            wrongPassword: "O contrasinal actual é incorrecto",
+            emptyNewPassword: "Falta o novo contrasinal",
+            emptyCurrentPassword: "Falta o contrasinal actual"
         },
         alerts: {
             failGoogleLogin: "Erro ó iniciar sesión con Google",
@@ -1095,7 +1104,10 @@ const translations: Translations = {
             scanQRThenEnterCode: "使用 Google Authenticator 或 Authy 扫描此二维码，然后输入生成的验证码。",
             enterCodeFromApp: "请输入应用中的6位数验证码",
             enterCurrentPassword: "请输入当前密码以停用2FA",
-            enterCurrent2FACode: "请输入身份验证器当前生成的验证码"
+            enterCurrent2FACode: "请输入身份验证器当前生成的验证码",
+            wrongPassword: "当前密码不正确",
+            emptyNewPassword: "缺少新密码",
+            emptyCurrentPassword: "缺少当前密码"
         },
         alerts: {
             failGoogleLogin: "使用 Google 登录时出错",
