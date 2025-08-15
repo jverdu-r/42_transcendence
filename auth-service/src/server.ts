@@ -224,6 +224,11 @@ fastify.post('/auth/register', async (request, reply) => {
       sql: 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
       params: [username, email, hash]
     }));
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `INSERT INTO user_profiles (user_id, avatar_url, language, notifications, doubleFactor, doubleFactorSecret, difficulty) 
+            VALUES ((SELECT id FROM users WHERE username = ? AND email = ?), ?, ?, ?, ?, ?, ?)`,
+      params: [username, email, '', 'gl', 'true', 0, null, 'normal']
+    }));
     
     await db.close();
     
@@ -855,7 +860,7 @@ fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, 
       winRate,
       elo,
       ranking,
-      matchHistory: matchHistory.slice(0, 10),
+      matchHistory: matchHistory.slice(-10).reverse(),
       avatar_url: profile?.avatar_url || null
     });
   } catch (err) {
