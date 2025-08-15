@@ -18,31 +18,36 @@ scrape_configs:
   # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:
-      - targets: ['10.11.200.131:9090']
+      - targets: ['172.18.126.74:9090']
+
 
   # Dedicated exporters (these have native Prometheus metrics)
   - job_name: 'node-exporter'
     static_configs:
-      - targets: ['10.11.200.131:9100']
+      - targets: ['172.18.126.74:9100']
 
   - job_name: 'redis-exporter'
     static_configs:
-      - targets: ['10.11.200.131:9121']
+      - targets: ['172.18.126.74:9121']
 
   - job_name: 'cadvisor'
     static_configs:
-      - targets: ['10.11.200.131:8084']
+      - targets: ['172.18.126.74:8084']
+
     scrape_interval: 30s
 
   - job_name: 'nginx-exporter'
     static_configs:
-      - targets: ['10.11.200.131:9113']
+      - targets: ['172.18.126.74:9113']
+
     scrape_interval: 30s
 
   # HashiCorp Vault (has native Prometheus metrics)
   - job_name: 'vault'
     static_configs:
-      - targets: ['10.11.200.131:8200']
+
+      - targets: ['172.18.126.74:8200']
+
     metrics_path: '/v1/sys/metrics'
     params:
       format: ['prometheus']
@@ -52,7 +57,8 @@ scrape_configs:
   # Blackbox exporter self-monitoring
   - job_name: 'blackbox-exporter'
     static_configs:
-      - targets: ['10.11.200.131:9115']
+      - targets: ['172.18.126.74:9115']
+
 
   # Blackbox exporter probes for HTTP health checks
   - job_name: 'blackbox-http'
@@ -61,10 +67,11 @@ scrape_configs:
       module: [http_2xx]
     static_configs:
       - targets:
-          - http://10.11.200.131:9001  # frontend
-          - http://10.11.200.131:9002  # WAF
-          - http://10.11.200.131:8081  # redis-commander
-          - http://10.11.200.131:80    # nginx-proxy
+          - http://172.18.126.74:9001  # frontend
+          - http://172.18.126.74:9002  # WAF
+          - http://172.18.126.74:8081  # redis-commander
+          - http://172.18.126.74:80    # nginx-proxy
+
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
@@ -80,12 +87,12 @@ scrape_configs:
       module: [tcp_connect]
     static_configs:
       - targets:
-          - 10.11.200.131:8002 # game-service
-          - 10.11.200.131:9000 # api-gateway
-          - 10.11.200.131:8001 # auth-service
-          - 10.11.200.131:8003 # chat-service
-          - 10.11.200.131:8005 # db-service
-          - 10.11.200.131:6379 # redis
+          - 172.18.126.74:8002 # game-service
+          - 172.18.126.74:9000 # api-gateway
+          - 172.18.126.74:8001 # auth-service
+          - 172.18.126.74:8003 # chat-service
+          - 172.18.126.74:8005 # db-service
+          - 172.18.126.74:6379 # redis
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
