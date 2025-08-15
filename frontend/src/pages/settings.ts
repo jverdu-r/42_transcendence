@@ -380,6 +380,8 @@ function setupEventListeners(): void {
 
         const profileData: any = { username, email };
 
+
+
         // === Validación local antes de enviar ===
         if (newPassword && !currentPassword) {
             alert(getTranslation('settings', 'emptyCurrentPassword'));

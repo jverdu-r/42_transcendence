@@ -20,6 +20,7 @@ scrape_configs:
     static_configs:
       - targets: ['172.18.126.74:9090']
 
+
   # Dedicated exporters (these have native Prometheus metrics)
   - job_name: 'node-exporter'
     static_configs:
@@ -32,17 +33,21 @@ scrape_configs:
   - job_name: 'cadvisor'
     static_configs:
       - targets: ['172.18.126.74:8084']
+
     scrape_interval: 30s
 
   - job_name: 'nginx-exporter'
     static_configs:
       - targets: ['172.18.126.74:9113']
+
     scrape_interval: 30s
 
   # HashiCorp Vault (has native Prometheus metrics)
   - job_name: 'vault'
     static_configs:
+
       - targets: ['172.18.126.74:8200']
+
     metrics_path: '/v1/sys/metrics'
     params:
       format: ['prometheus']
@@ -53,6 +58,7 @@ scrape_configs:
   - job_name: 'blackbox-exporter'
     static_configs:
       - targets: ['172.18.126.74:9115']
+
 
   # Blackbox exporter probes for HTTP health checks
   - job_name: 'blackbox-http'
@@ -65,6 +71,7 @@ scrape_configs:
           - http://172.18.126.74:9002  # WAF
           - http://172.18.126.74:8081  # redis-commander
           - http://172.18.126.74:80    # nginx-proxy
+
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
