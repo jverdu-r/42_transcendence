@@ -375,40 +375,72 @@ function setupEventListeners(): void {
         
         const username = (document.getElementById('username') as HTMLInputElement).value;
         const email = (document.getElementById('email') as HTMLInputElement).value;
-        const currentPassword = (document.getElementById('current-password') as HTMLInputElement).value;
-        const newPassword = (document.getElementById('new-password') as HTMLInputElement).value;
+        const currentPassword = (document.getElementById('current-password') as HTMLInputElement).value.trim();
+        const newPassword = (document.getElementById('new-password') as HTMLInputElement).value.trim();
 
         const profileData: any = { username, email };
-        
-        if (currentPassword || newPassword) {
+
+        // === Validación local antes de enviar ===
+        if (newPassword && !currentPassword) {
+            alert(getTranslation('settings', 'emptyCurrentPassword'));
+            return;
+        }
+
+        if (currentPassword && !newPassword) {
+            alert(getTranslation('settings', 'emptyNewPassword'));
+            return;
+        }
+
+        // Si ambos están presentes, añadir al payload
+        if (currentPassword && newPassword) {
             profileData.current_password = currentPassword;
             profileData.new_password = newPassword;
         }
 
+        // Deshabilitar botón
         saveProfileBtn.disabled = true;
         saveProfileBtn.innerHTML = getTranslation('settings', 'saving');
 
-        const result = await updateUserProfile(profileData);
-        
-        if (result.success) {
-            alert(getTranslation('alerts', 'successProfile'));
+        try {
+            const result = await updateUserProfile(profileData);
+            
+            if (result.success) {
+                alert(getTranslation('alerts', 'successProfile'));
 
-            // Limpiar campos de contraseña
-            (document.getElementById('current-password') as HTMLInputElement).value = '';
-            (document.getElementById('new-password') as HTMLInputElement).value = '';
+                // Limpiar campos de contraseña
+                (document.getElementById('current-password') as HTMLInputElement).value = '';
+                (document.getElementById('new-password') as HTMLInputElement).value = '';
 
-            const currentUser = getCurrentUser();
-            if (currentUser) {
-                const updatedUser = { ...currentUser, username, email };
-                localStorage.setItem('user', JSON.stringify(updatedUser));
-                
-                // ✅ Disparar evento para que otras páginas se enteren
-                window.dispatchEvent(new CustomEvent('userUpdated', {
-                detail: updatedUser
-                }));
+                const currentUser = getCurrentUser();
+                if (currentUser) {
+                    const updatedUser = { ...currentUser, username, email };
+                    localStorage.setItem('user', JSON.stringify(updatedUser));
+                    
+                    // Disparar evento para que otras páginas se enteren
+                    window.dispatchEvent(new CustomEvent('userUpdated', {
+                        detail: updatedUser
+                    }));
+                }
+            } else {
+                // === Manejo de errores específicos del backend ===
+                const errorMsg = result.message?.toLowerCase();
+
+                if (errorMsg.includes('incorrect') || 
+                    errorMsg.includes('invalid') || 
+                    errorMsg.includes('wrong') ||
+                    errorMsg.includes('current password')) {
+                    alert(getTranslation('settings', 'wrongPassword'));
+                } else {
+                    // Otro error (conexión, servidor, etc.)
+                    alert(errorMsg || getTranslation('alerts', 'connection'));
+                }
             }
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            alert(getTranslation('alerts', 'connection'));
         }
-        
+
+        // Rehabilitar botón
         saveProfileBtn.disabled = false;
         saveProfileBtn.innerHTML = getTranslation('settings', 'saveChanges');
     });
