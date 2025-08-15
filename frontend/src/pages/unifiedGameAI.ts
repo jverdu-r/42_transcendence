@@ -86,7 +86,7 @@ function startGameWithDifficulty(difficulty: 'easy' | 'medium' | 'hard'): void {
             <div class="bg-green-600 text-white rounded-lg p-3">
               <div class="text-xl font-bold mb-2">${getTranslation('game_AI', 'controls')}:</div>
               <div>⬆️ <kbd class="bg-gray-200 text-black px-2 py-1 rounded">W</kbd> - ${getTranslation('game_AI', 'move_up')}</div>
-              <br>
+              <br> 
               <div>⬇️ <kbd class="bg-gray-200 text-black px-2 py-1 rounded">S</kbd> - ${getTranslation('game_AI', 'move_down')}</div>
             </div>
           </div>
