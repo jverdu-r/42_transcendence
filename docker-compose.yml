@@ -224,6 +224,7 @@ services:
     build: ./redis-commander
     image: redis-commander
     container_name: redis_commander
+    restart: always
     ports:
       - "8081:8081"
     depends_on:

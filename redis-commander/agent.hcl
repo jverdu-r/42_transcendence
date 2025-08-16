@@ -16,5 +16,5 @@ auto_auth {
 template {
   source      = "./secrets.env.tpl"
   destination = "./.env"
-  command     = "pkill -HUP -f redis-commander" # Recarga redis-commander si cambian los secretos
+  command     = "docker restart redis_commander"
 }

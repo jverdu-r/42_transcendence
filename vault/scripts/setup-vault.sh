@@ -289,7 +289,7 @@ docker exec hashicorp_vault sh -c "
     export VAULT_TOKEN='$ROOT_TOKEN'
     vault kv put secret/redis REDIS_PASSWORD='${REDIS_PASSWORD:-}'
     vault kv put secret/jwt JWT_SECRET='${JWT_SECRET:-}'
-    vault kv put secret/grafana GRAFANA_USER='${GRAFANA_USER:-}' GRAFANA_PASSWORD='${GRAFANA_PASSWORD:-}'
+    vault kv put secret/grafana GF_SECURITY_ADMIN_USER='${GRAFANA_USER:-}' GF_SECURITY_ADMIN_PASSWORD='${GRAFANA_PASSWORD:-}'
     vault kv put secret/prometheus PROMETHEUS_USER='${PROMETHEUS_USER:-}' PROMETHEUS_PASSWORD='${PROMETHEUS_PASSWORD:-}'
     vault kv put secret/email EMAIL_PASS='${EMAIL_PASS:-}'
 "

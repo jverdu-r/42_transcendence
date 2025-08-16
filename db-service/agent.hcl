@@ -16,5 +16,5 @@ auto_auth {
 template {
   source      = "./secrets.env.tpl"
   destination = "./.env"
-  command     = "pkill -HUP node"
+  command = "pkill -HUP -f dist/server.js"
 }
