@@ -170,6 +170,7 @@ docker exec hashicorp_vault sh -c "
     vault policy write sqlite-writer-policy /vault/policies/sqlite-writer-policy.hcl
     vault policy write grafana-policy /vault/policies/grafana-policy.hcl
     vault policy write redis-commander-policy /vault/policies/redis-commander-policy.hcl
+    vault policy write redis-exporter-policy /vault/policies/redis-exporter-policy.hcl
 "
 
 if [ $? -eq 0 ]; then
@@ -194,6 +195,7 @@ SERVICE_TOKENS=$(docker exec hashicorp_vault sh -c '
     SQLITE_WRITER_TOKEN=$(vault write -field=token auth/token/create policies="sqlite-writer-policy" ttl=720h renewable=true display_name="sqlite-writer" 2>/dev/null || echo "")
     GRAFANA_TOKEN=$(vault write -field=token auth/token/create policies="grafana-policy" ttl=720h renewable=true display_name="grafana" 2>/dev/null || echo "")
     REDIS_COMMANDER_TOKEN=$(vault write -field=token auth/token/create policies="redis-commander-policy" ttl=720h renewable=true display_name="redis-commander" 2>/dev/null || echo "")
+    REDIS_EXPORTER_TOKEN=$(vault write -field=token auth/token/create policies="redis-exporter-policy" ttl=720h renewable=true display_name="redis-exporter" 2>/dev/null || echo "")
     
     cat <<EOF
 {
@@ -205,7 +207,8 @@ SERVICE_TOKENS=$(docker exec hashicorp_vault sh -c '
     "api_gateway_token": "$API_TOKEN",
     "sqlite_writer_token": "$SQLITE_WRITER_TOKEN",
     "grafana_token": "$GRAFANA_TOKEN",
-    "redis_commander_token": "$REDIS_COMMANDER_TOKEN"
+    "redis_commander_token": "$REDIS_COMMANDER_TOKEN",
+    "redis_exporter_token": "$REDIS_EXPORTER_TOKEN"
 }
 EOF
 ')
@@ -256,20 +259,9 @@ if [ -f "./vault/generated/service-tokens.json" ]; then
     REDIS_COMMANDER_TOKEN=$(jq -r '.redis_commander_token' ./vault/generated/service-tokens.json)
     echo "$REDIS_COMMANDER_TOKEN" > ./vault/generated/redis-commander.token
 
-    # Create tokens file for services in vault/generated/
-    cat > "./vault/generated/.env.tokens" << EOF
-VAULT_TOKEN_ROOT="$ROOT_TOKEN_SAVED"
-VAULT_TOKEN_AUTH_SERVICE="$AUTH_TOKEN"
-VAULT_TOKEN_GAME_SERVICE="$GAME_TOKEN"
-VAULT_TOKEN_CHAT_SERVICE="$CHAT_TOKEN"
-VAULT_TOKEN_DB_SERVICE="$DB_TOKEN"
-VAULT_TOKEN_API_GATEWAY="$API_TOKEN"
-VAULT_TOKEN_SQLITE_WRITER="$SQLITE_WRITER_TOKEN"
-VAULT_TOKEN_GRAFANA="$GRAFANA_TOKEN"
-VAULT_TOKEN_REDIS_COMMANDER="$REDIS_COMMANDER_TOKEN"
-EOF
+    REDIS_EXPORTER_TOKEN=$(jq -r '.redis_exporter_token' ./vault/generated/service-tokens.json)
+    echo "$REDIS_EXPORTER_TOKEN" > ./vault/generated/redis-exporter.token
 
-    echo -e "${GREEN}✅ Service tokens saved to vault/generated/.env.tokens${NC}"
 fi
 
 # =====================
