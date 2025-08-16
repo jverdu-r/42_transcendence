@@ -104,8 +104,6 @@ services:
     build: ./frontend
     image: frontend
     container_name: frontend
-    ports:
-      - "9001:8080" # Main web access on port 80
     depends_on:
       - api-gateway
     networks:
@@ -177,6 +175,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "9001:9001"
+      - "9443:9443"
     volumes:
       - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
       - ./ssl/localhost.crt:/etc/ssl/certs/localhost.crt:ro
@@ -224,8 +224,8 @@ services:
   redis-commander:
     image: rediscommander/redis-commander:latest
     container_name: redis_commander
-    env_file:
-      - ./secrets/secrets.txt 
+    environment:
+      - REDIS_HOSTS=redis:redis:6379:0:${REDIS_PASSWORD}
     ports:
       - "8081:8081"
     depends_on:
