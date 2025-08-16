@@ -661,17 +661,40 @@ fastify.post('/auth/2fa/disable', { preHandler: verifyToken }, async (request, r
 // Endpoint para cerrar sesión
 fastify.post('/auth/logout', { preHandler: verifyToken }, async (request, reply) => {
   const token = (request as any).token;
-  const userId = (request as any).user.user_id;
+  const userId = (request as any).user?.user_id;
+
+  if (!userId) {
+    return reply.code(400).send({ message: 'Usuario no válido' });
+  }
 
   try {
-    const db = await openDb();
+    if (!redisClient.isReady) {
+      console.warn('Redis no está listo. Esperando...');
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Timeout esperando Redis'));
+        }, 5000); // 5 segundos máximo
+
+        redisClient.once('ready', () => {
+          clearTimeout(timeout);
+          resolve();
+        });
+
+        redisClient.once('error', (err) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+      });
+    }
+    const multi = redisClient.multi();
+    multi.del(`jwt:${token}`);
+    multi.del(`user:${userId}:online`);
+    multi.sRem('online_users', userId.toString());
+    multi.del(`user:${userId}:last_seen`);
     
-    // Eliminar de Redis
-    await redisClient.del(`jwt:${token}`); // ✅ Eliminar el token JWT
-    await redisClient.del(`user:${userId}:online`);
-    await redisClient.sRem('online_users', userId.toString());
-    await redisClient.del(`user:${userId}:last_seen`);
-    
+    const result = await multi.exec(); // Ejecuta todas las operaciones
+    console.log('Resultados de eliminación en Redis:', result);
+
     return reply.send({ message: 'Sesión cerrada correctamente' });
   } catch (err) {
     console.error('Error en logout:', err);

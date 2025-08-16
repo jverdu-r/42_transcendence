@@ -77,6 +77,9 @@ function setupMainAppLayout(): void {
       <div id="navbar-container"></div>
       <main id="page-content" class="flex-grow flex flex-col justify-center items-center p-4 sm:p-8 mt-24 sm:mt-32 w-full text-gray-100"></main>
     `;
+    console.log('✅ setupMainAppLayout: Layout creado');
+  } else {
+    console.log('🔁 setupMainAppLayout: Layout ya existe');
   }
 }
 
@@ -101,7 +104,10 @@ export async function navigateTo(path: string): Promise<void> {
   
   const isAuthPage = routePath === '/login' || routePath === '/register';
   const currentPagePath = window.location.pathname;
-  const wasAuthPage = currentPagePath === '/login' || currentPagePath === '/register';
+  const wasAuthPage =
+    currentPagePath === '/login' ||
+    currentPagePath === '/register' ||
+    currentPagePath === '/';
   
   // Verifica si el usuario está autenticado
   const userIsAuthenticated = isAuthenticated();

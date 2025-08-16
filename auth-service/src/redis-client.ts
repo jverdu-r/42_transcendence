@@ -1,30 +1,33 @@
 // auth-service/src/redis-client.ts
 
-import { createClient } from 'redis';
+import { createClient, RedisClientType } from 'redis'; // ✅ Importa tipos
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const redisClient = createClient({
+// Tipado explícito
+const redisClient: RedisClientType = createClient({
   url: process.env.REDIS_URL || `redis://:${process.env.REDIS_PASSWORD || ''}@${process.env.REDIS_HOST || 'redis'}:${process.env.REDIS_PORT || '6379'}`,
   socket: {
-    reconnectStrategy: (retries) => {
-      if (retries >= 2) {
-        console.error('❌ Demasiados intentos de reconexión a Redis. Deteniendo...');
-        return new Error('Too many retry attempts');
-      }
-      // Reintenta cada 100ms, 200ms, 400ms... hasta 1s
-      return Math.min(retries * 250, 2500);
+    reconnectStrategy: (retries: number) => {
+      const delay = Math.min(retries * 250, 5000);
+      console.log(`🔁 Intento de reconexión ${retries}, esperando ${delay}ms`);
+      return delay;
     }
   }
 });
 
-redisClient.on('error', (err) => {
+// Manejo de eventos
+redisClient.on('error', (err: Error) => {
   console.error('❌ Redis client error:', err);
 });
 
 redisClient.on('connect', () => {
-  console.log('✅ Conectado a Redis');
+  console.log('🔌 Conectando a Redis...');
+});
+
+redisClient.on('ready', () => {
+  console.log('✅ Redis listo para operaciones');
 });
 
 redisClient.on('reconnecting', () => {
@@ -43,7 +46,7 @@ export async function connectRedis() {
     console.log('✅ Conectado a Redis');
   } catch (err) {
     console.error('❌ Error conectando a Redis:', err);
-    throw err; // Para que el servicio falle si no puede conectar
+    throw err;
   }
 }
 

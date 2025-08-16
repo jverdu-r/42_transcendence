@@ -162,11 +162,30 @@ export async function loginUser(token: string): Promise<void> {
   // Aplicar configuraciones del usuario
   await applyUserSettings();
 }
+export async function logout(): Promise<void> {
+  const token = localStorage.getItem('jwt');
 
-export function logout(): void {
+  if (token) {
+    try {
+      // Llama al backend para cerrar sesión
+      const response = await fetch('/api/auth//logout', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include' // por si usas cookies
+      });
+
+      if (!response.ok) {
+        console.warn('⚠️ El backend no cerró sesión correctamente');
+      }
+    } catch (error) {
+      console.warn('❌ Error al cerrar sesión en el servidor:', error);
+    }
+  }
+
+  // Limpiar el cliente
   localStorage.removeItem('jwt');
-  
-  // Limpiar configuraciones
   localStorage.removeItem('language');
   localStorage.removeItem('notifications');
   localStorage.removeItem('doubleFactor');
@@ -174,7 +193,9 @@ export function logout(): void {
   localStorage.removeItem('user_id');
   localStorage.removeItem('username');
   localStorage.removeItem('email');
+
+  console.log('🔐 Sesión cerrada (cliente + servidor)');
   
-  console.log(':candado: Sesión cerrada');
+  // Redirige
   window.location.href = '/login';
 }

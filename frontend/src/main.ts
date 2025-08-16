@@ -17,7 +17,6 @@ function initializeApp(): void {
     
     const currentPath = window.location.pathname;
 
-    renderNavbar(currentPath); // 👈 esto es lo que faltaba
     navigateTo(currentPath);
     
     console.log('✅ Transcendence inicializado correctamente');
@@ -28,6 +27,5 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 
 window.addEventListener('languageChanged', () => {
   const currentPath = window.location.pathname;
-  renderNavbar(currentPath);
-  navigateTo(currentPath);
+  navigateTo(window.location.pathname);
 });

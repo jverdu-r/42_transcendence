@@ -7,7 +7,7 @@ module.exports = {
   mode: 'development',
   entry: './src/main.ts',
   output: {
-    filename: 'bundle.[contenthash].js',
+    filename: 'bundle.js',
     path: path.resolve(__dirname, 'dist'),
     publicPath: '/'
   },
@@ -30,7 +30,7 @@ module.exports = {
   plugins: [
     new CleanWebpackPlugin(),
     new HtmlWebpackPlugin({
-      template: './index.html',
+      template: 'index.html',
       filename: 'index.html',
     }),
     new webpack.DefinePlugin({

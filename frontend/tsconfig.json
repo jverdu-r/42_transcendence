@@ -9,9 +9,12 @@
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
     "lib": ["dom", "dom.iterable", "esnext"],
-    "typeRoots": ["./src/types", "./node_modules/@types"],
-    "types": ["google.accounts"]
+    "typeRoots": ["./src/types", "./node_modules/@types"]
   },
-  "include": ["src/**/*.ts"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*",
+    "src/types/google.d.ts"
+  ],
   "exclude": ["node_modules"]
 }

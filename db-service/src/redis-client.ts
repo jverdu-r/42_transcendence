@@ -1,69 +1,89 @@
-// auth-service/src/redis-client.ts
+// db-service/src/redis-client.ts
 
-import { createClient } from 'redis';
+import { createClient, RedisClientType } from 'redis';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Definimos el tipo del cliente Redis
+let redis: RedisClientType | null = null;
 
-let redis = createClient({
-  url: process.env.REDIS_URL || `redis://:${process.env.REDIS_PASSWORD || ''}@${process.env.REDIS_HOST || 'redis'}:${process.env.REDIS_PORT || '6379'}`,
-  socket: {
-    reconnectStrategy: (retries) => {
-      if (retries >= 10) {
-        console.error('❌ Demasiados intentos de reconexión a Redis. Deteniendo...');
-        return new Error('Too many retry attempts');
+// Función para configurar eventos en el cliente
+function setupRedisClient(client: RedisClientType) {
+  client.on('error', (err: Error) => {
+    console.error('❌ Redis client error:', err);
+  });
+
+  client.on('connect', () => {
+    console.log('✅ Redis client connected');
+  });
+
+  client.on('reconnecting', () => {
+    console.log('🔄 Redis reconnecting...');
+  });
+
+  client.on('ready', () => {
+    console.log('🟢 Redis ready');
+  });
+
+  return client;
+}
+
+// Función para crear, configurar y conectar el cliente
+async function connectRedis(): Promise<RedisClientType> {
+  const client = createClient({
+    url: process.env.REDIS_URL || `redis://:${process.env.REDIS_PASSWORD || ''}@${process.env.REDIS_HOST || 'redis'}:${process.env.REDIS_PORT || '6379'}`,
+    socket: {
+      reconnectStrategy: (retries: number) => {
+        const delay = Math.min(retries * 250, 5000);
+        console.log(`🔁 Intento de reconexión ${retries}, esperando ${delay}ms`);
+        return delay;
       }
-      return Math.min(retries * 100, 1000);
     }
+  }) as RedisClientType;
+
+  setupRedisClient(client);
+
+  try {
+    await client.connect();
+    console.log('✅ Redis conectado');
+  } catch (err) {
+    console.error('❌ Error al conectar Redis:', err);
+    throw err;
   }
-});
 
-redis.on('error', (err) => {
-  console.error('❌ Redis client error:', err);
-});
+  return client;
+}
 
-redis.on('connect', () => {
-  console.log('✅ Redis client connected');
-});
-
-redis.on('reconnecting', () => {
-  console.log('🔄 Redis reconnecting...');
-});
-
-
-// Conectar automáticamente
+// Conectar al iniciar
 (async () => {
   try {
-    await redis.connect();
-    console.log('✅ Redis client connected');
+    redis = await connectRedis();
   } catch (err) {
-    console.error('❌ Redis connection failed:', err);
+    console.error('❌ Fallo crítico al conectar Redis:', err);
+    process.exit(1);
   }
 })();
 
 // Reconexión tras SIGHUP
 process.on('SIGHUP', async () => {
   dotenv.config();
+  if (redis) {
+    await redis.quit().catch(console.error);
+  }
   try {
-    await redis.quit();
-    redis = createClient({
-      url: process.env.REDIS_URL || `redis://:${process.env.REDIS_PASSWORD || ''}@${process.env.REDIS_HOST || 'redis'}:${process.env.REDIS_PORT || '6379'}`,
-      socket: {
-        reconnectStrategy: (retries) => {
-          if (retries >= 10) {
-            console.error('❌ Demasiados intentos de reconexión a Redis. Deteniendo...');
-            return new Error('Too many retry attempts');
-          }
-          return Math.min(retries * 100, 1000);
-        }
-      }
-    });
-    await redis.connect();
-    console.log('🔄 Redis client reconectado tras SIGHUP');
+    redis = await connectRedis();
+    console.log('🔄 Redis reconectado tras SIGHUP');
   } catch (err) {
-    console.error('❌ Error al reconectar Redis tras SIGHUP:', err);
+    console.error('❌ Error al reconectar tras SIGHUP:', err);
+    process.exit(1);
   }
 });
 
-export default redis;
+// Exportamos el cliente como una función que devuelve el cliente actual
+export default (): RedisClientType => {
+  if (!redis) {
+    throw new Error('Redis client no está inicializado');
+  }
+  return redis;
+};

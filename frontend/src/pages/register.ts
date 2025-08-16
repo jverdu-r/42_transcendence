@@ -236,7 +236,7 @@ export function renderRegister(): void {
                 window.google.accounts.id.initialize({
                     client_id: '58128894262-ak29ohah5ovkh31dvp2srdbm16thp961.apps.googleusercontent.com',
                     callback: (window as any).handleGoogleCredentialResponse
-                });
+                } as any );
                 window.google.accounts.id.renderButton(googleDiv, {
                     theme: 'outline',
                     size: 'large',
