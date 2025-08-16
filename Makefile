@@ -52,6 +52,10 @@ prepare:
 	chmod -R 777 "$(HOME)/data/transcendence/redis-commander"
 	@echo "Redis Commander data directory prepared at: $(HOME)/data/transcendence/redis-commander"
 
+	mkdir -p "$(HOME)/data/transcendence/redis-exporter"
+	chmod -R 777 "$(HOME)/data/transcendence/redis-exporter"
+	@echo "Redis Exporter data directory prepared at: $(HOME)/data/transcendence/redis-exporter"
+
 	mkdir -p "$(HOME)/data/transcendence/frontend"
 
 	mkdir -p "$(HOME)/data/transcendence/prometheus"
@@ -132,6 +136,9 @@ fclean: clean
 	@echo "Eliminando archivos y carpetas de redis-commander..."
 	@sudo rm -rf "$(HOME)/data/transcendence/redis-commander" 2>/dev/null || true
 	@rm -rf redis-commander/.env redis-commander/*.log redis-commander/dist 2>/dev/null || true
+	@echo "Eliminando archivos y carpetas de redis-exporter..."
+	@sudo rm -rf "$(HOME)/data/transcendence/redis-exporter" 2>/dev/null || true
+	@rm -rf monitoring_system/redis-exporter/.env monitoring_system/redis-exporter/*.log monitoring_system/redis-exporter/dist 2>/dev/null || true
 	@echo "Cleaning up Vault certificates..."
 	@rm -rf vault/certs/* vault/certs/.* 2>/dev/null || true	
 	@echo "Removing data directory..."
