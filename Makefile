@@ -31,13 +31,6 @@ prepare:
 	chmod -R 777 "$(HOME)/data/transcendence/vault/data"
 	@echo "Vault data directory prepared at: $(HOME)/data/transcendence/vault/data"
 
-	@echo "� añadiendo variables tokens de servicio para Vault en .env"
-	@grep -qxF 'VAULT_TOKEN_AUTH_SERVICE=' .env || echo 'VAULT_TOKEN_AUTH_SERVICE=' >> .env
-	@grep -qxF 'VAULT_TOKEN_API_GATEWAY=' .env || echo 'VAULT_TOKEN_API_GATEWAY=' >> .env
-	@grep -qxF 'VAULT_TOKEN_GAME_SERVICE=' .env || echo 'VAULT_TOKEN_GAME_SERVICE=' >> .env
-	@grep -qxF 'VAULT_TOKEN_DB_SERVICE=' .env || echo 'VAULT_TOKEN_DB_SERVICE=' >> .env
-	@grep -qxF 'VAULT_TOKEN_CHAT_SERVICE=' .env || echo 'VAULT_TOKEN_CHAT_SERVICE=' >> .env
-
 	mkdir -p ./vault/generated
 	chmod -R 777 ./vault/generated
 	@echo "Vault generated directory prepared at: ./vault/generated"
@@ -52,8 +45,12 @@ prepare:
 
 	mkdir -p "$(HOME)/data/transcendence/redis"
 	chown -R 1000:1000 "$(HOME)/data/transcendence/redis" || true
-	chmod -R 750 "$(HOME)/data/transcendence/redis"
+	chmod -R 777 "$(HOME)/data/transcendence/redis"
 	@echo "Redis data directory prepared at: $(HOME)/data/transcendence/redis"
+
+	mkdir -p "$(HOME)/data/transcendence/redis-commander"
+	chmod -R 777 "$(HOME)/data/transcendence/redis-commander"
+	@echo "Redis Commander data directory prepared at: $(HOME)/data/transcendence/redis-commander"
 
 	mkdir -p "$(HOME)/data/transcendence/frontend"
 
@@ -132,6 +129,9 @@ fclean: clean
 	# Borrar archivos de token y .env.tokens generados por Vault
 	@rm -f vault/generated/*.token vault/generated/.env.tokens vault/generated/service-tokens.json vault/generated/root.token 2>/dev/null || true
 	@rm -rf vault/generated/* vault/generated/.* 2>/dev/null || true
+	@echo "Eliminando archivos y carpetas de redis-commander..."
+	@sudo rm -rf "$(HOME)/data/transcendence/redis-commander" 2>/dev/null || true
+	@rm -rf redis-commander/.env redis-commander/*.log redis-commander/dist 2>/dev/null || true
 	@echo "Cleaning up Vault certificates..."
 	@rm -rf vault/certs/* vault/certs/.* 2>/dev/null || true	
 	@echo "Removing data directory..."

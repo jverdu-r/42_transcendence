@@ -218,18 +218,23 @@ services:
       - "${REDIS_PORT}:6379"
     volumes:
       - redis_data:/data
-    command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "o-meu-contrasinal.42", "--maxmemory", "256mb"]
     networks:
       - transcendence_net
   redis-commander:
-    image: rediscommander/redis-commander:latest
+    build: ./redis-commander
+    image: redis-commander
     container_name: redis_commander
-    environment:
-      - REDIS_HOSTS=redis:redis:6379:0:${REDIS_PASSWORD}
+    restart: always
     ports:
       - "8081:8081"
     depends_on:
       - redis
+    environment:
+      VAULT_ADDR: "https://vault:8200"
+      VAULT_SKIP_VERIFY: "true"
+      REDIS_PORT: "6379"
+    volumes:
+      - ./vault/generated/redis-commander.token:/vault/token.txt:ro
     networks:
       - transcendence_net
   sqlite-writer:

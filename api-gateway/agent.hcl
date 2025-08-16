@@ -16,5 +16,5 @@ auto_auth {
 template {
   source      = "./secrets.env.tpl"
   destination = "./.env"
-  command     = "pkill -HUP node" # Opcional: recarga Node.js si cambian los secretos
+  command     = "pkill -HUP -f dist/server.js" # Recarga Node.js si cambian los secretos
 }

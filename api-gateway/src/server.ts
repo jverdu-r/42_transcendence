@@ -5,6 +5,11 @@ import Redis from 'ioredis';
 import dotenv from 'dotenv';
 dotenv.config();
 
+process.on('SIGHUP', () => {
+  dotenv.config();
+  console.log('Variables de entorno recargadas por SIGHUP');
+});
+
 // -- Redis connection setup from env --
 const redisHost = process.env.REDIS_HOST || 'redis';
 const redisPort = Number(process.env.REDIS_PORT) || 6379;

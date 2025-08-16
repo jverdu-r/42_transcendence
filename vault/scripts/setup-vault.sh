@@ -169,6 +169,7 @@ docker exec hashicorp_vault sh -c "
     vault policy write api-gateway-policy /vault/policies/api-gateway-policy.hcl
     vault policy write sqlite-writer-policy /vault/policies/sqlite-writer-policy.hcl
     vault policy write grafana-policy /vault/policies/grafana-policy.hcl
+    vault policy write redis-commander-policy /vault/policies/redis-commander-policy.hcl
 "
 
 if [ $? -eq 0 ]; then
@@ -192,6 +193,7 @@ SERVICE_TOKENS=$(docker exec hashicorp_vault sh -c '
     API_TOKEN=$(vault write -field=token auth/token/create policies="api-gateway-policy" ttl=720h renewable=true display_name="api-gateway" 2>/dev/null || echo "")
     SQLITE_WRITER_TOKEN=$(vault write -field=token auth/token/create policies="sqlite-writer-policy" ttl=720h renewable=true display_name="sqlite-writer" 2>/dev/null || echo "")
     GRAFANA_TOKEN=$(vault write -field=token auth/token/create policies="grafana-policy" ttl=720h renewable=true display_name="grafana" 2>/dev/null || echo "")
+    REDIS_COMMANDER_TOKEN=$(vault write -field=token auth/token/create policies="redis-commander-policy" ttl=720h renewable=true display_name="redis-commander" 2>/dev/null || echo "")
     
     cat <<EOF
 {
@@ -202,7 +204,8 @@ SERVICE_TOKENS=$(docker exec hashicorp_vault sh -c '
     "db_service_token": "$DB_TOKEN",
     "api_gateway_token": "$API_TOKEN",
     "sqlite_writer_token": "$SQLITE_WRITER_TOKEN",
-    "grafana_token": "$GRAFANA_TOKEN"
+    "grafana_token": "$GRAFANA_TOKEN",
+    "redis_commander_token": "$REDIS_COMMANDER_TOKEN"
 }
 EOF
 ')
@@ -250,6 +253,9 @@ if [ -f "./vault/generated/service-tokens.json" ]; then
     GRAFANA_TOKEN=$(jq -r '.grafana_token' ./vault/generated/service-tokens.json)
     echo "$GRAFANA_TOKEN" > ./vault/generated/grafana.token
 
+    REDIS_COMMANDER_TOKEN=$(jq -r '.redis_commander_token' ./vault/generated/service-tokens.json)
+    echo "$REDIS_COMMANDER_TOKEN" > ./vault/generated/redis-commander.token
+
     # Create tokens file for services in vault/generated/
     cat > "./vault/generated/.env.tokens" << EOF
 VAULT_TOKEN_ROOT="$ROOT_TOKEN_SAVED"
@@ -259,6 +265,8 @@ VAULT_TOKEN_CHAT_SERVICE="$CHAT_TOKEN"
 VAULT_TOKEN_DB_SERVICE="$DB_TOKEN"
 VAULT_TOKEN_API_GATEWAY="$API_TOKEN"
 VAULT_TOKEN_SQLITE_WRITER="$SQLITE_WRITER_TOKEN"
+VAULT_TOKEN_GRAFANA="$GRAFANA_TOKEN"
+VAULT_TOKEN_REDIS_COMMANDER="$REDIS_COMMANDER_TOKEN"
 EOF
 
     echo -e "${GREEN}✅ Service tokens saved to vault/generated/.env.tokens${NC}"
@@ -281,7 +289,7 @@ docker exec hashicorp_vault sh -c "
     export VAULT_TOKEN='$ROOT_TOKEN'
     vault kv put secret/redis REDIS_PASSWORD='${REDIS_PASSWORD:-}'
     vault kv put secret/jwt JWT_SECRET='${JWT_SECRET:-}'
-    vault kv put secret/grafana GRAFANA_USER='${GRAFANA_USER:-}' GRAFANA_PASSWORD='${GRAFANA_PASSWORD:-}'
+    vault kv put secret/grafana GF_SECURITY_ADMIN_USER='${GRAFANA_USER:-}' GF_SECURITY_ADMIN_PASSWORD='${GRAFANA_PASSWORD:-}'
     vault kv put secret/prometheus PROMETHEUS_USER='${PROMETHEUS_USER:-}' PROMETHEUS_PASSWORD='${PROMETHEUS_PASSWORD:-}'
     vault kv put secret/email EMAIL_PASS='${EMAIL_PASS:-}'
 "
