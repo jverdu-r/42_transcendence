@@ -12,6 +12,8 @@ COPY tsconfig.json ./
 
 # Install dependencies
 RUN npm install && npm install node-fetch
+RUN npm install redis dotenv
+RUN npm install --save-dev @types/node
 
 # Copy source code
 COPY src/ ./src/
