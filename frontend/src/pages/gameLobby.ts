@@ -46,12 +46,11 @@ class GameLobby {
                 navigateTo('/unified-game-online');
                 return;
             }
-            // Use current hostname automatically
-            const serverHost = window.location.hostname;
+            // Use current host (hostname + port) for correct reverse proxying
             const currentUser = getCurrentUser();
             const username = encodeURIComponent(currentUser?.username || 'Usuario');
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${serverHost}:8002/pong/${gameId}?username=${username}`;
+            const wsUrl = `${protocol}//${window.location.host}/pong/${gameId}?username=${username}`;
             this.ws = new WebSocket(wsUrl);
 
             this.ws.onopen = () => {

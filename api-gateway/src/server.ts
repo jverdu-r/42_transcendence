@@ -84,6 +84,8 @@ const fastify = Fastify({ logger: true });
   const serviceConfigs = [
     { env: 'AUTH_SERVICE_URL', prefix: '/api/auth', rewritePrefix: '/auth', fallback: 'http://auth-service:8000' },
     { env: 'GAME_SERVICE_URL', prefix: '/api/game', rewritePrefix: '/game', fallback: 'http://game-service:8000' },
+    // Add proxy for /api/games to game-service
+    { env: 'GAME_SERVICE_URL', prefix: '/api/games', rewritePrefix: '/api/games', fallback: 'http://game-service:8000' },
     { env: 'CHAT_SERVICE_URL', prefix: '/api/chat', rewritePrefix: '/chat', fallback: 'http://chat-service:8000' },
   ];
 

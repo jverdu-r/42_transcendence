@@ -3,6 +3,7 @@ import fastifyWebsocket from '@fastify/websocket';
 import fastifyCors from '@fastify/cors';
 import { v4 as uuidv4 } from 'uuid';
 import { WebSocket } from 'ws';
+import redis from './redis-client.js';
 
 const fastify = Fastify({
   logger: {
@@ -12,6 +13,7 @@ const fastify = Fastify({
 
 // Simple in-memory game management
 const activeGames = new Map();
+const orphanedGameTimeouts = new Map();
 const connections = new Map();
 const playerToClient = new Map();
 const clientToPlayer = new Map();
@@ -88,7 +90,11 @@ fastify.register(async function (fastify) {
       };
       activeGames.set(gameId, game);
     }
-
+    // If a player joins, clear the orphaned timeout
+    if (orphanedGameTimeouts.has(gameId)) {
+      clearTimeout(orphanedGameTimeouts.get(gameId));
+      orphanedGameTimeouts.delete(gameId);
+    }
     // Check if player already exists by username
     const existingPlayer = game.players.find((p: any) => p.nombre === username);
     let playerNumber;
@@ -355,12 +361,12 @@ function resetBall(state: any): void {
 function endGame(gameId: string): void {
   const game = activeGames.get(gameId);
   if (!game) return;
-  
+
   game.status = 'finished';
-  
+
   const winnerPlayer = game.gameState.puntuacion.jugador1 > game.gameState.puntuacion.jugador2 ? 1 : 2;
   const winnerName = game.players.find((p: any) => p.numero === winnerPlayer)?.nombre || `Jugador ${winnerPlayer}`;
-  
+
   broadcastToGame(gameId, {
     type: 'gameEnded',
     data: {
@@ -372,6 +378,23 @@ function endGame(gameId: string): void {
       message: `¡Fin de la partida! ${winnerName} gana!`
     }
   });
+
+  // Clean up: remove game, timeout, and mappings
+  activeGames.delete(gameId);
+  if (orphanedGameTimeouts.has(gameId)) {
+    clearTimeout(orphanedGameTimeouts.get(gameId));
+    orphanedGameTimeouts.delete(gameId);
+  }
+  // Remove all player mappings for this game
+  if (game.players) {
+    for (const player of game.players) {
+      playerToClient.delete(player.id);
+      clientToPlayer.delete(player.id);
+      connections.delete(player.id);
+    }
+  }
+  spectators.delete(gameId);
+  fastify.log.info(`🧹 Game ${gameId} cleaned up after finish.`);
 }
 
 function handleGameMessage(clientId: string, gameId: string, data: any): void {
@@ -480,8 +503,8 @@ fastify.post("/api/games", async (request: any, reply) => {
   try {
     const { nombre, gameMode = "pvp", maxPlayers = 2, playerName } = request.body;
     const finalPlayerName = playerName || "Jugador1";
-    
     const gameId = uuidv4();
+    const now = Date.now();
     const game = {
       id: gameId,
       players: [],
@@ -496,11 +519,32 @@ fastify.post("/api/games", async (request: any, reply) => {
         palaAncho: 15,
         palaAlto: 100
       },
-      createdAt: Date.now()
+      createdAt: now
     };
-    
+    // Store in memory for fast gameplay
     activeGames.set(gameId, game);
-    
+    // Set a timeout to clean up orphaned games if no player connects via WebSocket
+    const timeout = setTimeout(() => {
+      const g = activeGames.get(gameId);
+      if (g && (!g.players || g.players.length === 0)) {
+        activeGames.delete(gameId);
+        orphanedGameTimeouts.delete(gameId);
+        fastify.log.info(`🗑️ Orphaned game ${gameId} deleted after timeout (no player joined via WebSocket)`);
+      }
+    }, 30000); // 30 seconds
+    orphanedGameTimeouts.set(gameId, timeout);
+
+    // Push to Redis for DB persistence (async, fire-and-forget)
+    try {
+      await redis.rPush('sqlite_write_queue', JSON.stringify({
+        sql: 'INSERT INTO games (id, nombre, status, created_at, game_mode, max_players) VALUES (?, ?, ?, ?, ?, ?)',
+        params: [gameId, nombre || `Partida de ${finalPlayerName}`, 'waiting', new Date(now).toISOString(), gameMode, maxPlayers]
+      }));
+    } catch (err) {
+      fastify.log.error('Error pushing game creation to Redis queue:', err);
+      // Do not fail the request, just log
+    }
+
     const formattedGame = {
       id: gameId,
       nombre: nombre || `Partida de ${finalPlayerName}`,
@@ -515,9 +559,8 @@ fastify.post("/api/games", async (request: any, reply) => {
       espectadores: 0,
       puedeUnirse: true,
       puedeObservar: false,
-      createdAt: game.createdAt
+      createdAt: now
     };
-    
     return reply.send(formattedGame);
   } catch (error) {
     fastify.log.error("Error creating API game:", error);
