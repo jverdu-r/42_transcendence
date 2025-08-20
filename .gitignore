@@ -1,0 +1,10 @@
+# Local secrets (no versionar)
+secrets/secrets.txt
+
+# Vault: ficheros generados en tiempo de build/run
+vault/generated/
+
+# Certificados autogenerados (mantenemos vault.conf si existe)
+vault/certs/*.crt
+vault/certs/*.key
+vault/certs/vault-combined.crt

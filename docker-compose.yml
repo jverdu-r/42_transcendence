@@ -8,16 +8,21 @@ services:
       - "8001:8000" # Mapea el puerto 8000 interno a 8001 en el host
     environment:
       DB_SERVICE_URL: "http://db-service:8005"
-      VAULT_ADDR: "http://vault:8200"
+      VAULT_ADDR: "https://vault:8200"
+      VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
-      REDIS_PASSWORD: "${REDIS_PASSWORD}"
-      JWT_SECRET: "${JWT_SECRET}"
+      EMAIL_HOST: "${EMAIL_HOST}"
+      EMAIL_PORT: "${EMAIL_PORT}"
+      EMAIL_SECURE: "${EMAIL_SECURE}"
+      EMAIL_USER: "${EMAIL_USER}"
+      EMAIL_FROM: "${EMAIL_FROM}"
     depends_on:
       - db-service
       - vault
     volumes:
       - db_data:/app/data
+      - ./vault/generated/auth-service.token:/vault/token.txt:ro
     networks:
       - transcendence_net
     restart: on-failure
@@ -31,11 +36,11 @@ services:
       - "8002:8000" # Mapea el puerto 8000 interno a 8002 en el host
     environment:
       DB_SERVICE_URL: "http://db-service:8005"
-      VAULT_ADDR: "http://vault:8200"
+      VAULT_ADDR: "https://vault:8200"
+      VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
-      REDIS_PASSWORD: "${REDIS_PASSWORD}"
-      JWT_SECRET: "${JWT_SECRET}"
+
     depends_on:
       - db-service
       - auth-service
@@ -54,11 +59,11 @@ services:
       - "8003:8000" # Mapea el puerto 8000 interno a 8003 en el host
     environment:
       DB_SERVICE_URL: "http://db-service:8005"
-      VAULT_ADDR: "http://vault:8200"
+      VAULT_ADDR: "https://vault:8200"
+      VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
-      REDIS_PASSWORD: "${REDIS_PASSWORD}"
-      JWT_SECRET: "${JWT_SECRET}"
+
     depends_on:
       - db-service
       - auth-service
@@ -81,13 +86,15 @@ services:
       CHAT_SERVICE_URL: "${CHAT_SERVICE_URL}"
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
-      REDIS_PASSWORD: "${REDIS_PASSWORD}"
-      JWT_SECRET: "${JWT_SECRET}"
+      VAULT_ADDR: "https://vault:8200"
+      VAULT_SKIP_VERIFY: "true"
     depends_on:
       - auth-service
       - game-service
       - chat-service
       - redis
+    volumes:
+      - ./vault/generated/api-gateway.token:/vault/token.txt:ro
     networks:
       - transcendence_net
     restart: on-failure
@@ -97,28 +104,40 @@ services:
     build: ./frontend
     image: frontend
     container_name: frontend
-    ports:
-      - "9001:8080" # Main web access on port 80
     depends_on:
       - api-gateway
     networks:
       - transcendence_net
     restart: on-failure
 
-  # HashiCorp Vault
   vault:
-    image: hashicorp/vault:latest
+    build: ./vault
+    image: vault-production
     container_name: hashicorp_vault
     ports:
-      - "8200:8200" # Vault ya usa un puerto no privilegiado por defecto
+      - "8200:8200" # Vault API
+      - "8201:8201" # Vault cluster port
     environment:
-      VAULT_DEV_ROOT_TOKEN_ID: "dev-root-token"
-      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
-    cap_add:
-      - IPC_LOCK
+      VAULT_ADDR: "https://localhost:8200"
+      VAULT_API_ADDR: "https://vault:8200"
+      VAULT_CLUSTER_ADDR: "https://vault:8201"
+      VAULT_SKIP_VERIFY: "true"  # For self-signed certificates in development
+    volumes:
+      - vault_data:/vault/file
+      - vault_logs:/vault/logs
+      - ./vault/scripts:/vault/scripts:rw
+      - ./vault/certs:/vault/certs:ro
+      - ./vault/generated:/vault/generated:rw
+    user: "0:0"
     networks:
       - transcendence_net
-    restart: on-failure
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "VAULT_SKIP_VERIFY=true vault status || exit 0"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # WAF (Web Application Firewall) - Nginx con ModSecurity como ejemplo
   waf:
@@ -156,6 +175,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "9001:9001"
+      - "9443:9443"
     volumes:
       - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
       - ./ssl/localhost.crt:/etc/ssl/certs/localhost.crt:ro
@@ -176,12 +197,12 @@ services:
       - "8005:8000" # Mapea el puerto 8000 interno a 8005 en el host
     volumes:
       - db_data:/app/data # Monta un volumen para persistir la base de datos SQLite
+      - ./vault/generated/db-service.token:/vault/token.txt:ro
     environment:
-      VAULT_ADDR: "http://vault:8200"
+      VAULT_ADDR: "https://vault:8200"
+      VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
-      REDIS_PASSWORD: "${REDIS_PASSWORD}"
-      JWT_SECRET: "${JWT_SECRET}"
     depends_on:
       - vault
       - redis
@@ -197,22 +218,23 @@ services:
       - "${REDIS_PORT}:6379"
     volumes:
       - redis_data:/data
-    environment:
-      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
-    secrets:
-      - redis_password
-    command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "o-meu-contrasinal.42", "--maxmemory", "256mb"]
     networks:
       - transcendence_net
   redis-commander:
-    image: rediscommander/redis-commander:latest
+    build: ./redis-commander
+    image: redis-commander
     container_name: redis_commander
-    environment:
-      - REDIS_HOSTS=redis:redis:6379:0:${REDIS_PASSWORD}
+    restart: always
     ports:
       - "8081:8081"
     depends_on:
       - redis
+    environment:
+      VAULT_ADDR: "https://vault:8200"
+      VAULT_SKIP_VERIFY: "true"
+      REDIS_PORT: "6379"
+    volumes:
+      - ./vault/generated/redis-commander.token:/vault/token.txt:ro
     networks:
       - transcendence_net
   sqlite-writer:
@@ -223,14 +245,13 @@ services:
       - redis
       - db-service
     environment:
-      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-    secrets:
-      - redis_password
+      VAULT_ADDR: "https://vault:8200"
+      VAULT_SKIP_VERIFY: "true"
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
     volumes:
       - db_data:/app/data
+      - ./vault/generated/sqlite-writer.token:/vault/token.txt:ro
     restart: on-failure
     networks:
       - transcendence_net
@@ -369,9 +390,157 @@ services:
       - nginx-proxy
     restart: unless-stopped
 
-secrets:
-  redis_password:
-    file: ./secrets/redis/password.txt
+
+  # Monitoring Services
+  
+  # Prometheus - Metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring_system/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring_system/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - transcendence_net
+    restart: unless-stopped
+
+  # Grafana - Metrics visualization
+  grafana:
+    build: ./monitoring_system/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring_system/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring_system/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./monitoring_system/grafana/secrets.env.tpl:/app/secrets.env.tpl:ro
+      - ./vault/generated/grafana.token:/vault/token.txt:ro
+      - ./monitoring_system/grafana/agent.hcl:/vault/agent.hcl:ro
+    environment:
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - transcendence_net
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # Alertmanager - Alert management
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring_system/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://${MACHINE_IP}:9093'
+    networks:
+      - transcendence_net
+    restart: unless-stopped
+
+  # Node Exporter - System metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - transcendence_net
+    restart: unless-stopped
+
+  # Redis Exporter - Redis metrics
+  redis-exporter:
+    build:
+      context: ./monitoring_system/redis-exporter
+    container_name: redis-exporter
+    ports:
+      - "9121:9121"
+    environment:
+      VAULT_ADDR: "https://vault:8200"
+      VAULT_SKIP_VERIFY: "true"
+      REDIS_ADDR: redis://redis:6379
+    volumes:
+      - ./monitoring_system/redis-exporter/agent.hcl:/vault/agent.hcl:ro
+      - ./monitoring_system/redis-exporter/secrets.env.tpl:/app/secrets.env.tpl:ro
+      - ./monitoring_system/redis-exporter/:/output
+      - ./vault/generated/redis-exporter.token:/vault/token.txt:ro
+    networks:
+      - transcendence_net
+    depends_on:
+      - redis
+      - vault
+    restart: unless-stopped
+
+  # cAdvisor - Container metrics
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - "8084:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    networks:
+      - transcendence_net
+    restart: unless-stopped
+
+  # Nginx Exporter - Nginx metrics for WAF and proxy
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: nginx-exporter
+    ports:
+      - "9113:9113"
+    command:
+      - '-nginx.scrape-uri=http://nginx-proxy:80/nginx_status'
+    networks:
+      - transcendence_net
+    depends_on:
+      - nginx-proxy
+    restart: unless-stopped
+
+  # Blackbox Exporter - HTTP/TCP/ICMP monitoring
+  blackbox-exporter:
+    image: prom/blackbox-exporter:latest
+    container_name: blackbox-exporter
+    volumes:
+      - ./monitoring_system/blackbox-exporter/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    ports:
+      - "9115:9115"
+    networks:
+      - transcendence_net
+    depends_on:
+      - nginx-proxy
+    restart: unless-stopped
 
 volumes:
   db_data:
@@ -404,6 +573,21 @@ volumes:
       type: none
       o: bind
       device: ${DATA_PATH}/alertmanager
+<<<<<<< HEAD
+=======
+  vault_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH}/vault/data
+  vault_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH}/vault/logs
+>>>>>>> main
 
 networks:
   transcendence_net:

@@ -91,78 +91,135 @@ export function renderUnifiedGameLocal(): void {
 }
 
 function setupLocalGame(): void {
-    const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
-    const currentUser = getCurrentUser();
-    
-    if (!canvas) {
-        console.error('No se encontró el canvas del juego');
-        return;
-    }
+  const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
+  const currentUser = getCurrentUser();
+  
+  if (!canvas || !currentUser) {
+    console.error('No se encontró el canvas del juego o no hay usuario autenticado');
+    return;
+  }
 
-    // Crear instancia del juego
-    const game = new UnifiedGameRenderer(canvas, 'local');
-    
-    // Set up player info
-    const player1Info = {
-        numero: 1,
-        displayName: 'Jugador 1',
-        username: currentUser?.username || 'player1',
-        controls: 'W/S'
-    };
+  // ✅ Generar marca de tiempo al inicio
+  const startedAt = new Date().toISOString();
 
-    const player2Info = {
-        numero: 2,
-        displayName: 'Jugador 2', 
-        username: 'player2',
-        controls: '↑/↓'
-    };
+  // Crear instancia del juego
+  const game = new UnifiedGameRenderer(canvas, 'local');
+  
+  // Set up player info
+  const player1Info = {
+    numero: 1,
+    displayName: 'Jugador 1',
+    username: currentUser?.username || 'player1',
+    controls: 'W/S'
+  };
 
-    game.setPlayerInfo(player1Info, player2Info);
-    
-    // Configurar callbacks del juego
-    game.setCallbacks({
-        onScoreUpdate: (score) => {
-            const leftScore = document.getElementById('score-left');
-            const rightScore = document.getElementById('score-right');
-            if (leftScore) leftScore.textContent = score.left.toString();
-            if (rightScore) rightScore.textContent = score.right.toString();
-        },
-        onGameEnd: (winner, finalScore) => {
-            const statusMsg = document.getElementById('status-message');
-            if (statusMsg) {
-                statusMsg.innerHTML = `
-                    <div class="text-green-400 font-bold">🎉 ¡${winner} ha ganado!</div>
-                    <div class="text-sm text-gray-400 mt-1">Resultado final: ${finalScore.left} - ${finalScore.right}</div>
-                    <button onclick="location.reload()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mt-2 text-sm">
-                        🔄 Jugar de Nuevo
-                    </button>
-                `;
-            }
-        },
-        onStatusUpdate: (status) => {
-            const statusMsg = document.getElementById('status-message');
-            if (statusMsg) statusMsg.textContent = status;
-        },
-        onGameStateUpdate: (gameState) => {
-            const rallyCounter = document.getElementById('rally-counter');
-            if (rallyCounter) {
-                rallyCounter.textContent = `Rebotes: ${gameState.rallieCount || 0}`;
-            }
+  const player2Info = {
+    numero: 2,
+    displayName: 'Jugador 2', 
+    username: 'player2',
+    controls: '↑/↓'
+  };
+
+  game.setPlayerInfo(player1Info, player2Info);
+  
+  // Configurar callbacks del juego
+  game.setCallbacks({
+    onScoreUpdate: (score) => {
+      const leftScore = document.getElementById('score-left');
+      const rightScore = document.getElementById('score-right');
+      if (leftScore) leftScore.textContent = score.left.toString();
+      if (rightScore) rightScore.textContent = score.right.toString();
+    },
+
+    onGameEnd: async (winner, finalScore) => {
+      const statusMsg = document.getElementById('status-message');
+      if (statusMsg) {
+        statusMsg.innerHTML = `
+          <div class="text-green-400 font-bold">🎉 ¡${winner} ha ganado!</div>
+          <div class="text-sm text-gray-400 mt-1">Resultado final: ${finalScore.left} - ${finalScore.right}</div>
+          <button onclick="location.reload()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mt-2 text-sm">
+            🔄 Jugar de Nuevo
+          </button>
+        `;
+      }
+
+      // ✅ 1. Recuperar el gameId real usando startedAt
+      let dbGameId: number | null = null;
+      try {
+        const response = await fetch('/api/auth/games/id-by-started-at', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startedAt })
+        });
+        const data = await response.json();
+        if (data.gameId) {
+          dbGameId = data.gameId;
+        } else {
+          console.error('No se encontró el gameId en la base de datos');
         }
-    });
+      } catch (err) {
+        console.error('Error al obtener gameId por startedAt:', err);
+      }
 
-    // Iniciar cuenta atrás automáticamente
-    game.startCountdown();
-    
-    // Setup back button
-    const backButton = document.getElementById('back-button');
-    backButton?.addEventListener('click', () => {
-        game.cleanup();
-        navigateTo('/play');
-    });
-    
-    // Cleanup al salir de la página
-    window.addEventListener('beforeunload', () => {
-        game.cleanup();
-    });
+      // ✅ 2. Actualizar la partida en la base de datos
+      if (dbGameId) {
+        try {
+          await fetch('/api/auth/games/finish/local', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              gameId: dbGameId,
+              winnerTeam: finalScore.left > finalScore.right ? 'Team A' : 'Team B',
+              score1: finalScore.left,
+              score2: finalScore.right
+            })
+          });
+        } catch (err) {
+          console.error('Error al finalizar partida en DB:', err);
+        }
+      }
+    },
+
+    onStatusUpdate: (status) => {
+      const statusMsg = document.getElementById('status-message');
+      if (statusMsg) statusMsg.textContent = status;
+    },
+
+    onGameStateUpdate: (gameState) => {
+      const rallyCounter = document.getElementById('rally-counter');
+      if (rallyCounter) {
+        rallyCounter.textContent = `Rebotes: ${gameState.rallieCount || 0}`;
+      }
+    }
+  });
+
+  // ✅ 3. Crear partida en la base de datos al inicio
+  try {
+    fetch('/api/auth/games/create/local', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        player1Id: currentUser.id,
+        tournamentId: null, // o pasa un valor si es torneo
+        startedAt
+      })
+    }).catch(err => console.error('Error creando partida local en DB:', err));
+  } catch (err) {
+    console.error('Error en la llamada a create/local:', err);
+  }
+
+  // Iniciar cuenta atrás automáticamente
+  game.startCountdown();
+  
+  // Setup back button
+  const backButton = document.getElementById('back-button');
+  backButton?.addEventListener('click', () => {
+    game.cleanup();
+    navigateTo('/play');
+  });
+  
+  // Cleanup al salir de la página
+  window.addEventListener('beforeunload', () => {
+    game.cleanup();
+  });
 }

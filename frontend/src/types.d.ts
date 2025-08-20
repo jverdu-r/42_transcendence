@@ -1,6 +1,8 @@
 // src/types.d.ts
+
 declare global {
   interface Window {
+    // Google OAuth
     google: {
       accounts: {
         id: {
@@ -10,6 +12,10 @@ declare global {
         };
       };
     };
+
+    // Funciones globales del juego
+    showNotification: (message: string, type?: 'toast' | 'snackbar', duration?: number) => void;
+    checkRankingChange: () => void;
   }
 }
 

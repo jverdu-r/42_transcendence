@@ -6,6 +6,7 @@
 import { navigateTo } from '../router';
 import { getCurrentUser } from '../auth';
 import { PlayerDisplay, PlayerInfo } from './playerDisplay';
+import { showNotification, checkRankingChange } from '../utils/utils';
 
 export interface UnifiedGameState {
     ball: {
@@ -31,6 +32,12 @@ export interface GameCallbacks {
     onGameEnd?: (winner: string, score: { left: number; right: number }) => void;
     onStatusUpdate?: (status: string) => void;
     onGameStateUpdate?: (state: UnifiedGameState) => void;
+}
+
+interface GameNotificationEvent {
+  message: string;
+  type?: 'toast' | 'snackbar';
+  duration?: number;
 }
 
 export type GameMode = 'local' | 'online' | 'ai';
@@ -81,6 +88,16 @@ export class UnifiedGameRenderer {
         this.initializeGameState();
         this.setupEventListeners();
         this.drawInitialState();
+        
+        document.addEventListener('gameNotification', (e: Event) => {
+            const customEvent = e as CustomEvent<GameNotificationEvent>;
+            const { message, type = 'toast', duration = 5000 } = customEvent.detail;
+            showNotification(message, type, duration);
+        });
+
+        document.addEventListener('rankingUpdate', (e: Event) => {
+            checkRankingChange();
+        });
     }
     
     private initializeGameState(): void {
@@ -158,6 +175,17 @@ export class UnifiedGameRenderer {
         this.player2Info = player2;
     }
     
+    public updatePlayerName(playerNumber: number, playerName: string): void {
+        if (playerNumber === 1 && this.player1Info) {
+            this.player1Info.displayName = playerName;
+            this.player1Info.username = playerName;
+        } else if (playerNumber === 2 && this.player2Info) {
+            this.player2Info.displayName = playerName;
+            this.player2Info.username = playerName;
+        }
+        console.log(`Updated player ${playerNumber} name to: ${playerName}`);
+    }
+    
     public setCallbacks(callbacks: GameCallbacks): void {
         this.callbacks = callbacks;
     }
@@ -177,9 +205,8 @@ export class UnifiedGameRenderer {
                 return;
             }
 
-            // Prompt for LAN host/IP
-            let serverHost = window.prompt('Introduce la IP o hostname del host (LAN):', window.location.hostname);
-            if (!serverHost) serverHost = window.location.hostname;
+            // Use current hostname automatically
+            const serverHost = window.location.hostname;
             
             this.gameId = gameId;
             this.playerNumber = playerNumber;
@@ -241,6 +268,10 @@ export class UnifiedGameRenderer {
                 break;
             case 'playerJoined':
                 this.callbacks.onStatusUpdate?.(`🎮 ${data.playerName} se ha unido al juego`);
+                // Update player information if we get new player data
+                if (data.playerName && data.playerNumber) {
+                    this.updatePlayerName(data.playerNumber, data.playerName);
+                }
                 break;
             case 'playerLeft':
                 this.callbacks.onStatusUpdate?.(`👋 Un jugador ha abandonado el juego`);
@@ -482,6 +513,9 @@ export class UnifiedGameRenderer {
             2 * Math.PI
         );
         this.ctx.fill();
+        
+        // Draw player names and scores
+        this.drawScoresAndPlayerNames();
     }
     
     private drawInitialState(): void {
@@ -552,6 +586,25 @@ export class UnifiedGameRenderer {
         
         // Incrementar contador de rallies
         this.gameState.rallieCount = (this.gameState.rallieCount || 0) + 1;
+    }
+
+    private drawScoresAndPlayerNames(): void {
+        this.ctx.save();
+
+        // Player 1 Name and Score (Top Left)
+        const player1Name = this.player1Info?.displayName || 'Jugador 1';
+        this.ctx.fillStyle = '#FFFF00'; // Yellow for Player 1
+        this.ctx.font = 'bold 24px Arial';
+        this.ctx.textAlign = 'left';
+        this.ctx.fillText(`${player1Name}: ${this.gameState.score.left}`, 20, 30);
+
+        // Player 2 Name and Score (Top Right)
+        const player2Name = this.player2Info?.displayName || 'Jugador 2';
+        this.ctx.fillStyle = '#00BFFF'; // Light blue for Player 2
+        this.ctx.textAlign = 'right';
+        this.ctx.fillText(`${player2Name}: ${this.gameState.score.right}`, this.canvas.width - 20, 30);
+
+        this.ctx.restore();
     }
 
     /**

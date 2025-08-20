@@ -22,4 +22,4 @@ RUN chown -R redis:redis /usr/local/etc/redis && \
     chmod 600 /usr/local/etc/redis/redis.conf
 
 USER redis
-CMD ["sh", "-c", "export REDIS_PASSWORD=$(cat ${REDIS_PASSWORD_FILE}) && exec redis-server /usr/local/etc/redis/redis.conf"]
+CMD ["sh", "-c", "exec redis-server /usr/local/etc/redis/redis.conf"]

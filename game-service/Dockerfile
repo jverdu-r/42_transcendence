@@ -12,6 +12,8 @@ COPY tsconfig.json ./
 
 # Install dependencies
 RUN npm install && npm install node-fetch
+RUN npm install redis dotenv
+RUN npm install --save-dev @types/node
 
 # Copy source code
 COPY src/ ./src/
@@ -25,6 +27,7 @@ EXPOSE 8000
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8000/health || exit 1
+
 
 # Start the application
 CMD ["npm", "start"]

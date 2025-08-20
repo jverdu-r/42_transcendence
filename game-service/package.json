@@ -18,7 +18,10 @@
     "@fastify/websocket": "^8.3.1",
     "fastify": "^4.27.2",
     "uuid": "^9.0.1",
-    "ws": "^8.16.0"
+    "ws": "^8.16.0",
+    "redis": "^4.6.13",
+    "dotenv": "^16.4.5",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
