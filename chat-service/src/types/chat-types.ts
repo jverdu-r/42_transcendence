@@ -1,60 +1,42 @@
 /**
- * Tipos e interfaces para el chat service
+ * Tipos e interfaces para el chat global simple
  */
 
 export interface ChatUser {
-  id: string;
+  id: number;
   username: string;
-  displayName: string;
   isOnline: boolean;
-  lastSeen: Date;
 }
 
 export interface ChatMessage {
-  id: string;
-  userId: string;
-  username: string;
-  message: string;
+  id?: number;
+  senderId: number;  // Cambiado de userId a senderId
+  username?: string;
+  content: string;
   timestamp: Date;
-  roomId: string;
-  type: 'text' | 'system' | 'join' | 'leave';
-}
-
-export interface ChatRoom {
-  id: string;
-  name: string;
-  type: 'global' | 'game' | 'private';
-  users: Set<string>;
-  messages: ChatMessage[];
-  createdAt: Date;
-  gameId?: string; // Para salas de juego específicas
+  type?: 'text' | 'system';
 }
 
 export interface WebSocketMessage {
-  type: 'join_room' | 'leave_room' | 'send_message' | 'get_users' | 'get_messages' | 'user_typing';
+  type: 'join_global' | 'send_message' | 'message_received' | 'user_joined' | 'user_left' | 'error' | 'history' | 'recent_messages' | 'new_message';
   data: any;
 }
 
 export interface ChatConnection {
-  id: string;
+  userId: number;
+  username?: string;
   socket: any;
-  userId: string;
-  username: string;
-  currentRoom?: string;
-  lastActivity: Date;
+  connectedAt: Date;  // Cambiado de lastActivity a connectedAt
 }
 
 export type ChatEventType = 
   | 'message_received' 
   | 'user_joined' 
   | 'user_left' 
-  | 'user_typing' 
-  | 'room_created' 
   | 'error';
 
 export interface ChatEvent {
   type: ChatEventType;
   data: any;
-  roomId?: string;
   timestamp: Date;
 }
