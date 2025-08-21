@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Global - Prueba Directa</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .chat-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 500px;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        
+        .status {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 18px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        
+        .message.own {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            margin-left: auto;
+        }
+        
+        .message.other {
+            background: white;
+            color: #333;
+            border: 1px solid #e9ecef;
+        }
+        
+        .message.system {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            text-align: center;
+            font-style: italic;
+        }
+        
+        .message-info {
+            font-size: 0.8em;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+        
+        .input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .user-input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 0.9em;
+            width: 100px;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            font-size: 1em;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        .message-input:focus {
+            border-color: #667eea;
+        }
+        
+        .send-button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        
+        .send-button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .online-count {
+            background: #28a745;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            💬 Chat Global Transcendence
+            <span id="onlineCount" class="online-count">0 en línea</span>
+        </div>
+        
+        <div id="status" class="status disconnected">
+            🔴 Desconectado - Intentando conectar...
+        </div>
+        
+        <div id="messages" class="messages">
+            <div class="message system">
+                🎉 ¡Bienvenido al chat global! Conectando...
+            </div>
+        </div>
+        
+        <div class="input-container">
+            <input type="number" id="userId" class="user-input" placeholder="ID Usuario" value="1" min="1">
+            <input type="text" id="messageInput" class="message-input" placeholder="Escribe tu mensaje..." disabled>
+            <button id="sendButton" class="send-button" disabled>Enviar</button>
+        </div>
+    </div>
+
+    <script>
+        class ChatClient {
+            constructor() {
+                this.socket = null;
+                this.userId = 1;
+                this.isConnected = false;
+                this.messagesContainer = document.getElementById('messages');
+                this.messageInput = document.getElementById('messageInput');
+                this.sendButton = document.getElementById('sendButton');
+                this.statusElement = document.getElementById('status');
+                this.userIdInput = document.getElementById('userId');
+                this.onlineCountElement = document.getElementById('onlineCount');
+                
+                this.initEventListeners();
+                this.connect();
+            }
+            
+            initEventListeners() {
+                this.sendButton.addEventListener('click', () => this.sendMessage());
+                this.messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.sendMessage();
+                });
+                
+                this.userIdInput.addEventListener('change', (e) => {
+                    this.userId = parseInt(e.target.value) || 1;
+                    if (this.isConnected) {
+                        this.reconnect();
+                    }
+                });
+            }
+            
+            connect() {
+                try {
+                    // Conectar directamente al puerto del chat-service
+                    this.socket = new WebSocket('ws://localhost:8003/ws');
+                    
+                    this.socket.onopen = () => {
+                        console.log('🟢 Conectado al chat');
+                        this.isConnected = true;
+                        this.updateStatus('connected', '🟢 Conectado al chat global');
+                        this.messageInput.disabled = false;
+                        this.sendButton.disabled = false;
+                        
+                        // Enviar mensaje de join
+                        this.send({
+                            type: 'join_global',
+                            data: { userId: this.userId }
+                        });
+                    };
+                    
+                    this.socket.onmessage = (event) => {
+                        const message = JSON.parse(event.data);
+                        this.handleMessage(message);
+                    };
+                    
+                    this.socket.onclose = () => {
+                        console.log('🔴 Desconectado del chat');
+                        this.isConnected = false;
+                        this.updateStatus('disconnected', '🔴 Desconectado - Reintentando...');
+                        this.messageInput.disabled = true;
+                        this.sendButton.disabled = true;
+                        
+                        // Reintentar conexión en 3 segundos
+                        setTimeout(() => this.connect(), 3000);
+                    };
+                    
+                    this.socket.onerror = (error) => {
+                        console.error('❌ Error de WebSocket:', error);
+                        this.updateStatus('disconnected', '❌ Error de conexión');
+                    };
+                    
+                } catch (error) {
+                    console.error('❌ Error al conectar:', error);
+                    this.updateStatus('disconnected', '❌ Error al conectar');
+                    setTimeout(() => this.connect(), 3000);
+                }
+            }
+            
+            reconnect() {
+                if (this.socket) {
+                    this.socket.close();
+                }
+                setTimeout(() => this.connect(), 500);
+            }
+            
+            send(message) {
+                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                    this.socket.send(JSON.stringify(message));
+                }
+            }
+            
+            sendMessage() {
+                const content = this.messageInput.value.trim();
+                if (!content || !this.isConnected) return;
+                
+                this.send({
+                    type: 'send_message',
+                    data: { 
+                        userId: this.userId,
+                        content: content
+                    }
+                });
+                
+                this.messageInput.value = '';
+            }
+            
+            handleMessage(message) {
+                console.log('📨 Mensaje recibido:', message);
+                
+                switch (message.type) {
+                    case 'recent_messages':
+                        if (message.data.messages) {
+                            message.data.messages.forEach(msg => this.displayMessage(msg, false));
+                        }
+                        break;
+                        
+                    case 'new_message':
+                        if (message.data.message) {
+                            this.displayMessage(message.data.message, true);
+                        }
+                        break;
+                        
+                    case 'user_joined':
+                        this.displaySystemMessage(`👤 Usuario ${message.data.userId} se ha conectado`);
+                        this.updateOnlineCount(message.data.onlineCount);
+                        break;
+                        
+                    case 'user_left':
+                        this.displaySystemMessage(`👋 Usuario ${message.data.userId} se ha desconectado`);
+                        this.updateOnlineCount(message.data.onlineCount);
+                        break;
+                        
+                    case 'error':
+                        this.displaySystemMessage(`❌ Error: ${message.data.message}`);
+                        break;
+                }
+            }
+            
+            displayMessage(message, isNew = false) {
+                const messageElement = document.createElement('div');
+                const isOwnMessage = message.senderId === this.userId;
+                
+                messageElement.className = `message ${isOwnMessage ? 'own' : 'other'}`;
+                
+                const time = new Date(message.timestamp).toLocaleTimeString();
+                messageElement.innerHTML = `
+                    <div class="message-info">Usuario ${message.senderId} - ${time}</div>
+                    <div>${this.escapeHtml(message.content)}</div>
+                `;
+                
+                this.messagesContainer.appendChild(messageElement);
+                
+                if (isNew) {
+                    this.scrollToBottom();
+                }
+            }
+            
+            displaySystemMessage(content) {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'message system';
+                messageElement.textContent = content;
+                this.messagesContainer.appendChild(messageElement);
+                this.scrollToBottom();
+            }
+            
+            updateStatus(type, message) {
+                this.statusElement.className = `status ${type}`;
+                this.statusElement.textContent = message;
+            }
+            
+            updateOnlineCount(count) {
+                this.onlineCountElement.textContent = `${count} en línea`;
+            }
+            
+            scrollToBottom() {
+                this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+            }
+            
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        }
+        
+        // Inicializar el chat cuando se carga la página
+        document.addEventListener('DOMContentLoaded', () => {
+            new ChatClient();
+        });
+    </script>
+</body>
+</html>

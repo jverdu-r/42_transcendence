@@ -12,6 +12,7 @@ services:
       VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
       EMAIL_HOST: "${EMAIL_HOST}"
       EMAIL_PORT: "${EMAIL_PORT}"
       EMAIL_SECURE: "${EMAIL_SECURE}"
@@ -40,6 +41,7 @@ services:
       VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
 
     depends_on:
       - db-service
@@ -63,6 +65,7 @@ services:
       VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
 
     depends_on:
       - db-service
@@ -86,6 +89,7 @@ services:
       CHAT_SERVICE_URL: "${CHAT_SERVICE_URL}"
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
       VAULT_ADDR: "https://vault:8200"
       VAULT_SKIP_VERIFY: "true"
     depends_on:
@@ -203,6 +207,7 @@ services:
       VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"
       REDIS_PORT: "${REDIS_PORT}"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
     depends_on:
       - vault
       - redis
@@ -249,6 +254,7 @@ services:
       VAULT_SKIP_VERIFY: "true"
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     volumes:
       - db_data:/app/data
       - ./vault/generated/sqlite-writer.token:/vault/token.txt:ro
@@ -339,7 +345,7 @@ services:
       - "9121:9121"
     environment:
       - REDIS_ADDR=redis://redis:6379
-      - REDIS_PASSWORD=o-meu-contrasinal.42
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     networks:
       - transcendence_net
     depends_on:
@@ -573,8 +579,6 @@ volumes:
       type: none
       o: bind
       device: ${DATA_PATH}/alertmanager
-<<<<<<< HEAD
-=======
   vault_data:
     driver: local
     driver_opts:
@@ -587,7 +591,6 @@ volumes:
       type: none
       o: bind
       device: ${DATA_PATH}/vault/logs
->>>>>>> main
 
 networks:
   transcendence_net:

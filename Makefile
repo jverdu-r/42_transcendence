@@ -1,4 +1,4 @@
-COMPOSE = /usr/bin/docker compose -f docker-compose.yml --env-file .env
+COMPOSE = docker compose -f docker-compose.yml --env-file .env
 
 PROJECT_NAME := transcendence
 DATA_PATH ?= $(HOME)/data/$(PROJECT_NAME)

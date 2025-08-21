@@ -40,8 +40,15 @@ EOF
     echo -e "${YELLOW}💡 Review and modify .env file if needed${NC}"
 else
     echo -e "${YELLOW}⚠️ .env file already exists, updating DATA_PATH...${NC}"
-    sed -i "s|DATA_PATH=.*|DATA_PATH=$DATA_PATH|" "$SCRIPT_DIR/.env"
-    sed -i "s|VAULT_ADDR=.*|VAULT_ADDR=https://localhost:8200|" "$SCRIPT_DIR/.env"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        sed -i '' "s|DATA_PATH=.*|DATA_PATH=$DATA_PATH|" "$SCRIPT_DIR/.env"
+        sed -i '' "s|VAULT_ADDR=.*|VAULT_ADDR=https://localhost:8200|" "$SCRIPT_DIR/.env"
+    else
+        # Linux
+        sed -i "s|DATA_PATH=.*|DATA_PATH=$DATA_PATH|" "$SCRIPT_DIR/.env"
+        sed -i "s|VAULT_ADDR=.*|VAULT_ADDR=https://localhost:8200|" "$SCRIPT_DIR/.env"
+    fi
     # Add VAULT_SKIP_VERIFY if not present
     if ! grep -q "VAULT_SKIP_VERIFY" "$SCRIPT_DIR/.env"; then
         echo "VAULT_SKIP_VERIFY=true" >> "$SCRIPT_DIR/.env"

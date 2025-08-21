@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Chat WebSocket con SQLite</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.connecting {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .chat-container {
+            margin: 20px 0;
+        }
+        
+        .join-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+        }
+        
+        .join-section input, .join-section button {
+            padding: 8px 12px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .join-section button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .join-section button:hover {
+            background-color: #0056b3;
+        }
+        
+        .join-section button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .messages {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            background-color: #fff;
+            border-radius: 4px;
+        }
+        
+        .message {
+            margin: 5px 0;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        
+        .message.system {
+            background-color: #e9ecef;
+            color: #495057;
+            font-style: italic;
+        }
+        
+        .message.user {
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .message.error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        
+        .send-section {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .send-section input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .send-section button {
+            padding: 8px 16px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .send-section button:hover {
+            background-color: #218838;
+        }
+        
+        .send-section button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .info-section {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .database-test {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f0f8f0;
+            border-radius: 4px;
+            border-left: 4px solid #28a745;
+        }
+        
+        .database-test button {
+            margin: 5px;
+            padding: 8px 12px;
+            background-color: #17a2b8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .database-test button:hover {
+            background-color: #138496;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Test Chat WebSocket con SQLite 🗄️</h1>
+        
+        <div id="status" class="status disconnected">
+            🔴 Desconectado
+        </div>
+        
+        <div class="info-section">
+            <h3>📋 Información del Test</h3>
+            <p><strong>Servidor WebSocket:</strong> ws://localhost:8003/ws</p>
+            <p><strong>Funcionalidades a probar:</strong></p>
+            <ul>
+                <li>✅ Conexión WebSocket en tiempo real</li>
+                <li>✅ Envío y recepción de mensajes</li>
+                <li>✅ Persistencia de mensajes en SQLite</li>
+                <li>✅ Historial de mensajes al conectarse</li>
+                <li>✅ Notificaciones de usuarios conectados</li>
+            </ul>
+        </div>
+        
+        <div class="chat-container">
+            <div class="join-section">
+                <h3>👤 Unirse al Chat Global</h3>
+                <input type="text" id="userId" placeholder="User ID (ej: user123)" value="user123">
+                <input type="text" id="username" placeholder="Nombre de usuario" value="TestUser">
+                <button id="joinBtn" onclick="joinChat()">🚀 Conectar al Chat</button>
+                <button id="disconnectBtn" onclick="disconnectChat()" disabled>🔌 Desconectar</button>
+            </div>
+            
+            <div id="messages" class="messages">
+                <div class="message system">💬 Mensajes del chat aparecerán aquí...</div>
+            </div>
+            
+            <div class="send-section">
+                <input type="text" id="messageInput" placeholder="Escribe tu mensaje aquí..." disabled>
+                <button id="sendBtn" onclick="sendMessage()" disabled>📤 Enviar</button>
+            </div>
+        </div>
+        
+        <div class="database-test">
+            <h3>🗄️ Test de Persistencia SQLite</h3>
+            <p>Verifica que los mensajes se guardan en la base de datos:</p>
+            <button onclick="sendTestMessage()">📝 Enviar Mensaje de Prueba</button>
+            <button onclick="requestHistory()">📚 Solicitar Historial</button>
+            <div id="dbStatus" style="margin-top: 10px; font-style: italic;"></div>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let isConnected = false;
+        let currentUserId = null;
+        let currentUsername = null;
+
+        function updateStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        function addMessage(content, type = 'system') {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            messageDiv.innerHTML = `<span style="color: #666; font-size: 0.8em;">[${timestamp}]</span> ${content}`;
+            
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function updateDbStatus(message) {
+            const dbStatusDiv = document.getElementById('dbStatus');
+            dbStatusDiv.textContent = message;
+        }
+
+        function joinChat() {
+            const userId = document.getElementById('userId').value.trim();
+            const username = document.getElementById('username').value.trim();
+            
+            if (!userId || !username) {
+                alert('Por favor, ingresa tanto el User ID como el nombre de usuario');
+                return;
+            }
+
+            updateStatus('🟡 Conectando...', 'connecting');
+            
+            try {
+                socket = new WebSocket('ws://localhost:8003/ws');
+                
+                socket.onopen = function(event) {
+                    updateStatus('🟢 Conectado al WebSocket', 'connected');
+                    addMessage('🔗 Conexión WebSocket establecida');
+                    
+                    // Enviar solicitud para unirse al chat global
+                    const joinMessage = {
+                        type: 'join_global',
+                        data: {
+                            userId: userId,
+                            username: username
+                        }
+                    };
+                    
+                    socket.send(JSON.stringify(joinMessage));
+                    addMessage(`📤 Solicitud de unión enviada: ${userId} (${username})`);
+                };
+                
+                socket.onmessage = function(event) {
+                    try {
+                        const message = JSON.parse(event.data);
+                        handleIncomingMessage(message);
+                    } catch (error) {
+                        addMessage(`❌ Error al parsear mensaje: ${error.message}`, 'error');
+                    }
+                };
+                
+                socket.onclose = function(event) {
+                    updateStatus('🔴 Desconectado', 'disconnected');
+                    addMessage('🔌 Conexión WebSocket cerrada');
+                    isConnected = false;
+                    updateButtons();
+                };
+                
+                socket.onerror = function(error) {
+                    updateStatus('🔴 Error de conexión', 'disconnected');
+                    addMessage(`❌ Error de WebSocket: ${error.message || 'Error desconocido'}`, 'error');
+                };
+                
+            } catch (error) {
+                updateStatus('🔴 Error de conexión', 'disconnected');
+                addMessage(`❌ Error al conectar: ${error.message}`, 'error');
+            }
+        }
+
+        function handleIncomingMessage(message) {
+            console.log('Mensaje recibido:', message);
+            
+            switch (message.type) {
+                case 'join_global':
+                    if (message.data.success) {
+                        isConnected = true;
+                        currentUserId = message.data.userId;
+                        currentUsername = message.data.username;
+                        addMessage(`✅ Conectado exitosamente como ${message.data.username}`, 'system');
+                        updateDbStatus('✅ Conexión establecida - Listo para persistencia SQLite');
+                        updateButtons();
+                    } else {
+                        addMessage(`❌ Error al conectar: ${message.data.message}`, 'error');
+                    }
+                    break;
+                    
+                case 'recent_messages':
+                    addMessage(`📚 Cargando historial de mensajes (${message.data.length} mensajes)...`, 'system');
+                    message.data.forEach(msg => {
+                        addMessage(`📜 [${msg.username}]: ${msg.content}`, 'user');
+                    });
+                    updateDbStatus(`📊 Historial cargado desde SQLite: ${message.data.length} mensajes`);
+                    break;
+                    
+                case 'new_message':
+                    const isOwnMessage = message.data.userId === currentUserId;
+                    const prefix = isOwnMessage ? '📤 [TÚ]' : '📥';
+                    addMessage(`${prefix} [${message.data.username}]: ${message.data.content}`, 'user');
+                    
+                    if (isOwnMessage) {
+                        updateDbStatus(`💾 Mensaje guardado en SQLite: ID ${message.data.id || 'N/A'}`);
+                    }
+                    break;
+                    
+                case 'user_joined':
+                    if (message.data.userId !== currentUserId) {
+                        addMessage(`👋 ${message.data.username} se ha unido al chat`, 'system');
+                    }
+                    break;
+                    
+                case 'error':
+                    addMessage(`❌ Error: ${message.data.message}`, 'error');
+                    break;
+                    
+                default:
+                    addMessage(`🔍 Mensaje desconocido: ${JSON.stringify(message)}`, 'system');
+            }
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const messageText = messageInput.value.trim();
+            
+            if (!messageText || !isConnected) {
+                return;
+            }
+            
+            const message = {
+                type: 'send_message',
+                data: {
+                    content: messageText
+                }
+            };
+            
+            socket.send(JSON.stringify(message));
+            messageInput.value = '';
+            updateDbStatus('⏳ Enviando mensaje a SQLite...');
+        }
+
+        function sendTestMessage() {
+            if (!isConnected) {
+                alert('Debes conectarte primero al chat');
+                return;
+            }
+            
+            const testMessages = [
+                "🧪 Mensaje de prueba para SQLite",
+                "📊 Verificando persistencia en base de datos",
+                "🔍 Test de integración WebSocket + SQLite",
+                "💾 Comprobando que los mensajes se guardan"
+            ];
+            
+            const randomMessage = testMessages[Math.floor(Math.random() * testMessages.length)];
+            const messageInput = document.getElementById('messageInput');
+            messageInput.value = randomMessage;
+            sendMessage();
+        }
+
+        function requestHistory() {
+            if (!isConnected) {
+                alert('Debes conectarte primero al chat');
+                return;
+            }
+            
+            addMessage('📚 Solicitando historial de mensajes desde SQLite...', 'system');
+            updateDbStatus('🔄 Cargando historial desde SQLite...');
+            
+            // El historial se carga automáticamente al conectarse, pero podemos forzar una solicitud
+            const request = {
+                type: 'get_history',
+                data: {}
+            };
+            
+            socket.send(JSON.stringify(request));
+        }
+
+        function disconnectChat() {
+            if (socket) {
+                socket.close();
+            }
+            isConnected = false;
+            currentUserId = null;
+            currentUsername = null;
+            updateButtons();
+            updateDbStatus('');
+        }
+
+        function updateButtons() {
+            const joinBtn = document.getElementById('joinBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            const messageInput = document.getElementById('messageInput');
+            const sendBtn = document.getElementById('sendBtn');
+            
+            joinBtn.disabled = isConnected;
+            disconnectBtn.disabled = !isConnected;
+            messageInput.disabled = !isConnected;
+            sendBtn.disabled = !isConnected;
+            
+            if (isConnected) {
+                messageInput.focus();
+            }
+        }
+
+        // Enviar mensaje con Enter
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Inicializar estado de botones
+        updateButtons();
+        
+        // Mensaje inicial
+        addMessage('🚀 Test de Chat WebSocket con SQLite listo. Conéctate para empezar.');
+    </script>
+</body>
+</html>

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Chat Global</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .chat-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        
+        .status.disconnected { background-color: #ffebee; color: #c62828; }
+        .status.connected { background-color: #e8f5e8; color: #2e7d32; }
+        .status.connecting { background-color: #fff3e0; color: #ef6c00; }
+        
+        .user-info {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        
+        .messages {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: #fafafa;
+            border-radius: 4px;
+        }
+        
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            background-color: white;
+            border-left: 3px solid #2196F3;
+        }
+        
+        .message.own {
+            background-color: #e3f2fd;
+            border-left-color: #1976D2;
+            margin-left: 50px;
+        }
+        
+        .message.system {
+            background-color: #fff3e0;
+            border-left-color: #ff9800;
+            font-style: italic;
+        }
+        
+        .message-header {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        button:hover { background-color: #1976D2; }
+        button:disabled { 
+            background-color: #ccc; 
+            cursor: not-allowed; 
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .stats {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>🗨️ Test Chat Global - Transcendence</h1>
+    
+    <div class="chat-container">
+        <div id="status" class="status disconnected">
+            ❌ Desconectado
+        </div>
+        
+        <div class="user-info">
+            <label for="usernameInput">👤 Tu nombre de usuario:</label>
+            <input type="text" id="usernameInput" placeholder="Escribe tu nombre..." value="TestUser">
+        </div>
+        
+        <div class="controls">
+            <button id="connectBtn" onclick="connectToChat()">Conectar al Chat</button>
+            <button id="disconnectBtn" onclick="disconnectFromChat()" disabled>Desconectar</button>
+        </div>
+        
+        <div id="messages" class="messages">
+            <div class="message system">
+                <div class="message-header">Sistema</div>
+                <div>Ingresa tu nombre de usuario y haz clic en "Conectar al Chat" para comenzar.</div>
+            </div>
+        </div>
+        
+        <div class="input-group">
+            <input 
+                type="text" 
+                id="messageInput" 
+                placeholder="Escribe tu mensaje..." 
+                disabled
+                onkeypress="handleKeyPress(event)"
+            >
+            <button id="sendBtn" onclick="sendMessage()" disabled>Enviar</button>
+        </div>
+        
+        <div class="stats" id="stats">
+            Usuarios conectados: 0
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let isConnected = false;
+        let currentUserId = null;
+        let currentUsername = null;
+
+        function updateStatus(status, message) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = `status ${status}`;
+            statusEl.textContent = message;
+        }
+
+        function addMessage(username, content, isOwn = false, isSystem = false) {
+            const messagesEl = document.getElementById('messages');
+            const messageEl = document.createElement('div');
+            
+            messageEl.className = `message ${isOwn ? 'own' : ''} ${isSystem ? 'system' : ''}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            messageEl.innerHTML = `
+                <div class="message-header">${username} • ${timestamp}</div>
+                <div>${content}</div>
+            `;
+            
+            messagesEl.appendChild(messageEl);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function connectToChat() {
+            const username = document.getElementById('usernameInput').value.trim();
+            
+            if (!username) {
+                alert('Por favor, ingresa un nombre de usuario');
+                return;
+            }
+
+            if (socket) {
+                socket.close();
+            }
+
+            updateStatus('connecting', '🔄 Conectando...');
+            
+            // Conectar al WebSocket
+            socket = new WebSocket('ws://localhost:8003/ws');
+            
+            socket.onopen = function() {
+                console.log('WebSocket conectado');
+                currentUsername = username;
+                
+                // Unirse al chat global
+                socket.send(JSON.stringify({
+                    type: 'join_global',
+                    data: { username: username }
+                }));
+            };
+            
+            socket.onmessage = function(event) {
+                const message = JSON.parse(event.data);
+                console.log('Mensaje recibido:', message);
+                
+                switch(message.type) {
+                    case 'join_global':
+                        if (message.data.success) {
+                            isConnected = true;
+                            currentUserId = message.data.userId;
+                            updateStatus('connected', `✅ Conectado como ${message.data.username} (ID: ${currentUserId})`);
+                            
+                            document.getElementById('connectBtn').disabled = true;
+                            document.getElementById('disconnectBtn').disabled = false;
+                            document.getElementById('messageInput').disabled = false;
+                            document.getElementById('sendBtn').disabled = false;
+                            document.getElementById('usernameInput').disabled = true;
+                            
+                            addMessage('Sistema', `Te has conectado al chat global como ${message.data.username}`, false, true);
+                        }
+                        break;
+                    
+                    case 'message_received':
+                        const msg = message.data;
+                        const isOwn = msg.userId === currentUserId;
+                        addMessage(msg.username, msg.content, isOwn);
+                        break;
+                    
+                    case 'user_joined':
+                        addMessage('Sistema', `${message.data.username} se ha unido al chat`, false, true);
+                        break;
+                    
+                    case 'user_left':
+                        addMessage('Sistema', `${message.data.username} ha salido del chat`, false, true);
+                        break;
+                    
+                    case 'history':
+                        // Cargar historial de mensajes
+                        message.data.forEach(msg => {
+                            const isOwn = msg.userId === currentUserId;
+                            addMessage(msg.username || `Usuario${msg.userId}`, msg.message || msg.content, isOwn);
+                        });
+                        if (message.data.length > 0) {
+                            addMessage('Sistema', `--- Historial de ${message.data.length} mensajes anteriores ---`, false, true);
+                        }
+                        break;
+                    
+                    case 'error':
+                        addMessage('Error', message.data.message, false, true);
+                        break;
+                }
+            };
+            
+            socket.onclose = function() {
+                console.log('WebSocket desconectado');
+                isConnected = false;
+                updateStatus('disconnected', '❌ Desconectado');
+                
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+                document.getElementById('messageInput').disabled = true;
+                document.getElementById('sendBtn').disabled = true;
+                document.getElementById('usernameInput').disabled = false;
+                
+                addMessage('Sistema', 'Desconectado del chat', false, true);
+            };
+            
+            socket.onerror = function(error) {
+                console.error('Error WebSocket:', error);
+                updateStatus('disconnected', '❌ Error de conexión');
+                addMessage('Error', 'Error de conexión con el servidor', false, true);
+            };
+        }
+
+        function disconnectFromChat() {
+            if (socket) {
+                socket.close();
+            }
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const content = messageInput.value.trim();
+            
+            if (!content || !isConnected) {
+                return;
+            }
+            
+            socket.send(JSON.stringify({
+                type: 'send_message',
+                data: { content: content }
+            }));
+            
+            messageInput.value = '';
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // Actualizar estadísticas cada 5 segundos
+        setInterval(async function() {
+            try {
+                const response = await fetch('http://localhost:8003/stats');
+                const data = await response.json();
+                document.getElementById('stats').textContent = 
+                    `Usuarios conectados: ${data.data.onlineUsers}`;
+            } catch (error) {
+                // Ignorar errores de stats
+            }
+        }, 5000);
+    </script>
+</body>
+</html>

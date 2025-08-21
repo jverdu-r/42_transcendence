@@ -3,7 +3,14 @@
 # Script to automatically detect and set the machine IP in .env file
 
 # Get the current machine's IP address (excluding localhost)
-CURRENT_IP=$(hostname -I | awk '{print $1}')
+# Check if we're on macOS or Linux
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS
+    CURRENT_IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -1)
+else
+    # Linux
+    CURRENT_IP=$(hostname -I | awk '{print $1}')
+fi
 
 if [ -z "$CURRENT_IP" ]; then
     echo "❌ Could not detect machine IP automatically"
@@ -22,7 +29,13 @@ fi
 # Update the MACHINE_IP in .env file
 if grep -q "MACHINE_IP=" .env; then
     # Replace existing MACHINE_IP
-    sed -i "s/MACHINE_IP=.*/MACHINE_IP=$CURRENT_IP/" .env
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS requires different sed syntax
+        sed -i '' "s/MACHINE_IP=.*/MACHINE_IP=$CURRENT_IP/" .env
+    else
+        # Linux
+        sed -i "s/MACHINE_IP=.*/MACHINE_IP=$CURRENT_IP/" .env
+    fi
     echo "✅ Updated MACHINE_IP to $CURRENT_IP in .env file"
 else
     # Add MACHINE_IP if it doesn't exist
