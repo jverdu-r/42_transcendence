@@ -11,20 +11,20 @@ import { renderLoginPage } from './pages/login';
 import { renderRegister } from './pages/register';
 import { renderNavbar } from './components/navbar';
 import { isAuthenticated } from './auth';
-
 // New unified game pages (páginas que usamos)
 import { renderUnifiedGameLocal } from './pages/unifiedGameLocal';
 import { renderUnifiedGameAI } from './pages/unifiedGameAI';
 import { renderUnifiedGameOnline } from './pages/unifiedGameOnline';
 import { renderGameLobby } from './pages/gameLobby';
-
 // Spectator page
 import { renderGameSpectator, startSpectatorAutoRefresh, stopSpectatorAutoRefresh, cleanupSpectator } from './pages/gameSpectator';
-
-//tournaments page under construction
+// Tournaments
 import { renderTournamentsPage } from './pages/tournaments';
-// Define las rutas que realmente usamos
-const routes: { [key: string]: () => void } = {
+import { renderTournamentsHistoryPage } from './pages/tournamentsHistory';
+import { renderTournamentResultsPage } from './pages/tournamentResults';
+
+// Define las rutas estáticas
+const staticRoutes: { [key: string]: () => void } = {
   '/home': renderHomePage,
   '/': () => {
     // Redirigir al login si no está autenticado, al home si lo está
@@ -51,6 +51,7 @@ const routes: { [key: string]: () => void } = {
 
   // Tournaments route
   '/tournaments': renderTournamentsPage,
+  '/tournaments/history': renderTournamentsHistoryPage,
 
   // Spectator route
   '/spectator': () => {
@@ -60,11 +61,28 @@ const routes: { [key: string]: () => void } = {
   }
 };
 
+// === RUTAS DINÁMICAS (con parámetros) ===
+interface DynamicRoute {
+  pattern: RegExp;
+  handler: (params: { [key: string]: string }) => void;
+}
+
+const dynamicRoutes: DynamicRoute[] = [
+  {
+    // Patrón: /tournaments/results/:id
+    pattern: /^\/tournaments\/results\/([^\/]+)$/,
+    handler: (params) => {
+      const { id } = params;
+      renderTournamentResultsPage(id); // Asumimos que esta función acepta el ID
+    }
+  }
+];
+
 /**
  * Función auxiliar para establecer la estructura principal de la aplicación (navbar + contenido de página).
  * Solo la recrea si no existe.
  */
-function setupMainAppLayout(): void {
+export function setupMainAppLayout(): void {
   const appRoot = document.getElementById('app-root');
   if (!appRoot) {
     console.error('Elemento con id "app-root" no encontrado para configurar el layout principal.');
@@ -104,10 +122,7 @@ export async function navigateTo(path: string): Promise<void> {
   
   const isAuthPage = routePath === '/login' || routePath === '/register';
   const currentPagePath = window.location.pathname;
-  const wasAuthPage =
-    currentPagePath === '/login' ||
-    currentPagePath === '/register' ||
-    currentPagePath === '/';
+  const wasAuthPage = currentPagePath === '/login' || currentPagePath === '/register';
   
   // Verifica si el usuario está autenticado
   const userIsAuthenticated = isAuthenticated();
@@ -132,8 +147,11 @@ export async function navigateTo(path: string): Promise<void> {
     // y dejamos que renderLoginPage/renderRegister sobrescriba appRoot.innerHTML
     if (!wasAuthPage) { // Solo si venimos de una página que no era de autenticación
         appRoot.innerHTML = ''; // Limpia la estructura principal (navbar + main)
+    } else {
+      setupMainAppLayout(); // ✅ Esto crea #navbar-container
+      renderNavbar(routePath);
     }
-    const renderFunction = routes[routePath];
+    const renderFunction = staticRoutes[routePath];
     if (renderFunction) {
       renderFunction(); // Llama a la función de renderizado de login/register
     } else {
@@ -157,16 +175,40 @@ export async function navigateTo(path: string): Promise<void> {
     // Limpia solo el contenido de la página para las rutas no de autenticación
     pageContentContainer.innerHTML = '';
 
-    const renderFunction = routes[routePath]; // Usar routePath sin parámetros
-    if (renderFunction) {
-      renderFunction(); // Renderiza el contenido de la página dentro de #page-content
-    } else {
-      // Manejar 404 o redirigir a una página predeterminada
-      pageContentContainer.innerHTML = '<h1>404 - Página No Encontrada</h1><p>Lo sentimos, la página que buscas no existe.</p>';
-      console.warn(`Ruta no encontrada para la ruta: ${routePath}`);
+    let routeFound = false;
+
+    // 1. Rutas estáticas
+    if (staticRoutes[routePath]) {
+      staticRoutes[routePath]();
+      routeFound = true;
+    }
+    // 2. Rutas dinámicas
+    else {
+      for (const dynamicRoute of dynamicRoutes) {
+        const match = routePath.match(dynamicRoute.pattern);
+        if (match) {
+          const paramNames = ['id'];
+          const params: { [key: string]: string } = {};
+          paramNames.forEach((name, index) => {
+            params[name] = decodeURIComponent(match[index + 1]);
+          });
+          dynamicRoute.handler(params);
+          routeFound = true;
+          break;
+        }
+      }
     }
 
-    // Siempre vuelve a renderizar el navbar para actualizar el enlace activo en las páginas de la aplicación
+    // 3. 404
+    if (!routeFound) {
+      pageContentContainer.innerHTML = `
+        <div class="text-center text-[#ffc300] text-2xl font-bold">404 - Page Not Found</div>
+        <p class="text-gray-400 mt-2">The route "${routePath}" does not exist.</p>
+      `;
+      console.warn(`Ruta no encontrada: ${routePath}`);
+    }
+
+    // Siempre vuelve a renderizar el navbar para actualizar el enlace activo
     renderNavbar(routePath);
   }
 

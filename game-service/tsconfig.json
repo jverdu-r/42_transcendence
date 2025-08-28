@@ -9,10 +9,13 @@
     "strict": true,
     "skipLibCheck": true,
     "strictPropertyInitialization": false,
-    "noImplicitAny": false
+    "noImplicitAny": false,
+    "types": ["node"]
   },
   "ts-node": {
     "transpileOnly": true,
     "esm": true
-  }
+  },
+  "include": ["src"]
 }
+

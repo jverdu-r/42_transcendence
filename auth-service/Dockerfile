@@ -2,7 +2,7 @@ FROM node:20
 
 WORKDIR /app
 
-# Instala dependencias del sistema necesarias para compilar 'canvas'
+# Instala dependencias del sistema necesarias para compilar 'canvas' y Vault
 RUN apt-get update && apt-get install -y \
     build-essential \
     libcairo2-dev \
@@ -10,33 +10,38 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     libgif-dev \
     librsvg2-dev \
+    wget \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
-COPY types.d.ts ./ 
-COPY package*.json ./
+# Instala Vault
+RUN wget -q https://releases.hashicorp.com/vault/1.15.5/vault_1.15.5_linux_amd64.zip \
+    && unzip vault_1.15.5_linux_amd64.zip \
+    && mv vault /usr/local/bin/ \
+    && rm vault_1.15.5_linux_amd64.zip
 
+# Copia package*.json primero para aprovechar la caché de capas
+COPY package*.json ./
+COPY types.d.ts ./
+
+# Instala las dependencias de npm
 # Fuerza la reconstrucción de canvas desde cero
 RUN npm install --build-from-source=canvas && npm install --save-dev @types/nodemailer
+RUN npm install axios
 
-# Copia el código fuente
+# Copia el código fuente (incluyendo src/utils/i18n/)
 COPY . .
+
+# ✅ Ahora SÍ existe la carpeta src, así que podemos copiar los archivos .json
+RUN mkdir -p dist/utils/i18n && cp -r src/utils/i18n/*.json dist/utils/i18n/
 
 # Compila el proyecto
 RUN npm run build
 
-EXPOSE 8000
-
-# Instala Vault (añade esto antes de copiar tu código)
-RUN apt-get update && apt-get install -y wget gnupg lsb-release && \
-    wget -qO- https://apt.releases.hashicorp.com/gpg | gpg --dearmor > /usr/share/keyrings/hashicorp-archive-keyring.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/hashicorp.list && \
-    apt-get update && apt-get install -y vault
-
-# Copia los archivos de Vault Agent y el script de arranque
-COPY start-with-vault.sh agent.hcl secrets.env.tpl ./
-
-# Da permisos de ejecución al script
+# Copia los archivos de configuración de Vault
+COPY agent.hcl secrets.env.tpl start-with-vault.sh ./
 RUN chmod +x start-with-vault.sh
 
-# Cambia el CMD para usar el script de arranque
+EXPOSE 8000
+
 CMD ["./start-with-vault.sh"]

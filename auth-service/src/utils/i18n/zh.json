@@ -1,0 +1,19 @@
+{
+  "email": {
+    "subjectIsWinner": "🎉 你赢了一场比赛！",
+    "subjectIsNotWinner": "😢 你输了一场比赛",
+    "resultIsWinner": "恭喜！",
+    "resultIsNotWinner": "打得好！",
+    "versus": "对阵 ",
+    "tournament": "锦标赛",
+    "tournamentGame": "锦标赛比赛",
+    "player": "玩家：",
+    "opponent": "对手：",
+    "result": "结果：",
+    "mode": "模式：",
+    "AI": "对阵人工智能",
+    "human": "对阵人类",
+    "thanks": "感谢你玩 Transcendence。",
+    "mail": "这是一封自动发送的邮件，请不要回复。"
+  }
+}

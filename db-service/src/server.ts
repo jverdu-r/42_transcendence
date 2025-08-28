@@ -1,63 +1,64 @@
+// db-service/src/server.ts
+
 import Fastify from 'fastify';
-import { initializeDb, openDb } from './database';
-import redisClient from './redis-client';
+import { initializeDb } from './database';
+import { connectRedis } from './redis-client';
+import userRoutes from './routes/user.routes';
+import gameRoutes from './routes/game.routes';
+import friendsRoutes from './routes/friends.routes';
+import miscRoutes from './routes/misc.routes';
 
-const fastify = Fastify({
-    logger: true
+const fastify = Fastify({ logger: true });
+
+// Registrar rutas
+console.log('📍 Registrando rutas...');
+
+// Agregar ruta de prueba simple
+fastify.get('/test', async (request, reply) => {
+  return { message: 'Test route works!' };
 });
 
-// Usar fastify.ready() en lugar de fastify.onReady()
+fastify.register(userRoutes);
+console.log('✅ userRoutes registradas');
+fastify.register(gameRoutes);
+console.log('✅ gameRoutes registradas');
+fastify.register(friendsRoutes);
+console.log('✅ friendsRoutes registradas');
+fastify.register(miscRoutes);
+console.log('✅ miscRoutes registradas');
+
+// Inicializar base de datos y Redis
 fastify.ready(async (err) => {
-    if (err) {
-        fastify.log.error('Error durante la inicialización de Fastify:', err as any);
-        process.exit(1);
-    }
+  if (err) {
+    // ✅ Usa { err }
+    fastify.log.error({ err }, 'Error durante la inicialización de Fastify');
+    process.exit(1);
+  }
+  try {
     await initializeDb();
-});
-
-fastify.get('/users', async (request, reply) => {
-    const db = await openDb();
-    try {
-        const users = await db.all('SELECT id, username, email FROM users');
-        return users;
-    } finally {
-        await db.close();
-    }
-});
-
-fastify.post('/users', async (request, reply) => {
-    const { username, password_hash, email } = request.body as any;
-    if (!username || !password_hash || !email) {
-        reply.code(400).send({ message: 'Missing required fields' });
-        return;
-    }
-    const db = await openDb();
-    try {
-        const result = await redisClient().rPush('sqlite_write_queue', JSON.stringify({
-            sql: 'INSERT INTO users (username, password_hash, email) VALUES (?, ?, ?)',
-            params: [username, password_hash, email]
-        }));
-        reply.code(201).send({ message: 'User created' });
-    } catch (error: any) {
-        if (error.code === 'SQLITE_CONSTRAINT') {
-            reply.code(409).send({ message: 'Username or email already exists' });
-        } else {
-            fastify.log.error(error);
-            reply.code(500).send({ message: 'Internal Server Error' });
-        }
-    } finally {
-        await db.close();
-    }
+    await connectRedis();
+    console.log('✅ Base de datos y Redis inicializados');
+  } catch (err) {
+    // ✅ Usa { err }
+    fastify.log.error({ err }, 'Error al inicializar servicios');
+    process.exit(1);
+  }
 });
 
 const start = async () => {
-    try {
-        await fastify.listen({ port: 8000, host: '0.0.0.0' }); // Escucha en el puerto 8000
-        console.log('db-service escuchando en el puerto 8000');
-    } catch (err) {
-        fastify.log.error(err);
-        process.exit(1);
-    }
+  try {
+    await fastify.listen({ port: 8000, host: '0.0.0.0' });
+    console.log('✅ db-service escuchando en el puerto 8000');
+  } catch (err) {
+    // ✅ Usa { err }
+    fastify.log.error({ err }, 'Error al iniciar el servidor');
+    process.exit(1);
+  }
 };
 
 start();
+
+process.on('SIGINT', async () => {
+  await fastify.close();
+  process.exit();
+});
