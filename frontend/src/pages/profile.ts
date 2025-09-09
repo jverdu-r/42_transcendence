@@ -33,7 +33,7 @@ async function getUserStats(): Promise<UserStats | null> {
   if (!token) return null;
 
   try {
-    const response = await fetch('http://localhost:9000/api/auth/profile/stats', {
+    const response = await fetch('/api/auth/profile/stats', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -78,10 +78,10 @@ export async function renderProfilePage(): Promise<void> {
   const stats = await getUserStats();
 
   if (stats && user) {
-    user.avatar_url = stats.avatar_url;
+  /*user.avatar_url = stats.avatar_url;
     if (stats.avatar_url && !stats.avatar_url.startsWith('http')) {
-      stats.avatar_url = `http://localhost:8001${stats.avatar_url}`;
-    }
+      stats.avatar_url = `${window.location.origin}${stats.avatar_url}`;
+  }*/
     user.avatar_url = stats.avatar_url;
     localStorage.setItem('user', JSON.stringify(user));
   }
@@ -205,7 +205,7 @@ export async function renderProfilePage(): Promise<void> {
         formData.append('file', file);
 
         const token = localStorage.getItem('jwt');
-        const res = await fetch('http://localhost:9000/api/auth/profile/avatar', {
+        const res = await fetch('/api/auth/profile/avatar', {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
           body: formData

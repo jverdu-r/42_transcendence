@@ -758,7 +758,9 @@ fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request
   try {
     const buffer = await data.toBuffer();
     const image = await loadImage(buffer);
-    
+    console.log('Buffer size:', buffer.length);
+    console.log('Image loaded:', image.width, image.height);
+
     // Tamaño máximo deseado
     const MAX_SIZE = 256;
     let width = image.width;
@@ -772,10 +774,12 @@ fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request
       width = Math.round((width * MAX_SIZE) / height);
       height = MAX_SIZE;
     }
-
+    
     // Crear canvas con nuevas dimensiones
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'red';
+    ctx.fillRect(0, 0, width, height);
     ctx.drawImage(image, 0, 0, width, height);
 
     // Convertir a JPEG con calidad del 80% (más ligero que PNG)
@@ -806,7 +810,7 @@ fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request
 
     return reply.send({ 
       message: '✅ Avatar optimizado y subido correctamente', 
-      avatar_url: `http://localhost:8000/avatars/${filename}`,
+      avatar_url: `/avatars/${filename}`,
       dimensions: { width, height },
       size: `${(processedBuffer.length / 1024).toFixed(2)} KB`
     });

@@ -1,7 +1,7 @@
 import { renderNavbar } from '../components/navbar';
 import { getCurrentUser } from '../auth';
 
-const API_BASE = 'http://localhost:9000';
+//const API_BASE = 'http://localhost:9000';
 
 export function renderTournamentsPage() {
     // Render navbar at the top
@@ -73,7 +73,7 @@ export function renderTournamentsPage() {
                             return;
                         }
                         try {
-const res = await fetch(`${API_BASE}/api/tournaments`, {
+const res = await fetch(`/api/tournaments`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ name, created_by: user.id })
@@ -95,13 +95,13 @@ const res = await fetch(`${API_BASE}/api/tournaments`, {
                 // Use reliable JWT/session-based user
                 let currentUser: any = getCurrentUser();
                 // Now get tournaments
-                fetch(`${API_BASE}/api/tournaments`)
+                fetch(`/api/tournaments`)
                     .then(res => res.json())
                     .then((tournaments) => {
                         // Fetch joined players for all tournaments (to check if current user already joined)
                         Promise.all(
                             tournaments.map((t: any) =>
-                                fetch(`${API_BASE}/api/tournaments/${t.id}/players`).then(r => r.json()).catch(() => [])
+                                fetch(`/api/tournaments/${t.id}/players`).then(r => r.json()).catch(() => [])
                             )
                         ).then(allPlayersArr => {
                             content.innerHTML = `
@@ -145,7 +145,7 @@ const joined = !!(currentUser && currentUser.id && players.find((p:any) => p.id=
                                         return;
                                     }
                                     try {
-                                        const res = await fetch(`${API_BASE}/api/tournaments/${tournamentId}/join`, {
+                                        const res = await fetch(`/api/tournaments/${tournamentId}/join`, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ user_id: user.id })
@@ -175,7 +175,7 @@ const joined = !!(currentUser && currentUser.id && players.find((p:any) => p.id=
                                     let nPlayers = 0;
                                     let playersList: any[] = [];
                                     try {
-                                        const res = await fetch(`${API_BASE}/api/tournaments/${tournamentId}/players`);
+                                        const res = await fetch(`/api/tournaments/${tournamentId}/players`);
                                         if (res.ok) {
                                             playersList = await res.json();
                                             nPlayers = Array.isArray(playersList) ? playersList.length : 0;
@@ -204,7 +204,7 @@ const joined = !!(currentUser && currentUser.id && players.find((p:any) => p.id=
                                     // Start Tournament handler
                                     panel.querySelector('.start-btn')?.addEventListener('click', async () => {
                                         try {
-                                            const res = await fetch(`${API_BASE}/api/tournaments/${tournamentId}/start`, {
+                                            const res = await fetch(`/api/tournaments/${tournamentId}/start`, {
                                                 method: 'POST',
                                             });
                                             if (!res.ok) throw new Error(await res.text());
@@ -237,7 +237,7 @@ const joined = !!(currentUser && currentUser.id && players.find((p:any) => p.id=
                                         // Confirm delete handler
                                         document.getElementById('confirm-delete')?.addEventListener('click', async () => {
                                             try {
-                                                const res = await fetch(`${API_BASE}/api/tournaments/${tournamentId}`, {
+                                                const res = await fetch(`/api/tournaments/${tournamentId}`, {
                                                     method: 'DELETE',
                                                 });
                                                 if (!res.ok) throw new Error(await res.text());
