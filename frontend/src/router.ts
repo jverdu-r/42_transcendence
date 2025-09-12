@@ -19,7 +19,7 @@ import { renderUnifiedGameOnline } from './pages/unifiedGameOnline';
 import { renderGameLobby } from './pages/gameLobby';
 
 // Game results page
-import { GameResultsPage } from './pages/gameResults';
+import { renderGameResults, setResultsData } from './pages/gameResults';
 
 // Spectator page
 import { renderGameSpectator, startSpectatorAutoRefresh, stopSpectatorAutoRefresh, cleanupSpectator } from './pages/gameSpectator';
@@ -32,9 +32,10 @@ let pendingGameResults: any = null;
 
 export function setGameResults(results: any): void {
   pendingGameResults = results;
+  setResultsData(results);
 }
 
-function renderGameResults(): void {
+function renderGameResultsWithData(): void {
   if (!pendingGameResults) {
     console.error('No game results data available');
     navigateTo('/home');
@@ -52,8 +53,7 @@ function renderGameResults(): void {
   
   const pageContent = document.getElementById('page-content');
   if (pageContent) {
-    const resultsPage = new GameResultsPage(pageContent, pendingGameResults);
-    resultsPage.init();
+    renderGameResults();
   }
   
   // Clear the pending results after use
@@ -87,7 +87,7 @@ const routes: { [key: string]: () => void } = {
   '/game-lobby': renderGameLobby,
   
   // Game results page
-  '/results': renderGameResults,
+  '/results': renderGameResultsWithData,
 
   // Tournaments route
   '/tournaments': renderTournamentsPage,
