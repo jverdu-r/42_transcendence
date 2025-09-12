@@ -261,7 +261,7 @@ function startGameLoop(gameId: string): void {
     // Update game physics
     updateGamePhysics(currentGame);
     
-    // Broadcast game state
+    // Broadcast game state con nombres de ambos jugadores
     broadcastToGame(gameId, {
       type: 'gameState',
       data: {
@@ -291,6 +291,10 @@ function startGameLoop(gameId: string): void {
             left: currentGame.gameState.puntuacion.jugador1,
             right: currentGame.gameState.puntuacion.jugador2
           },
+          playerNames: {
+            left: (currentGame.players.find((p: any) => p.numero === 1)?.nombre) || 'Jugador 1',
+            right: (currentGame.players.find((p: any) => p.numero === 2)?.nombre) || 'Jugador 2'
+          },
           gameRunning: true,
           canvas: { width: 800, height: 600 },
           maxScore: 5,
@@ -313,49 +317,77 @@ function updateGamePhysics(game: any): void {
   // Move ball
   state.pelota.x += state.pelota.vx;
   state.pelota.y += state.pelota.vy;
-  
-  // Ball collision with top/bottom walls
-  if (state.pelota.y <= state.pelota.radio || state.pelota.y >= 600 - state.pelota.radio) {
+
+  // Ball collision with top/bottom walls (mejorado)
+  if (state.pelota.y <= state.pelota.radio) {
+    state.pelota.y = state.pelota.radio;
+    state.pelota.vy = -state.pelota.vy;
+  } else if (state.pelota.y >= 600 - state.pelota.radio) {
+    state.pelota.y = 600 - state.pelota.radio;
     state.pelota.vy = -state.pelota.vy;
   }
-  
-  // Ball collision with paddles
+
+  // Ball collision with paddles (física mejorada)
   const ballLeft = state.pelota.x - state.pelota.radio;
   const ballRight = state.pelota.x + state.pelota.radio;
   const ballTop = state.pelota.y - state.pelota.radio;
   const ballBottom = state.pelota.y + state.pelota.radio;
-  
-  // Left paddle collision
-  if (ballLeft <= state.palas.jugador1.x + state.palaAncho &&
-      ballRight >= state.palas.jugador1.x &&
-      ballBottom >= state.palas.jugador1.y &&
-      ballTop <= state.palas.jugador1.y + state.palaAlto) {
-    state.pelota.vx = Math.abs(state.pelota.vx);
+
+  // Helper para rebote con ángulo
+  function calcBounce(ballY: number, paddleY: number, paddleHeight: number) {
+    const relativeIntersectY = (paddleY + paddleHeight / 2) - ballY;
+    const normalized = relativeIntersectY / (paddleHeight / 2);
+    const maxBounceAngle = Math.PI / 3; // 60 grados
+    return normalized * maxBounceAngle;
   }
-  
-  // Right paddle collision
-  if (ballRight >= state.palas.jugador2.x &&
-      ballLeft <= state.palas.jugador2.x + state.palaAncho &&
-      ballBottom >= state.palas.jugador2.y &&
-      ballTop <= state.palas.jugador2.y + state.palaAlto) {
-    state.pelota.vx = -Math.abs(state.pelota.vx);
+
+  // Left paddle collision (mejorado)
+  if (
+    ballLeft <= state.palas.jugador1.x + state.palaAncho &&
+    ballRight >= state.palas.jugador1.x &&
+    ballBottom >= state.palas.jugador1.y &&
+    ballTop <= state.palas.jugador1.y + state.palaAlto &&
+    state.pelota.vx < 0
+  ) {
+    const angle = calcBounce(state.pelota.y, state.palas.jugador1.y, state.palaAlto);
+    const speed = Math.min(Math.sqrt(state.pelota.vx ** 2 + state.pelota.vy ** 2) * 1.07, 14);
+    state.pelota.vx = Math.abs(Math.cos(angle) * speed);
+    state.pelota.vy = -Math.sin(angle) * speed;
+    state.pelota.x = state.palas.jugador1.x + state.palaAncho + state.pelota.radio + 1;
   }
-  
+
+  // Right paddle collision (mejorado)
+  if (
+    ballRight >= state.palas.jugador2.x &&
+    ballLeft <= state.palas.jugador2.x + state.palaAncho &&
+    ballBottom >= state.palas.jugador2.y &&
+    ballTop <= state.palas.jugador2.y + state.palaAlto &&
+    state.pelota.vx > 0
+  ) {
+    const angle = calcBounce(state.pelota.y, state.palas.jugador2.y, state.palaAlto);
+    const speed = Math.min(Math.sqrt(state.pelota.vx ** 2 + state.pelota.vy ** 2) * 1.07, 14);
+    state.pelota.vx = -Math.abs(Math.cos(angle) * speed);
+    state.pelota.vy = -Math.sin(angle) * speed;
+    state.pelota.x = state.palas.jugador2.x - state.pelota.radio - 1;
+  }
+
   // Score points
   if (state.pelota.x < 0) {
     state.puntuacion.jugador2++;
-    resetBall(state);
+    resetBall(state, 1);
   } else if (state.pelota.x > 800) {
     state.puntuacion.jugador1++;
-    resetBall(state);
+    resetBall(state, -1);
   }
 }
 
-function resetBall(state: any): void {
+function resetBall(state: any, direction = 1): void {
   state.pelota.x = 400;
   state.pelota.y = 300;
-  state.pelota.vx = Math.random() > 0.5 ? 4 : -4;
-  state.pelota.vy = Math.random() * 4 - 2;
+  const angle = (Math.random() - 0.5) * Math.PI / 3; // -30 a 30 grados
+  const speed = 5;
+  state.pelota.vx = Math.cos(angle) * speed * direction;
+  state.pelota.vy = Math.sin(angle) * speed;
 }
 
 function endGame(gameId: string): void {
