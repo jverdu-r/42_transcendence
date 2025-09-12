@@ -6,6 +6,9 @@ import { WebSocket } from 'ws';
 import redis from './redis-client.js';
 import { notifyGameFinished } from './services/game-api-client.js';
 
+const DB_SERVICE_URL = process.env.DB_SERVICE_URL || 'http://db-service:3000';
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://auth-service:8000';
+
 const fastify = Fastify({
   logger: {
     level: 'info'
@@ -450,6 +453,73 @@ function resetBall(state: any): void {
   state.pelota.vy = (Math.random() - 0.5) * 6;
 }
 
+// Function to get user ID from username
+async function getUserId(username: string): Promise<number | null> {
+  try {
+    const response = await fetch(`${AUTH_SERVICE_URL}/api/games/user-id?username=${encodeURIComponent(username)}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.userId || null;
+  } catch (error) {
+    fastify.log.error(`Error getting user ID for ${username}:`, error);
+    return null;
+  }
+}
+
+// Function to save game statistics to database
+async function saveGameStats(gameId: string, game: any, winnerPlayer: number, winnerName: string, loserName: string): Promise<void> {
+  try {
+    const endTime = new Date().toISOString();
+    const startTime = new Date(game.createdAt).toISOString();
+    
+    // Get player IDs from usernames
+    const player1 = game.players.find((p: any) => p.numero === 1);
+    const player2 = game.players.find((p: any) => p.numero === 2);
+    
+    if (!player1 || !player2) {
+      fastify.log.error(`Missing players in game ${gameId}`);
+      return;
+    }
+
+    const player1_id = await getUserId(player1.nombre);
+    const player2_id = await getUserId(player2.nombre);
+    
+    if (!player1_id || !player2_id) {
+      fastify.log.error(`Could not get user IDs for players in game ${gameId}`);
+      return;
+    }
+
+    const score1 = game.gameState.puntuacion.jugador1;
+    const score2 = game.gameState.puntuacion.jugador2;
+
+    // Create game in games table using auth-service
+    const createGameResponse = await fetch(`${AUTH_SERVICE_URL}/api/games/create-online`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        player1_id,
+        player2_id,
+        winner_player: winnerPlayer,
+        score1,
+        score2,
+        start_time: startTime,
+        end_time: endTime
+      })
+    });
+
+    if (createGameResponse.ok) {
+      fastify.log.info(`Online game stats saved successfully for game ${gameId}`);
+    } else {
+      fastify.log.error(`Failed to save online game stats for game ${gameId}: ${createGameResponse.status}`);
+    }
+
+  } catch (error) {
+    fastify.log.error(`Error saving game stats for game ${gameId}:`, error);
+  }
+}
+
 function endGame(gameId: string): void {
   const game = activeGames.get(gameId);
   if (!game) return;
@@ -460,9 +530,8 @@ function endGame(gameId: string): void {
   const winnerName = game.players.find((p: any) => p.numero === winnerPlayer)?.nombre || `Jugador ${winnerPlayer}`;
   const loserName = game.players.find((p: any) => p.numero !== winnerPlayer)?.nombre || `Jugador ${winnerPlayer === 1 ? 2 : 1}`;
 
-  // Save game statistics to database
-  const winnerTeam = winnerPlayer === 1 ? 'Team A' : 'Team B';
-  notifyGameFinished(gameId, winnerTeam).catch(err => {
+  // Save game statistics to database via db-service
+  saveGameStats(gameId, game, winnerPlayer, winnerName, loserName).catch(err => {
     fastify.log.error(`Error saving game stats for ${gameId}:`, err);
   });
 
