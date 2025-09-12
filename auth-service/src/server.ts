@@ -679,6 +679,42 @@ fastify.post('/auth/logout', { preHandler: verifyToken }, async (request, reply)
   }
 });
 
+// Endpoint para verificar token (usado por otros servicios)
+fastify.post('/api/verify-token', async (request, reply) => {
+  const authHeader = request.headers['authorization'];
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  if (!token) {
+    return reply.code(401).send({ message: 'Token requerido' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      user_id: number;
+      username: string;
+      email: string;
+    };
+
+    const sessionId = `jwt:${token}`;
+    const isValid = await redisClient.get(sessionId);
+    if (!isValid) {
+      return reply.code(401).send({ message: 'Sesión cerrada o inválida' });
+    }
+
+    return reply.send({
+      user_id: decoded.user_id,
+      username: decoded.username,
+      email: decoded.email
+    });
+  } catch (err: any) {
+    if (err.name === 'TokenExpiredError') {
+      return reply.code(401).send({ message: 'Token expirado' });
+    } else {
+      return reply.code(403).send({ message: 'Token inválido' });
+    }
+  }
+});
+
 // Endpoint heartbeat para mantener sesión activa
 fastify.get('/auth/heartbeat', { preHandler: verifyToken }, async (request, reply) => {
   const userId = (request as any).user.user_id;

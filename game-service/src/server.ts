@@ -60,14 +60,49 @@ function broadcastToGame(gameId: string, message: any): void {
 
 // WebSocket route for game lobbies
 fastify.register(async function (fastify) {
-  fastify.get('/pong/:gameId', { websocket: true }, (connection, request: any) => {
+  fastify.get('/pong/:gameId', { websocket: true }, async (connection, request: any) => {
     const gameId = request.params.gameId;
     const clientId = uuidv4();
-    const username = new URL(request.url, 'http://localhost').searchParams.get('username') || 'Usuario';
+    
+    // Obtener user_id desde la autorización (token JWT o parámetro)
+    let userId: string | null = null;
+    let username = 'Usuario';
+    
+    // Intentar obtener del token JWT
+    const authHeader = request.headers['authorization'];
+    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    
+    if (token) {
+      try {
+        // Verificar token con auth-service
+        const response = await fetch('http://auth-service:3000/api/verify-token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          userId = userData.user_id.toString();
+          username = userData.username;
+        }
+      } catch (error) {
+        fastify.log.warn('Error verifying token:', error);
+      }
+    }
+    
+    // Fallback a parámetro URL si no hay token válido
+    if (!userId) {
+      const urlParams = new URL(request.url, 'http://localhost').searchParams;
+      username = urlParams.get('username') || 'Usuario';
+      userId = urlParams.get('user_id') || null;
+    }
     
     connections.set(clientId, connection.socket);
     
-    fastify.log.info(`🔗 Client ${username} connected to game ${gameId}: ${clientId}`);
+    fastify.log.info(`🔗 Client ${username} (ID: ${userId}) connected to game ${gameId}: ${clientId}`);
     
     // Get or create game
     let game = activeGames.get(gameId);
@@ -261,7 +296,7 @@ function startGameLoop(gameId: string): void {
     // Update game physics
     updateGamePhysics(currentGame);
     
-    // Broadcast game state con nombres de ambos jugadores
+    // Broadcast game state con nombres de ambos jugadores y colores de palas
     broadcastToGame(gameId, {
       type: 'gameState',
       data: {
@@ -278,13 +313,15 @@ function startGameLoop(gameId: string): void {
               x: currentGame.gameState.palas.jugador1.x,
               y: currentGame.gameState.palas.jugador1.y,
               width: currentGame.gameState.palaAncho,
-              height: currentGame.gameState.palaAlto
+              height: currentGame.gameState.palaAlto,
+              color: '#00ff00' // Verde para jugador 1
             },
             right: {
               x: currentGame.gameState.palas.jugador2.x,
               y: currentGame.gameState.palas.jugador2.y,
               width: currentGame.gameState.palaAncho,
-              height: currentGame.gameState.palaAlto
+              height: currentGame.gameState.palaAlto,
+              color: '#ff0000' // Rojo para jugador 2
             }
           },
           score: {
@@ -398,16 +435,27 @@ function endGame(gameId: string): void {
 
   const winnerPlayer = game.gameState.puntuacion.jugador1 > game.gameState.puntuacion.jugador2 ? 1 : 2;
   const winnerName = game.players.find((p: any) => p.numero === winnerPlayer)?.nombre || `Jugador ${winnerPlayer}`;
+  const loserName = game.players.find((p: any) => p.numero !== winnerPlayer)?.nombre || `Jugador ${winnerPlayer === 1 ? 2 : 1}`;
 
   broadcastToGame(gameId, {
     type: 'gameEnded',
     data: {
       winner: winnerName,
+      loser: loserName,
       score: {
         left: game.gameState.puntuacion.jugador1,
-        right: game.gameState.puntuacion.jugador2
+        right: game.gameState.puntuacion.jugador2,
+        winner: winnerPlayer === 1 ? game.gameState.puntuacion.jugador1 : game.gameState.puntuacion.jugador2,
+        loser: winnerPlayer === 1 ? game.gameState.puntuacion.jugador2 : game.gameState.puntuacion.jugador1
       },
-      message: `¡Fin de la partida! ${winnerName} gana!`
+      message: `¡Fin de la partida!`,
+      showReturnButton: true,
+      finalStats: {
+        winnerName,
+        loserName,
+        finalScore: `${winnerName}: ${winnerPlayer === 1 ? game.gameState.puntuacion.jugador1 : game.gameState.puntuacion.jugador2} - ${loserName}: ${winnerPlayer === 1 ? game.gameState.puntuacion.jugador2 : game.gameState.puntuacion.jugador1}`,
+        gameDuration: Date.now() - game.createdAt
+      }
     }
   });
 
@@ -460,7 +508,7 @@ function handlePlayerMove(clientId: string, gameId: string, data: any): void {
   }
 
   const paddle = player.numero === 1 ? game.gameState.palas.jugador1 : game.gameState.palas.jugador2;
-  const speed = 8;
+  const speed = 12; // Aumentado para mejor responsividad
   console.log(`[handlePlayerMove] Moving paddle for player ${player.numero} (${player.nombre}), direction=${data.direction}, originalY=${paddle.y}`);
 
   if (data.direction === 'up' && paddle.y > 0) {
