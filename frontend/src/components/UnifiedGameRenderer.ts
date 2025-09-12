@@ -146,12 +146,10 @@ export class UnifiedGameRenderer {
         
         this.keys[e.key] = true;
         
-        // Immediate paddle response for local/AI modes
-        if (this.gameMode === 'local' || this.gameMode === 'ai') {
-            this.updatePaddleImmediate(e.key, true);
-        }
+        // Immediate paddle response for all modes (including online for better UX)
+        this.updatePaddleImmediate(e.key, true);
         
-        // Send only 'up'/'down' (classic backend protocol)
+        // Send only 'up'/'down' (classic backend protocol) for online mode
         if (this.gameMode === 'online' && this.websocket && this.gameId) {
             if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
                 this.sendPlayerMove('up');
@@ -163,6 +161,10 @@ export class UnifiedGameRenderer {
 
     private handleKeyUp(e: KeyboardEvent): void {
         this.keys[e.key] = false;
+        
+        // Immediate paddle response for all modes when key is released
+        this.updatePaddleImmediate(e.key, false);
+        
         // Do NOT send anything on keyup for classic server
     }
 

@@ -4,6 +4,7 @@ import fastifyCors from '@fastify/cors';
 import { v4 as uuidv4 } from 'uuid';
 import { WebSocket } from 'ws';
 import redis from './redis-client.js';
+import { notifyGameFinished } from './services/game-api-client.js';
 
 const fastify = Fastify({
   logger: {
@@ -458,6 +459,12 @@ function endGame(gameId: string): void {
   const winnerPlayer = game.gameState.puntuacion.jugador1 > game.gameState.puntuacion.jugador2 ? 1 : 2;
   const winnerName = game.players.find((p: any) => p.numero === winnerPlayer)?.nombre || `Jugador ${winnerPlayer}`;
   const loserName = game.players.find((p: any) => p.numero !== winnerPlayer)?.nombre || `Jugador ${winnerPlayer === 1 ? 2 : 1}`;
+
+  // Save game statistics to database
+  const winnerTeam = winnerPlayer === 1 ? 'Team A' : 'Team B';
+  notifyGameFinished(gameId, winnerTeam).catch(err => {
+    fastify.log.error(`Error saving game stats for ${gameId}:`, err);
+  });
 
   broadcastToGame(gameId, {
     type: 'gameEnded',

@@ -1201,6 +1201,46 @@ fastify.get('/auth/settings/config', { preHandler: verifyToken }, async (request
   }
 });
 
+// Endpoint para finalizar juegos (llamado desde game-service)
+fastify.post('/api/games/finish', async (request, reply) => {
+  const { gameId, winnerTeam } = request.body as any;
+  
+  if (!gameId || !winnerTeam) {
+    return reply.code(400).send({ message: 'gameId y winnerTeam son requeridos' });
+  }
+
+  try {
+    const db = await openDb();
+    
+    // Actualizar el juego como finalizado
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'UPDATE games SET status = ?, finished_at = CURRENT_TIMESTAMP WHERE id = ?',
+      params: ['finished', gameId]
+    }));
+
+    // Marcar al ganador
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'UPDATE participants SET is_winner = 1 WHERE game_id = ? AND team_name = ?',
+      params: [gameId, winnerTeam]
+    }));
+
+    // Marcar al perdedor
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'UPDATE participants SET is_winner = 0 WHERE game_id = ? AND team_name != ?',
+      params: [gameId, winnerTeam]
+    }));
+
+    await db.close();
+    
+    fastify.log.info(`Game ${gameId} finished, winner: ${winnerTeam}`);
+    return reply.send({ message: 'Game finished successfully' });
+    
+  } catch (error: any) {
+    fastify.log.error('Error finishing game:', error);
+    return reply.code(500).send({ message: 'Internal Server Error' });
+  }
+});
+
 // Inicializar base de datos y Redis
 Promise.all([initializeDb(), connectRedis()])
   .then(() => {
