@@ -320,8 +320,10 @@ export class UnifiedGameRenderer {
         // Start game loop based on mode
         if (this.gameMode === 'local' || this.gameMode === 'ai') {
             this.gameLoop();
+        } else if (this.gameMode === 'online') {
+            // For online mode, start paddle update loop (server handles ball physics)
+            this.paddleUpdateLoop();
         }
-        // For online mode, the server handles the game loop and sends us state updates
     }
     
     public pauseGame(): void {
@@ -345,7 +347,19 @@ export class UnifiedGameRenderer {
     public updateGameState(newState: Partial<UnifiedGameState>): void {
         // Update game state (used for online mode)
         if (newState.ball) this.gameState.ball = newState.ball;
-        if (newState.paddles) this.gameState.paddles = newState.paddles;
+        if (newState.paddles) {
+            // In online mode, preserve local player's paddle position (left paddle)
+            // Only update opponent's paddle (right paddle) from server
+            if (this.gameMode === 'online') {
+                if (newState.paddles.right) {
+                    this.gameState.paddles.right = newState.paddles.right;
+                }
+                // Keep local paddle position (left) as is - managed by our paddle loop
+            } else {
+                // For local/AI modes, update all paddles normally
+                this.gameState.paddles = newState.paddles;
+            }
+        }
         if (newState.score) {
             this.gameState.score = newState.score;
             this.callbacks.onScoreUpdate?.(this.gameState.score);
@@ -367,14 +381,37 @@ export class UnifiedGameRenderer {
         this.animationId = requestAnimationFrame(() => this.gameLoop());
     }
     
+    private paddleUpdateLoop(): void {
+        if (!this.gameState.gameRunning) return;
+        
+        // Only update local player paddle for online mode
+        this.updateOnlinePaddles();
+        this.draw();
+        
+        this.animationId = requestAnimationFrame(() => this.paddleUpdateLoop());
+    }
+    
+    private updateOnlinePaddles(): void {
+        const speed = 6;
+        
+        // Only update left paddle (local player) - server handles the other player
+        if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.left.y > 0) {
+            this.gameState.paddles.left.y -= speed;
+        }
+        if ((this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) && 
+            this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
+            this.gameState.paddles.left.y += speed;
+        }
+    }
+    
     private updatePaddles(): void {
         const speed = 6;
         
-        // Left paddle (Player 1)
-        if ((this.keys['w'] || this.keys['W']) && this.gameState.paddles.left.y > 0) {
+        // Left paddle (Player 1) - W/S or Arrow Up/Down
+        if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.left.y > 0) {
             this.gameState.paddles.left.y -= speed;
         }
-        if ((this.keys['s'] || this.keys['S']) && 
+        if ((this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) && 
             this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
             this.gameState.paddles.left.y += speed;
         }
@@ -399,7 +436,11 @@ export class UnifiedGameRenderer {
         // For immediate response, we'll trigger an immediate render after movement
         // This makes the paddle respond instantly to input while maintaining smooth frame-based movement
         if (isKeyDown) {
-            this.updatePaddles();
+            if (this.gameMode === 'online') {
+                this.updateOnlinePaddles();
+            } else {
+                this.updatePaddles();
+            }
             this.draw();
         }
     }
