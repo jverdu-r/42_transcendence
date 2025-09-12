@@ -257,6 +257,17 @@ export class UnifiedGameRenderer {
         switch (type) {
             case 'gameState':
                 if (data.gameState) {
+                    // Actualizar nombres de jugadores si vienen del backend
+                    if (data.gameState.playerNames) {
+                        if (data.gameState.playerNames.left && this.player1Info) {
+                            this.player1Info.displayName = data.gameState.playerNames.left;
+                            this.player1Info.username = data.gameState.playerNames.left;
+                        }
+                        if (data.gameState.playerNames.right && this.player2Info) {
+                            this.player2Info.displayName = data.gameState.playerNames.right;
+                            this.player2Info.username = data.gameState.playerNames.right;
+                        }
+                    }
                     this.updateGameState(data.gameState);
                 }
                 break;
@@ -329,6 +340,7 @@ export class UnifiedGameRenderer {
             this.callbacks.onScoreUpdate?.(this.gameState.score);
         }
         if (newState.gameRunning !== undefined) this.gameState.gameRunning = newState.gameRunning;
+        if (newState.rallieCount !== undefined) this.gameState.rallieCount = newState.rallieCount;
         
         this.draw();
         this.callbacks.onGameStateUpdate?.(this.gameState);
@@ -487,8 +499,9 @@ export class UnifiedGameRenderer {
         this.ctx.stroke();
         this.ctx.setLineDash([]);
         
-        // Draw paddles
-        this.ctx.fillStyle = '#FFFFFF';
+        // Draw paddles with colors
+        // Left paddle (verde para jugador)
+        this.ctx.fillStyle = '#00ff00'; // Verde para jugador 1 siempre
         this.ctx.fillRect(
             this.gameState.paddles.left.x,
             this.gameState.paddles.left.y,
@@ -496,6 +509,8 @@ export class UnifiedGameRenderer {
             this.gameState.paddles.left.height
         );
         
+        // Right paddle (rojo para oponente/IA/jugador 2)
+        this.ctx.fillStyle = '#ff0000'; // Rojo para oponente/IA/jugador 2 siempre
         this.ctx.fillRect(
             this.gameState.paddles.right.x,
             this.gameState.paddles.right.y,
@@ -591,16 +606,16 @@ export class UnifiedGameRenderer {
     private drawScoresAndPlayerNames(): void {
         this.ctx.save();
 
-        // Player 1 Name and Score (Top Left)
+        // Player 1 Name and Score (Top Left) - Verde como su pala
         const player1Name = this.player1Info?.displayName || 'Jugador 1';
-        this.ctx.fillStyle = '#FFFF00'; // Yellow for Player 1
+        this.ctx.fillStyle = '#00ff00'; // Verde como la pala izquierda
         this.ctx.font = 'bold 24px Arial';
         this.ctx.textAlign = 'left';
         this.ctx.fillText(`${player1Name}: ${this.gameState.score.left}`, 20, 30);
 
-        // Player 2 Name and Score (Top Right)
-        const player2Name = this.player2Info?.displayName || 'Jugador 2';
-        this.ctx.fillStyle = '#00BFFF'; // Light blue for Player 2
+        // Player 2 Name and Score (Top Right) - Rojo como su pala
+        const player2Name = this.player2Info?.displayName || (this.gameMode === 'ai' ? 'IA' : 'Jugador 2');
+        this.ctx.fillStyle = '#ff0000'; // Rojo como la pala derecha
         this.ctx.textAlign = 'right';
         this.ctx.fillText(`${player2Name}: ${this.gameState.score.right}`, this.canvas.width - 20, 30);
 

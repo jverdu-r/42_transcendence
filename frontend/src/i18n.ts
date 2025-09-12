@@ -346,6 +346,19 @@ const translations: Translations = {
             game_created: 'Partida creada exitosamente! Dirigiéndote al lobby...',
             game_create_error: 'Error al crear la partida. Inténtalo de nuevo.',
             username_default: 'Usuario'
+        },
+        game_lobby: {
+            title: 'Lobby del Juego',
+            waiting_players: 'Esperando jugadores...',
+            players_connected: 'Jugadores conectados',
+            starting_in: 'Iniciando en',
+            seconds: 'segundos',
+            vs: 'vs',
+            you: 'Tú',
+            waiting_opponent: 'Esperando oponente...',
+            game_starting: '¡El juego está comenzando!',
+            back_to_games: 'Volver a Partidas',
+            error_prefix: 'Error: '
         }
     },
     en: {
@@ -682,6 +695,19 @@ const translations: Translations = {
             game_created: 'Game created successfully! Redirecting to lobby...',
             game_create_error: 'Error creating game. Please try again.',
             username_default: 'User'
+        },
+        game_lobby: {
+            title: 'Game Lobby',
+            waiting_players: 'Waiting for players...',
+            players_connected: 'Players connected',
+            starting_in: 'Starting in',
+            seconds: 'seconds',
+            vs: 'vs',
+            you: 'You',
+            waiting_opponent: 'Waiting for opponent...',
+            game_starting: 'The game is starting!',
+            back_to_games: 'Back to Games',
+            error_prefix: 'Error: '
         }
     },
     gl: {
@@ -1018,6 +1044,19 @@ const translations: Translations = {
             game_created: 'Partida creada exitosamente! Dirixíndote ao lobby...',
             game_create_error: 'Erro ao crear a partida. Inténtao de novo.',
             username_default: 'Usuario'
+        },
+        game_lobby: {
+            title: 'Lobby do Xogo',
+            waiting_players: 'Agardando xogadores...',
+            players_connected: 'Xogadores conectados',
+            starting_in: 'Iniciando en',
+            seconds: 'segundos',
+            vs: 'vs',
+            you: 'Ti',
+            waiting_opponent: 'Agardando opoñente...',
+            game_starting: 'O xogo está comezando!',
+            back_to_games: 'Volver ás Partidas',
+            error_prefix: 'Erro: '
         }
     },
     zh: {
@@ -1354,6 +1393,19 @@ const translations: Translations = {
             game_created: '游戏创建成功！正在跳转到大厅...',
             game_create_error: '创建游戏时出错。请重试。',
             username_default: '用户'
+        },
+        game_lobby: {
+            title: '游戏大厅',
+            waiting_players: '等待玩家...',
+            players_connected: '已连接玩家',
+            starting_in: '开始倒计时',
+            seconds: '秒',
+            vs: '对战',
+            you: '你',
+            waiting_opponent: '等待对手...',
+            game_starting: '游戏即将开始！',
+            back_to_games: '返回游戏',
+            error_prefix: '错误：'
         }
     }
 };

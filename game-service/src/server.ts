@@ -119,7 +119,8 @@ fastify.register(async function (fastify) {
           pelota: { x: 400, y: 300, vx: 4, vy: 2, radio: 8 },
           puntuacion: { jugador1: 0, jugador2: 0 },
           palaAncho: 15,
-          palaAlto: 100
+          palaAlto: 100,
+          rallieCount: 0
         },
         createdAt: Date.now()
       };
@@ -335,7 +336,7 @@ function startGameLoop(gameId: string): void {
           gameRunning: true,
           canvas: { width: 800, height: 600 },
           maxScore: 5,
-          rallieCount: 0
+          rallieCount: currentGame.gameState.rallieCount || 0
         }
       }
     });
@@ -355,76 +356,97 @@ function updateGamePhysics(game: any): void {
   state.pelota.x += state.pelota.vx;
   state.pelota.y += state.pelota.vy;
 
-  // Ball collision with top/bottom walls (mejorado)
+  // Ball collision with top/bottom walls (física realista como frontend)
   if (state.pelota.y <= state.pelota.radio) {
     state.pelota.y = state.pelota.radio;
-    state.pelota.vy = -state.pelota.vy;
+    state.pelota.vy = Math.abs(state.pelota.vy); // Asegurar rebote hacia abajo
   } else if (state.pelota.y >= 600 - state.pelota.radio) {
     state.pelota.y = 600 - state.pelota.radio;
-    state.pelota.vy = -state.pelota.vy;
+    state.pelota.vy = -Math.abs(state.pelota.vy); // Asegurar rebote hacia arriba
   }
 
-  // Ball collision with paddles (física mejorada)
-  const ballLeft = state.pelota.x - state.pelota.radio;
-  const ballRight = state.pelota.x + state.pelota.radio;
-  const ballTop = state.pelota.y - state.pelota.radio;
-  const ballBottom = state.pelota.y + state.pelota.radio;
-
-  // Helper para rebote con ángulo
-  function calcBounce(ballY: number, paddleY: number, paddleHeight: number) {
-    const relativeIntersectY = (paddleY + paddleHeight / 2) - ballY;
-    const normalized = relativeIntersectY / (paddleHeight / 2);
-    const maxBounceAngle = Math.PI / 3; // 60 grados
-    return normalized * maxBounceAngle;
+  // Advanced paddle collision detection (como frontend)
+  const leftPaddle = state.palas.jugador1;
+  const rightPaddle = state.palas.jugador2;
+  
+  // Left paddle collision (mejorado como frontend)
+  if (state.pelota.vx < 0 && // Solo si se mueve hacia la izquierda
+      state.pelota.x - state.pelota.radio <= leftPaddle.x + state.palaAncho &&
+      state.pelota.x - state.pelota.radio >= leftPaddle.x &&
+      state.pelota.y >= leftPaddle.y - state.pelota.radio &&
+      state.pelota.y <= leftPaddle.y + state.palaAlto + state.pelota.radio) {
+    
+    handlePaddleCollision(state, leftPaddle, 'left');
   }
-
-  // Left paddle collision (mejorado)
-  if (
-    ballLeft <= state.palas.jugador1.x + state.palaAncho &&
-    ballRight >= state.palas.jugador1.x &&
-    ballBottom >= state.palas.jugador1.y &&
-    ballTop <= state.palas.jugador1.y + state.palaAlto &&
-    state.pelota.vx < 0
-  ) {
-    const angle = calcBounce(state.pelota.y, state.palas.jugador1.y, state.palaAlto);
-    const speed = Math.min(Math.sqrt(state.pelota.vx ** 2 + state.pelota.vy ** 2) * 1.07, 14);
-    state.pelota.vx = Math.abs(Math.cos(angle) * speed);
-    state.pelota.vy = -Math.sin(angle) * speed;
-    state.pelota.x = state.palas.jugador1.x + state.palaAncho + state.pelota.radio + 1;
-  }
-
-  // Right paddle collision (mejorado)
-  if (
-    ballRight >= state.palas.jugador2.x &&
-    ballLeft <= state.palas.jugador2.x + state.palaAncho &&
-    ballBottom >= state.palas.jugador2.y &&
-    ballTop <= state.palas.jugador2.y + state.palaAlto &&
-    state.pelota.vx > 0
-  ) {
-    const angle = calcBounce(state.pelota.y, state.palas.jugador2.y, state.palaAlto);
-    const speed = Math.min(Math.sqrt(state.pelota.vx ** 2 + state.pelota.vy ** 2) * 1.07, 14);
-    state.pelota.vx = -Math.abs(Math.cos(angle) * speed);
-    state.pelota.vy = -Math.sin(angle) * speed;
-    state.pelota.x = state.palas.jugador2.x - state.pelota.radio - 1;
+  
+  // Right paddle collision (mejorado como frontend)
+  if (state.pelota.vx > 0 && // Solo si se mueve hacia la derecha
+      state.pelota.x + state.pelota.radio >= rightPaddle.x &&
+      state.pelota.x + state.pelota.radio <= rightPaddle.x + state.palaAncho &&
+      state.pelota.y >= rightPaddle.y - state.pelota.radio &&
+      state.pelota.y <= rightPaddle.y + state.palaAlto + state.pelota.radio) {
+    
+    handlePaddleCollision(state, rightPaddle, 'right');
   }
 
   // Score points
   if (state.pelota.x < 0) {
     state.puntuacion.jugador2++;
-    resetBall(state, 1);
+    resetBall(state);
+    state.rallieCount = 0;
   } else if (state.pelota.x > 800) {
     state.puntuacion.jugador1++;
-    resetBall(state, -1);
+    resetBall(state);
+    state.rallieCount = 0;
   }
 }
 
-function resetBall(state: any, direction = 1): void {
-  state.pelota.x = 400;
-  state.pelota.y = 300;
-  const angle = (Math.random() - 0.5) * Math.PI / 3; // -30 a 30 grados
-  const speed = 5;
-  state.pelota.vx = Math.cos(angle) * speed * direction;
-  state.pelota.vy = Math.sin(angle) * speed;
+// Nueva función para manejo de colisiones realistas (como frontend)
+function handlePaddleCollision(state: any, paddle: any, side: 'left' | 'right'): void {
+  // Calcular el punto de contacto relativo en la pala (0 = arriba, 1 = abajo)
+  const contactPoint = (state.pelota.y - paddle.y) / state.palaAlto;
+  const normalizedContact = Math.max(0, Math.min(1, contactPoint)); // Clamp entre 0 y 1
+  
+  // Calcular el ángulo de rebote basado en el punto de contacto
+  // En el centro (0.5) = ángulo 0, en los extremos = ángulo máximo
+  const maxAngle = Math.PI / 3; // 60 grados máximo
+  const angle = (normalizedContact - 0.5) * maxAngle;
+  
+  // Calcular la velocidad actual de la pelota
+  const currentSpeed = Math.sqrt(state.pelota.vx * state.pelota.vx + 
+                               state.pelota.vy * state.pelota.vy);
+  
+  // Incrementar ligeramente la velocidad con cada rebote (como en el frontend)
+  const speedIncrease = 1.05;
+  const newSpeed = Math.min(currentSpeed * speedIncrease, 12); // Límite máximo de velocidad
+  
+  // Calcular nuevas velocidades basadas en el ángulo
+  if (side === 'left') {
+    state.pelota.vx = newSpeed * Math.cos(angle);
+    state.pelota.vy = newSpeed * Math.sin(angle);
+    // Asegurar que la pelota se mueva hacia la derecha
+    state.pelota.vx = Math.abs(state.pelota.vx);
+    // Posicionar la pelota justo fuera de la pala para evitar colisiones múltiples
+    state.pelota.x = paddle.x + state.palaAncho + state.pelota.radio;
+  } else {
+    state.pelota.vx = -newSpeed * Math.cos(angle);
+    state.pelota.vy = newSpeed * Math.sin(angle);
+    // Asegurar que la pelota se mueva hacia la izquierda
+    state.pelota.vx = -Math.abs(state.pelota.vx);
+    // Posicionar la pelota justo fuera de la pala para evitar colisiones múltiples
+    state.pelota.x = paddle.x - state.pelota.radio;
+  }
+  
+  // Incrementar contador de rallies
+  state.rallieCount = (state.rallieCount || 0) + 1;
+}
+
+function resetBall(state: any): void {
+  state.pelota.x = 400; // Centro horizontal
+  state.pelota.y = 300; // Centro vertical
+  // Velocidad aleatoria como en el frontend
+  state.pelota.vx = Math.random() > 0.5 ? 5 : -5;
+  state.pelota.vy = (Math.random() - 0.5) * 6;
 }
 
 function endGame(gameId: string): void {
