@@ -18,11 +18,48 @@ import { renderUnifiedGameAI } from './pages/unifiedGameAI';
 import { renderUnifiedGameOnline } from './pages/unifiedGameOnline';
 import { renderGameLobby } from './pages/gameLobby';
 
+// Game results page
+import { GameResultsPage } from './pages/gameResults';
+
 // Spectator page
 import { renderGameSpectator, startSpectatorAutoRefresh, stopSpectatorAutoRefresh, cleanupSpectator } from './pages/gameSpectator';
 
 //tournaments page under construction
 import { renderTournamentsPage } from './pages/tournaments';
+
+// Global variable to store game results for routing
+let pendingGameResults: any = null;
+
+export function setGameResults(results: any): void {
+  pendingGameResults = results;
+}
+
+function renderGameResults(): void {
+  if (!pendingGameResults) {
+    console.error('No game results data available');
+    navigateTo('/home');
+    return;
+  }
+  
+  cleanupCurrentPage();
+  if (!isAuthenticated()) {
+    navigateTo('/login');
+    return;
+  }
+  
+  setupMainAppLayout();
+  renderNavbar('/results');
+  
+  const pageContent = document.getElementById('page-content');
+  if (pageContent) {
+    const resultsPage = new GameResultsPage(pageContent, pendingGameResults);
+    resultsPage.init();
+  }
+  
+  // Clear the pending results after use
+  pendingGameResults = null;
+}
+
 // Define las rutas que realmente usamos
 const routes: { [key: string]: () => void } = {
   '/home': renderHomePage,
@@ -48,6 +85,9 @@ const routes: { [key: string]: () => void } = {
   '/unified-game-ai': renderUnifiedGameAI,
   '/unified-game-online': renderUnifiedGameOnline,
   '/game-lobby': renderGameLobby,
+  
+  // Game results page
+  '/results': renderGameResults,
 
   // Tournaments route
   '/tournaments': renderTournamentsPage,

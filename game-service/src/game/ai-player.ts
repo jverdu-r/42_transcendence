@@ -27,9 +27,9 @@ export class AIPlayer {
         this.speed = 0.85;
         break;
       case 'hard':
-        this.reactionTime = 0.95;
-        this.accuracy = 0.9;
-        this.speed = 1.0;
+        this.reactionTime = 0.98;
+        this.accuracy = 0.95;
+        this.speed = 1.2;
         break;
     }
   }

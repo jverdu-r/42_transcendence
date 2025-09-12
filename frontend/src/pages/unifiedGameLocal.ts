@@ -2,6 +2,14 @@ import { UnifiedGameRenderer, GameMode } from '../components/UnifiedGameRenderer
 import { navigateTo } from '../router';
 import { getCurrentUser } from '../auth';
 import { getTranslation } from '../i18n';
+import { setGameResults } from '../router';
+
+// Local game state
+let game: UnifiedGameRenderer | null = null;
+let startedAt: string | null = null;
+let player1Name = 'Jugador 1';
+let player2Name = 'Jugador 2';
+let rallieCount = 0;
 
 export function renderUnifiedGameLocal(): void {
     const pageContent = document.getElementById('page-content');
@@ -107,16 +115,20 @@ function setupLocalGame(): void {
   const game = new UnifiedGameRenderer(canvas, 'local');
   
   // Set up player info
+  player1Name = 'Jugador 1';
+  player2Name = 'Jugador 2';
+  rallieCount = 0;
+  
   const player1Info = {
     numero: 1,
-    displayName: 'Jugador 1',
+    displayName: player1Name,
     username: currentUser?.username || 'player1',
     controls: 'W/S'
   };
 
   const player2Info = {
     numero: 2,
-    displayName: 'Jugador 2', 
+    displayName: player2Name, 
     username: 'player2',
     controls: '↑/↓'
   };
@@ -133,18 +145,7 @@ function setupLocalGame(): void {
     },
 
     onGameEnd: async (winner, finalScore) => {
-      const statusMsg = document.getElementById('status-message');
-      if (statusMsg) {
-        statusMsg.innerHTML = `
-          <div class="text-green-400 font-bold">🎉 ¡${winner} ${getTranslation('game_local', 'has_won')}!</div>
-          <div class="text-sm text-gray-400 mt-1">${getTranslation('game_local', 'final_score')}: ${finalScore.left} - ${finalScore.right}</div>
-          <button onclick="location.reload()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mt-2 text-sm">
-            🔄 ${getTranslation('game_local', 'play_again')}
-          </button>
-        `;
-      }
-
-      // ✅ 1. Recuperar el gameId real usando startedAt
+      // ✅ 1. Upload scores to database first
       let dbGameId: number | null = null;
       try {
         const response = await fetch('/api/auth/games/id-by-started-at', {
@@ -162,7 +163,7 @@ function setupLocalGame(): void {
         console.error('Error al obtener gameId por startedAt:', err);
       }
 
-      // ✅ 2. Actualizar la partida en la base de datos
+      // ✅ 2. Update the game in the database
       if (dbGameId) {
         try {
           await fetch('/api/auth/games/finish/local', {
@@ -179,6 +180,20 @@ function setupLocalGame(): void {
           console.error('Error al finalizar partida en DB:', err);
         }
       }
+
+      // ✅ 3. Prepare results data and redirect to results page
+      const gameResults = {
+        winner,
+        loser: finalScore.left > finalScore.right ? player2Name : player1Name,
+        finalScore,
+        gameMode: 'local' as const,
+        gameDuration: game?.getGameStartTime() ? Date.now() - game.getGameStartTime()!.getTime() : undefined,
+        rallieCount: rallieCount,
+        gameId: dbGameId
+      };
+
+      setGameResults(gameResults);
+      navigateTo('/results');
     },
 
     onStatusUpdate: (status) => {
@@ -187,9 +202,10 @@ function setupLocalGame(): void {
     },
 
     onGameStateUpdate: (gameState) => {
+      rallieCount = gameState.rallieCount || 0;
       const rallyCounter = document.getElementById('rally-counter');
       if (rallyCounter) {
-        rallyCounter.textContent = `${getTranslation('game_local', 'rallies')}: ${gameState.rallieCount || 0}`;
+        rallyCounter.textContent = `${getTranslation('game_local', 'rallies')}: ${rallieCount}`;
       }
     }
   });

@@ -141,7 +141,16 @@ export class UnifiedGameRenderer {
     
     private handleKeyDown(e: KeyboardEvent): void {
         console.log("[UnifiedGameRenderer] handleKeyDown", e.key, "mode:", this.gameMode);
+        // Prevent key repeat delay
+        if (this.keys[e.key]) return;
+        
         this.keys[e.key] = true;
+        
+        // Immediate paddle response for local/AI modes
+        if (this.gameMode === 'local' || this.gameMode === 'ai') {
+            this.updatePaddleImmediate(e.key, true);
+        }
+        
         // Send only 'up'/'down' (classic backend protocol)
         if (this.gameMode === 'online' && this.websocket && this.gameId) {
             if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
@@ -381,6 +390,15 @@ export class UnifiedGameRenderer {
         } else if (this.gameMode === 'ai') {
             // AI control
             this.updateAI();
+        }
+    }
+    
+    private updatePaddleImmediate(key: string, isKeyDown: boolean): void {
+        // For immediate response, we'll trigger an immediate render after movement
+        // This makes the paddle respond instantly to input while maintaining smooth frame-based movement
+        if (isKeyDown) {
+            this.updatePaddles();
+            this.draw();
         }
     }
     
