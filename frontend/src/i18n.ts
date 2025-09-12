@@ -302,6 +302,50 @@ const translations: Translations = {
             ideal_for_learning: 'Ideal para aprender',
             balanced_challenge: 'Desafío equilibrado',
             maximum_challenge: 'Máximo desafío'
+        },
+        game_online: {
+            title: 'Modo Online',
+            subtitle: 'Crea una nueva partida o únete a una existente',
+            create_game: 'Crear Nueva Partida Online',
+            create_button: 'Crear Partida Online',
+            create_description: 'Crea una nueva partida y espera a que se una un oponente',
+            available_games: 'Partidas Disponibles',
+            refresh: 'Actualizar',
+            auto_refresh: 'Auto-actualizar',
+            loading_games: 'Cargando partidas disponibles...',
+            server_status: 'Estado del Servidor',
+            total_games: 'Partidas Totales',
+            waiting_players: 'Esperando Jugadores',
+            in_game: 'En Juego',
+            spectators: 'Espectadores',
+            back_to_menu: 'Volver al Menú Principal'
+        },
+        game_local: {
+            title: 'Juego Local - 2 Jugadores',
+            subtitle: 'Enfréntense cara a cara en el mismo dispositivo',
+            player_1: 'Jugador 1 (Izquierda)',
+            player_2: 'Jugador 2 (Derecha)',
+            controls: 'Controles',
+            move_up: 'Subir',
+            move_down: 'Bajar',
+            game_info: 'Información del Juego',
+            first_to: 'Primer jugador en llegar a',
+            points_win: 'puntos gana',
+            physics_speed_up: 'Las físicas se aceleran con cada rebote',
+            angle_on_contact: 'Ángulo de rebote basado en el punto de contacto',
+            score: 'Marcador',
+            game_status: 'Estado del Juego',
+            preparing: 'Preparando juego...',
+            rallies: 'Rebotes',
+            has_won: 'ha ganado',
+            final_score: 'Resultado final',
+            play_again: 'Jugar de Nuevo',
+            back_to_menu: 'Volver al Menú Principal'
+        },
+        notifications: {
+            game_created: 'Partida creada exitosamente! Dirigiéndote al lobby...',
+            game_create_error: 'Error al crear la partida. Inténtalo de nuevo.',
+            username_default: 'Usuario'
         }
     },
     en: {
@@ -594,6 +638,50 @@ const translations: Translations = {
             ideal_for_learning: 'Ideal for learning',
             balanced_challenge: 'Balanced challenge',
             maximum_challenge: 'Maximum challenge'
+        },
+        game_online: {
+            title: 'Online Mode',
+            subtitle: 'Create a new game or join an existing one',
+            create_game: 'Create New Online Game',
+            create_button: 'Create Online Game',
+            create_description: 'Create a new game and wait for an opponent to join',
+            available_games: 'Available Games',
+            refresh: 'Refresh',
+            auto_refresh: 'Auto-refresh',
+            loading_games: 'Loading available games...',
+            server_status: 'Server Status',
+            total_games: 'Total Games',
+            waiting_players: 'Waiting for Players',
+            in_game: 'In Game',
+            spectators: 'Spectators',
+            back_to_menu: 'Back to Main Menu'
+        },
+        game_local: {
+            title: 'Local Game - 2 Players',
+            subtitle: 'Face off on the same device',
+            player_1: 'Player 1 (Left)',
+            player_2: 'Player 2 (Right)',
+            controls: 'Controls',
+            move_up: 'Move Up',
+            move_down: 'Move Down',
+            game_info: 'Game Information',
+            first_to: 'First player to reach',
+            points_win: 'points wins',
+            physics_speed_up: 'Physics speed up with each bounce',
+            angle_on_contact: 'Bounce angle based on contact point',
+            score: 'Score',
+            game_status: 'Game Status',
+            preparing: 'Preparing game...',
+            rallies: 'Rallies',
+            has_won: 'has won',
+            final_score: 'Final score',
+            play_again: 'Play Again',
+            back_to_menu: 'Back to Main Menu'
+        },
+        notifications: {
+            game_created: 'Game created successfully! Redirecting to lobby...',
+            game_create_error: 'Error creating game. Please try again.',
+            username_default: 'User'
         }
     },
     gl: {
@@ -886,6 +974,50 @@ const translations: Translations = {
             ideal_for_learning: 'Ideal para aprender',
             balanced_challenge: 'Reto equilibrado',
             maximum_challenge: 'Máximo reto'
+        },
+        game_online: {
+            title: 'Modo Online',
+            subtitle: 'Crea unha nova partida ou únete a unha existente',
+            create_game: 'Crear Nova Partida Online',
+            create_button: 'Crear Partida Online',
+            create_description: 'Crea unha nova partida e agarda a que se una un opoñente',
+            available_games: 'Partidas Dispoñibles',
+            refresh: 'Actualizar',
+            auto_refresh: 'Auto-actualizar',
+            loading_games: 'Cargando partidas dispoñibles...',
+            server_status: 'Estado do Servidor',
+            total_games: 'Partidas Totais',
+            waiting_players: 'Agardando Xogadores',
+            in_game: 'En Xogo',
+            spectators: 'Espectadores',
+            back_to_menu: 'Volver ao Menú Principal'
+        },
+        game_local: {
+            title: 'Xogo Local - 2 Xogadores',
+            subtitle: 'Enfróntanse cara a cara no mesmo dispositivo',
+            player_1: 'Xogador 1 (Esquerda)',
+            player_2: 'Xogador 2 (Dereita)',
+            controls: 'Controis',
+            move_up: 'Subir',
+            move_down: 'Baixar',
+            game_info: 'Información do Xogo',
+            first_to: 'Primeiro xogador en chegar a',
+            points_win: 'puntos gaña',
+            physics_speed_up: 'As físicas acelérase con cada rebote',
+            angle_on_contact: 'Ángulo de rebote baseado no punto de contacto',
+            score: 'Marcador',
+            game_status: 'Estado do Xogo',
+            preparing: 'Preparando xogo...',
+            rallies: 'Rebotes',
+            has_won: 'gañou',
+            final_score: 'Resultado final',
+            play_again: 'Xogar de Novo',
+            back_to_menu: 'Volver ao Menú Principal'
+        },
+        notifications: {
+            game_created: 'Partida creada exitosamente! Dirixíndote ao lobby...',
+            game_create_error: 'Erro ao crear a partida. Inténtao de novo.',
+            username_default: 'Usuario'
         }
     },
     zh: {
@@ -1178,6 +1310,50 @@ const translations: Translations = {
             ideal_for_learning: '适合学习',
             balanced_challenge: '平衡挑战',
             maximum_challenge: '极限挑战'
+        },
+        game_online: {
+            title: '在线模式',
+            subtitle: '创建新游戏或加入现有游戏',
+            create_game: '创建新的在线游戏',
+            create_button: '创建在线游戏',
+            create_description: '创建新游戏并等待对手加入',
+            available_games: '可用游戏',
+            refresh: '刷新',
+            auto_refresh: '自动刷新',
+            loading_games: '正在加载可用游戏...',
+            server_status: '服务器状态',
+            total_games: '总游戏数',
+            waiting_players: '等待玩家',
+            in_game: '游戏中',
+            spectators: '观众',
+            back_to_menu: '返回主菜单'
+        },
+        game_local: {
+            title: '本地游戏 - 2名玩家',
+            subtitle: '在同一设备上对战',
+            player_1: '玩家1（左）',
+            player_2: '玩家2（右）',
+            controls: '控制',
+            move_up: '上移',
+            move_down: '下移',
+            game_info: '游戏信息',
+            first_to: '先达到',
+            points_win: '分的玩家获胜',
+            physics_speed_up: '每次反弹物理加速',
+            angle_on_contact: '反弹角度基于接触点',
+            score: '得分',
+            game_status: '游戏状态',
+            preparing: '准备游戏中...',
+            rallies: '回合数',
+            has_won: '获胜',
+            final_score: '最终得分',
+            play_again: '再玩一次',
+            back_to_menu: '返回主菜单'
+        },
+        notifications: {
+            game_created: '游戏创建成功！正在跳转到大厅...',
+            game_create_error: '创建游戏时出错。请重试。',
+            username_default: '用户'
         }
     }
 };

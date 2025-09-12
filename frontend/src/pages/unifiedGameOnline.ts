@@ -1,5 +1,6 @@
 import { getCurrentUser } from '../auth';
 import { navigateTo } from '../router';
+import { getTranslation } from '../i18n';
 
 let refreshInterval: number | null = null;
 
@@ -15,22 +16,22 @@ export function renderUnifiedGameOnline(): void {
     <div class="w-full max-w-6xl mx-auto p-8">
       <div class="text-center mb-8">
         <h1 class="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
-          🌐 Modo Online
+          🌐 ${getTranslation('game_online', 'title')}
         </h1>
-        <p class="text-lg text-gray-300">Crea una nueva partida o únete a una existente</p>
+        <p class="text-lg text-gray-300">${getTranslation('game_online', 'subtitle')}</p>
       </div>
       
       <!-- Sección Crear Partida -->
       <div class="bg-gradient-to-r from-green-800 to-green-900 rounded-lg p-6 mb-8 border-2 border-green-600">
         <h2 class="text-2xl font-bold mb-4 text-center text-green-300">
-          ➕ Crear Nueva Partida Online
+          ➕ ${getTranslation('game_online', 'create_game')}
         </h2>
         <div class="text-center">
           <button id="create-game" class="bg-green-500 text-white py-3 px-8 rounded-xl hover:bg-green-600 transition-all duration-200 text-lg font-semibold transform hover:scale-105 shadow-lg">
-            🎮 Crear Partida Online
+            🎮 ${getTranslation('game_online', 'create_button')}
           </button>
           <p class="text-sm text-green-200 mt-3">
-            Crea una nueva partida y espera a que se una un oponente
+            ${getTranslation('game_online', 'create_description')}
           </p>
         </div>
       </div>
@@ -38,14 +39,14 @@ export function renderUnifiedGameOnline(): void {
       <!-- Sección Unirse a Partida -->
       <div class="bg-gradient-to-r from-blue-800 to-blue-900 rounded-lg p-6 mb-8 border-2 border-blue-600">
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-bold text-blue-300">🔍 Partidas Disponibles</h2>
+          <h2 class="text-2xl font-bold text-blue-300">🔍 ${getTranslation('game_online', 'available_games')}</h2>
           <div class="flex gap-3">
             <button id="refresh-games" class="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-all duration-200 transform hover:scale-105">
-              🔄 Actualizar
+              🔄 ${getTranslation('game_online', 'refresh')}
             </button>
             <div id="auto-refresh-toggle" class="flex items-center">
               <input type="checkbox" id="auto-refresh" class="mr-2" checked>
-              <label for="auto-refresh" class="text-blue-200 text-sm">Auto-actualizar</label>
+              <label for="auto-refresh" class="text-blue-200 text-sm">${getTranslation('game_online', 'auto_refresh')}</label>
             </div>
           </div>
         </div>
@@ -53,30 +54,30 @@ export function renderUnifiedGameOnline(): void {
         <div id="games-container" class="space-y-4">
           <div class="text-center py-8">
             <div class="animate-spin inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mb-4"></div>
-            <p class="text-blue-300">🔄 Cargando partidas disponibles...</p>
+            <p class="text-blue-300">🔄 ${getTranslation('game_online', 'loading_games')}</p>
           </div>
         </div>
       </div>
 
       <!-- Estadísticas Online -->
       <div class="bg-gradient-to-r from-purple-800 to-purple-900 rounded-lg p-6 mb-8 border-2 border-purple-600">
-        <h3 class="text-xl font-bold mb-4 text-center text-purple-300">📊 Estado del Servidor</h3>
+        <h3 class="text-xl font-bold mb-4 text-center text-purple-300">📊 ${getTranslation('game_online', 'server_status')}</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           <div>
             <div class="text-2xl font-bold text-green-400" id="total-online-games">-</div>
-            <div class="text-xs text-purple-200">Partidas Totales</div>
+            <div class="text-xs text-purple-200">${getTranslation('game_online', 'total_games')}</div>
           </div>
           <div>
             <div class="text-2xl font-bold text-yellow-400" id="waiting-games">-</div>
-            <div class="text-xs text-purple-200">Esperando Jugadores</div>
+            <div class="text-xs text-purple-200">${getTranslation('game_online', 'waiting_players')}</div>
           </div>
           <div>
             <div class="text-2xl font-bold text-blue-400" id="active-games">-</div>
-            <div class="text-xs text-purple-200">En Juego</div>
+            <div class="text-xs text-purple-200">${getTranslation('game_online', 'in_game')}</div>
           </div>
           <div>
             <div class="text-2xl font-bold text-red-400" id="spectators-count">-</div>
-            <div class="text-xs text-purple-200">Espectadores</div>
+            <div class="text-xs text-purple-200">${getTranslation('game_online', 'spectators')}</div>
           </div>
         </div>
       </div>
@@ -84,7 +85,7 @@ export function renderUnifiedGameOnline(): void {
       <!-- Botón Volver -->
       <div class="text-center">
         <button id="back-to-play" class="bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transition-all duration-200 transform hover:scale-105">
-          ← Volver al Menú Principal
+          ← ${getTranslation('game_online', 'back_to_menu')}
         </button>
       </div>
     </div>
@@ -153,7 +154,7 @@ async function createNewGame(): Promise<void> {
 
   try {
     const currentUser = getCurrentUser();
-    const gameName = `Partida de ${currentUser?.username || 'Usuario'} - ${new Date().toLocaleTimeString()}`;
+    const gameName = `Partida de ${currentUser?.username || getTranslation('notifications', 'username_default')} - ${new Date().toLocaleTimeString()}`;
     
     const response = await fetch('/api/games', {
       method: 'POST',
@@ -165,7 +166,7 @@ async function createNewGame(): Promise<void> {
         nombre: gameName, 
         gameMode: 'pvp', 
         maxPlayers: 2,
-        playerName: currentUser?.username || 'Usuario'
+        playerName: currentUser?.username || getTranslation('notifications', 'username_default')
       })
     });
     
@@ -177,7 +178,7 @@ async function createNewGame(): Promise<void> {
     console.log('✅ Partida creada:', game);
     
     // Mostrar mensaje de éxito
-    showNotification('✅ Partida creada exitosamente! Dirigiéndote al lobby...', 'success');
+    showNotification('✅ ' + getTranslation('notifications', 'game_created'), 'success');
     
     // Guardar información de la partida
     sessionStorage.setItem('currentGameId', game.id);
@@ -196,7 +197,7 @@ async function createNewGame(): Promise<void> {
     
   } catch (error) {
     console.error('❌ Error creando partida:', error);
-    showNotification('❌ Error al crear la partida. Inténtalo de nuevo.', 'error');
+    showNotification('❌ ' + getTranslation('notifications', 'game_create_error'), 'error');
     
     // Restaurar botón
     createButton.disabled = false;
