@@ -13,22 +13,21 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "fastify": "^4.x.x",
-    "@fastify/http-proxy": "^9.x.x",
-    "jsonwebtoken": "^9.x.x",
-    "dotenv": "^16.x.x",
-    "ioredis": "^5.x.x",
+    "@fastify/cors": "^9.0.0",
+    "@fastify/http-proxy": "^9.5.0",
     "axios": "^1.x.x",
-    "@fastify/cors": "^9.0.0"
+    "dotenv": "^16.x.x",
+    "fastify": "^4.29.1",
+    "ioredis": "^5.x.x",
+    "jsonwebtoken": "^9.x.x",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/node": "^20.x.x",
+    "@types/ioredis": "^5.x.x",
     "@types/jsonwebtoken": "^9.0.0",
+    "@types/node": "^20.x.x",
     "ts-node": "^10.x.x",
     "ts-node-dev": "^2.x.x",
-    "typescript": "^5.x.x",
-    "@types/ioredis": "^5.x.x"
+    "typescript": "^5.x.x"
   }
-
 }
