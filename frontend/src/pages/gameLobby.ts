@@ -1,6 +1,7 @@
 import { UnifiedGameRenderer } from '../components/UnifiedGameRenderer';
 import { navigateTo } from '../router';
 import { getCurrentUser } from '../auth';
+import { setGameResults } from '../router';
 import './gameLobby.css';
 
 interface GameLobbyState {
@@ -19,6 +20,13 @@ class GameLobby {
     private state: GameLobbyState;
     private countdownInterval: number | null = null;
     private renderer: UnifiedGameRenderer | null = null;
+    
+    // Game results tracking
+    private gameStartTime: Date | null = null;
+    private finalScore: { left: number; right: number } = { left: 0, right: 0 };
+    private rallieCount: number = 0;
+    private player1Name: string = '';
+    private player2Name: string = '';
 
     constructor(container: HTMLElement) {
         this.container = container;
@@ -188,12 +196,22 @@ class GameLobby {
             };
             this.renderer.setPlayerInfo(player1Info, player2Info);
             
+            // Store player names and start time
+            this.player1Name = player1Info.displayName;
+            this.player2Name = player2Info.displayName;
+            this.gameStartTime = new Date();
+            
             this.renderer.setCallbacks({
                 onScoreUpdate: (score: { left: number; right: number }) => {
                     console.log('Score updated:', score);
+                    this.finalScore = score;
                 },
-                onGameEnd: (winner: string) => {
-                    console.log('Game ended, winner:', winner);
+                onGameStateUpdate: (gameState: any) => {
+                    this.rallieCount = gameState.rallieCount || 0;
+                },
+                onGameEnd: (winner: string, score: { left: number; right: number }) => {
+                    console.log('Game ended, winner:', winner, 'score:', score);
+                    this.finalScore = score;
                     this.handleGameEnd(winner);
                 }
             });
@@ -222,10 +240,22 @@ class GameLobby {
     }
 
     private handleGameEnd(winner: string): void {
-        // Show game end screen or navigate back
-        setTimeout(() => {
-            navigateTo('/unified-game-online');
-        }, 3000);
+        // Prepare results data and redirect to results page
+        const loser = winner === this.player1Name ? this.player2Name : this.player1Name;
+        const gameDuration = this.gameStartTime ? Date.now() - this.gameStartTime.getTime() : undefined;
+        
+        const gameResults = {
+            winner,
+            loser,
+            finalScore: this.finalScore,
+            gameMode: 'online' as const,
+            gameDuration,
+            rallieCount: this.rallieCount,
+            gameId: this.state.gameId
+        };
+
+        setGameResults(gameResults);
+        navigateTo('/results');
     }
 
     private updateUI(): void {

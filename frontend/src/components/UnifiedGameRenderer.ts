@@ -141,8 +141,15 @@ export class UnifiedGameRenderer {
     
     private handleKeyDown(e: KeyboardEvent): void {
         console.log("[UnifiedGameRenderer] handleKeyDown", e.key, "mode:", this.gameMode);
+        // Prevent key repeat delay
+        if (this.keys[e.key]) return;
+        
         this.keys[e.key] = true;
-        // Send only 'up'/'down' (classic backend protocol)
+        
+        // Immediate paddle response for all modes (including online for better UX)
+        this.updatePaddleImmediate(e.key, true);
+        
+        // Send only 'up'/'down' (classic backend protocol) for online mode
         if (this.gameMode === 'online' && this.websocket && this.gameId) {
             if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
                 this.sendPlayerMove('up');
@@ -154,6 +161,10 @@ export class UnifiedGameRenderer {
 
     private handleKeyUp(e: KeyboardEvent): void {
         this.keys[e.key] = false;
+        
+        // Immediate paddle response for all modes when key is released
+        this.updatePaddleImmediate(e.key, false);
+        
         // Do NOT send anything on keyup for classic server
     }
 
@@ -257,6 +268,17 @@ export class UnifiedGameRenderer {
         switch (type) {
             case 'gameState':
                 if (data.gameState) {
+                    // Actualizar nombres de jugadores si vienen del backend
+                    if (data.gameState.playerNames) {
+                        if (data.gameState.playerNames.left && this.player1Info) {
+                            this.player1Info.displayName = data.gameState.playerNames.left;
+                            this.player1Info.username = data.gameState.playerNames.left;
+                        }
+                        if (data.gameState.playerNames.right && this.player2Info) {
+                            this.player2Info.displayName = data.gameState.playerNames.right;
+                            this.player2Info.username = data.gameState.playerNames.right;
+                        }
+                    }
                     this.updateGameState(data.gameState);
                 }
                 break;
@@ -298,8 +320,10 @@ export class UnifiedGameRenderer {
         // Start game loop based on mode
         if (this.gameMode === 'local' || this.gameMode === 'ai') {
             this.gameLoop();
+        } else if (this.gameMode === 'online') {
+            // For online mode, start paddle update loop (server handles ball physics)
+            this.paddleUpdateLoop();
         }
-        // For online mode, the server handles the game loop and sends us state updates
     }
     
     public pauseGame(): void {
@@ -323,12 +347,25 @@ export class UnifiedGameRenderer {
     public updateGameState(newState: Partial<UnifiedGameState>): void {
         // Update game state (used for online mode)
         if (newState.ball) this.gameState.ball = newState.ball;
-        if (newState.paddles) this.gameState.paddles = newState.paddles;
+        if (newState.paddles) {
+            // In online mode, preserve local player's paddle position (left paddle)
+            // Only update opponent's paddle (right paddle) from server
+            if (this.gameMode === 'online') {
+                if (newState.paddles.right) {
+                    this.gameState.paddles.right = newState.paddles.right;
+                }
+                // Keep local paddle position (left) as is - managed by our paddle loop
+            } else {
+                // For local/AI modes, update all paddles normally
+                this.gameState.paddles = newState.paddles;
+            }
+        }
         if (newState.score) {
             this.gameState.score = newState.score;
             this.callbacks.onScoreUpdate?.(this.gameState.score);
         }
         if (newState.gameRunning !== undefined) this.gameState.gameRunning = newState.gameRunning;
+        if (newState.rallieCount !== undefined) this.gameState.rallieCount = newState.rallieCount;
         
         this.draw();
         this.callbacks.onGameStateUpdate?.(this.gameState);
@@ -344,14 +381,37 @@ export class UnifiedGameRenderer {
         this.animationId = requestAnimationFrame(() => this.gameLoop());
     }
     
+    private paddleUpdateLoop(): void {
+        if (!this.gameState.gameRunning) return;
+        
+        // Only update local player paddle for online mode
+        this.updateOnlinePaddles();
+        this.draw();
+        
+        this.animationId = requestAnimationFrame(() => this.paddleUpdateLoop());
+    }
+    
+    private updateOnlinePaddles(): void {
+        const speed = 6;
+        
+        // Only update left paddle (local player) - server handles the other player
+        if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.left.y > 0) {
+            this.gameState.paddles.left.y -= speed;
+        }
+        if ((this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) && 
+            this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
+            this.gameState.paddles.left.y += speed;
+        }
+    }
+    
     private updatePaddles(): void {
         const speed = 6;
         
-        // Left paddle (Player 1)
-        if ((this.keys['w'] || this.keys['W']) && this.gameState.paddles.left.y > 0) {
+        // Left paddle (Player 1) - W/S or Arrow Up/Down
+        if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.left.y > 0) {
             this.gameState.paddles.left.y -= speed;
         }
-        if ((this.keys['s'] || this.keys['S']) && 
+        if ((this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) && 
             this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
             this.gameState.paddles.left.y += speed;
         }
@@ -369,6 +429,19 @@ export class UnifiedGameRenderer {
         } else if (this.gameMode === 'ai') {
             // AI control
             this.updateAI();
+        }
+    }
+    
+    private updatePaddleImmediate(key: string, isKeyDown: boolean): void {
+        // For immediate response, we'll trigger an immediate render after movement
+        // This makes the paddle respond instantly to input while maintaining smooth frame-based movement
+        if (isKeyDown) {
+            if (this.gameMode === 'online') {
+                this.updateOnlinePaddles();
+            } else {
+                this.updatePaddles();
+            }
+            this.draw();
         }
     }
     
@@ -487,8 +560,9 @@ export class UnifiedGameRenderer {
         this.ctx.stroke();
         this.ctx.setLineDash([]);
         
-        // Draw paddles
-        this.ctx.fillStyle = '#FFFFFF';
+        // Draw paddles with colors
+        // Left paddle (verde para jugador)
+        this.ctx.fillStyle = '#00ff00'; // Verde para jugador 1 siempre
         this.ctx.fillRect(
             this.gameState.paddles.left.x,
             this.gameState.paddles.left.y,
@@ -496,6 +570,8 @@ export class UnifiedGameRenderer {
             this.gameState.paddles.left.height
         );
         
+        // Right paddle (rojo para oponente/IA/jugador 2)
+        this.ctx.fillStyle = '#ff0000'; // Rojo para oponente/IA/jugador 2 siempre
         this.ctx.fillRect(
             this.gameState.paddles.right.x,
             this.gameState.paddles.right.y,
@@ -591,16 +667,16 @@ export class UnifiedGameRenderer {
     private drawScoresAndPlayerNames(): void {
         this.ctx.save();
 
-        // Player 1 Name and Score (Top Left)
+        // Player 1 Name and Score (Top Left) - Verde como su pala
         const player1Name = this.player1Info?.displayName || 'Jugador 1';
-        this.ctx.fillStyle = '#FFFF00'; // Yellow for Player 1
+        this.ctx.fillStyle = '#00ff00'; // Verde como la pala izquierda
         this.ctx.font = 'bold 24px Arial';
         this.ctx.textAlign = 'left';
         this.ctx.fillText(`${player1Name}: ${this.gameState.score.left}`, 20, 30);
 
-        // Player 2 Name and Score (Top Right)
-        const player2Name = this.player2Info?.displayName || 'Jugador 2';
-        this.ctx.fillStyle = '#00BFFF'; // Light blue for Player 2
+        // Player 2 Name and Score (Top Right) - Rojo como su pala
+        const player2Name = this.player2Info?.displayName || (this.gameMode === 'ai' ? 'IA' : 'Jugador 2');
+        this.ctx.fillStyle = '#ff0000'; // Rojo como la pala derecha
         this.ctx.textAlign = 'right';
         this.ctx.fillText(`${player2Name}: ${this.gameState.score.right}`, this.canvas.width - 20, 30);
 

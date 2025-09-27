@@ -679,6 +679,42 @@ fastify.post('/auth/logout', { preHandler: verifyToken }, async (request, reply)
   }
 });
 
+// Endpoint para verificar token (usado por otros servicios)
+fastify.post('/api/verify-token', async (request, reply) => {
+  const authHeader = request.headers['authorization'];
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  if (!token) {
+    return reply.code(401).send({ message: 'Token requerido' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      user_id: number;
+      username: string;
+      email: string;
+    };
+
+    const sessionId = `jwt:${token}`;
+    const isValid = await redisClient.get(sessionId);
+    if (!isValid) {
+      return reply.code(401).send({ message: 'Sesión cerrada o inválida' });
+    }
+
+    return reply.send({
+      user_id: decoded.user_id,
+      username: decoded.username,
+      email: decoded.email
+    });
+  } catch (err: any) {
+    if (err.name === 'TokenExpiredError') {
+      return reply.code(401).send({ message: 'Token expirado' });
+    } else {
+      return reply.code(403).send({ message: 'Token inválido' });
+    }
+  }
+});
+
 // Endpoint heartbeat para mantener sesión activa
 fastify.get('/auth/heartbeat', { preHandler: verifyToken }, async (request, reply) => {
   const userId = (request as any).user.user_id;
@@ -1162,6 +1198,127 @@ fastify.get('/auth/settings/config', { preHandler: verifyToken }, async (request
   } catch (err) {
     console.error('Error al obtener configuración:', err);
     return reply.code(500).send({ message: 'Error al obtener configuración' });
+  }
+});
+
+// Endpoint para crear partida online (llamado desde game-service)
+fastify.post('/api/games/create-online', async (request, reply) => {
+  const { player1_id, player2_id, winner_player, score1, score2, start_time, end_time } = request.body as any;
+  
+  if (!player1_id || !player2_id || winner_player === undefined || score1 === undefined || score2 === undefined) {
+    return reply.code(400).send({ message: 'Missing required fields' });
+  }
+
+  try {
+    const db = await openDb();
+    
+    // 1. Create game record
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'INSERT INTO games (status, started_at, finished_at) VALUES (?, ?, ?)',
+      params: ['finished', start_time, end_time]
+    }));
+
+    // Get the game ID (we'll use a timestamp-based approach since we can't get LAST_INSERT_ID easily)
+    const gameTimestamp = start_time;
+    
+    // 2. Create participants
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `INSERT INTO participants (game_id, user_id, is_winner, team_name) 
+            VALUES ((SELECT id FROM games WHERE started_at = ? AND status = 'finished' LIMIT 1), ?, ?, 'Team A')`,
+      params: [gameTimestamp, player1_id, winner_player === 1 ? 1 : 0]
+    }));
+
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `INSERT INTO participants (game_id, user_id, is_winner, team_name) 
+            VALUES ((SELECT id FROM games WHERE started_at = ? AND status = 'finished' LIMIT 1), ?, ?, 'Team B')`,
+      params: [gameTimestamp, player2_id, winner_player === 2 ? 1 : 0]
+    }));
+
+    // 3. Create scores
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `INSERT INTO scores (game_id, scorer_id, team_name, point_number) 
+            VALUES ((SELECT id FROM games WHERE started_at = ? AND status = 'finished' LIMIT 1), ?, 'Team A', ?)`,
+      params: [gameTimestamp, player1_id, score1]
+    }));
+
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `INSERT INTO scores (game_id, scorer_id, team_name, point_number) 
+            VALUES ((SELECT id FROM games WHERE started_at = ? AND status = 'finished' LIMIT 1), ?, 'Team B', ?)`,
+      params: [gameTimestamp, player2_id, score2]
+    }));
+
+    await db.close();
+    
+    fastify.log.info(`Online game created for players ${player1_id} vs ${player2_id}`);
+    return reply.send({ message: 'Online game saved successfully' });
+    
+  } catch (error: any) {
+    fastify.log.error('Error creating online game:', error);
+    return reply.code(500).send({ message: 'Internal Server Error' });
+  }
+});
+
+// Endpoint para obtener user_id por username (usado por game-service)
+fastify.get('/api/games/user-id', async (request, reply) => {
+  const { username } = request.query as any;
+  
+  if (!username) {
+    return reply.code(400).send({ message: 'Username is required' });
+  }
+
+  try {
+    const db = await openDb();
+    const user = await db.get('SELECT id FROM users WHERE username = ?', [username]);
+    await db.close();
+
+    if (!user) {
+      return reply.code(404).send({ message: 'User not found' });
+    }
+
+    return reply.send({ userId: user.id });
+  } catch (error: any) {
+    fastify.log.error('Error getting user ID:', error);
+    return reply.code(500).send({ message: 'Internal Server Error' });
+  }
+});
+
+// Endpoint para finalizar juegos (llamado desde game-service)
+fastify.post('/api/games/finish', async (request, reply) => {
+  const { gameId, winnerTeam } = request.body as any;
+  
+  if (!gameId || !winnerTeam) {
+    return reply.code(400).send({ message: 'gameId y winnerTeam son requeridos' });
+  }
+
+  try {
+    const db = await openDb();
+    
+    // Actualizar el juego como finalizado
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'UPDATE games SET status = ?, finished_at = CURRENT_TIMESTAMP WHERE id = ?',
+      params: ['finished', gameId]
+    }));
+
+    // Marcar al ganador
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'UPDATE participants SET is_winner = 1 WHERE game_id = ? AND team_name = ?',
+      params: [gameId, winnerTeam]
+    }));
+
+    // Marcar al perdedor
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'UPDATE participants SET is_winner = 0 WHERE game_id = ? AND team_name != ?',
+      params: [gameId, winnerTeam]
+    }));
+
+    await db.close();
+    
+    fastify.log.info(`Game ${gameId} finished, winner: ${winnerTeam}`);
+    return reply.send({ message: 'Game finished successfully' });
+    
+  } catch (error: any) {
+    fastify.log.error('Error finishing game:', error);
+    return reply.code(500).send({ message: 'Internal Server Error' });
   }
 });
 

@@ -2,6 +2,14 @@ import { UnifiedGameRenderer, GameMode } from '../components/UnifiedGameRenderer
 import { getCurrentUser, getSetting } from '../auth';
 import { navigateTo } from '../router';
 import { getTranslation } from '../i18n';
+import { setGameResults } from '../router';
+
+// AI game state
+let game: UnifiedGameRenderer | null = null;
+let startedAt: string | null = null;
+let player1Name = '';
+let player2Name = '';
+let rallieCount = 0;
 
 export function renderUnifiedGameAI(): void {
   const pageContent = document.getElementById('page-content');
@@ -179,21 +187,26 @@ function setupAIGame(difficulty: 'easy' | 'medium' | 'hard'): void {
   }).catch(err => console.error('Error creando partida contra IA en DB:', err));
 
   // Crear instancia del juego
-  const game = new UnifiedGameRenderer(canvas, 'ai');
+  game = new UnifiedGameRenderer(canvas, 'ai');
   
   // Configurar dificultad de la IA
   game.setAIDifficulty(difficulty);
   
+  // Store player names
+  player1Name = currentUser.username;
+  player2Name = `${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Bot`;
+  rallieCount = 0;
+  
   const player1Info = {
     numero: 1,
-    displayName: currentUser.username,
+    displayName: player1Name,
     username: currentUser.username,
     controls: 'W/S'
   };
 
   const player2Info = {
     numero: 2,
-    displayName: `${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Bot`,
+    displayName: player2Name,
     username: 'AI',
     controls: 'Automático'
   };
@@ -209,8 +222,7 @@ function setupAIGame(difficulty: 'easy' | 'medium' | 'hard'): void {
       if (rightScore) rightScore.textContent = score.right.toString();
     },
     onGameEnd: async (winner, finalScore) => {
-      console.log('Final score:', finalScore);
-      // Recuperar gameId
+      // ✅ 1. Upload scores to database first
       let dbGameId: number | null = null;
       try {
         const response = await fetch('/api/auth/games/id-by-started-at', {
@@ -223,7 +235,8 @@ function setupAIGame(difficulty: 'easy' | 'medium' | 'hard'): void {
       } catch (err) {
         console.error('Error obteniendo gameId:', err);
       }
-      // Actualizar DB
+      
+      // ✅ 2. Update the game in the database
       if (dbGameId) {
         try {
           await fetch('/api/auth/games/finish/ai', {
@@ -240,29 +253,30 @@ function setupAIGame(difficulty: 'easy' | 'medium' | 'hard'): void {
           console.error('Error al finalizar partida contra IA en DB:', err);
         }
       }
-      // Mostrar mensaje
-      const statusMsg = document.getElementById('status-message');
-      if (statusMsg) {
-        const isPlayerWinner = winner === currentUser.username;
-        statusMsg.innerHTML = `
-          <div class="${isPlayerWinner ? 'text-green-400' : 'text-red-400'} font-bold">
-            ${isPlayerWinner ? '🎉' : '😢'} ${winner} ${getTranslation('game_AI', 'has_won')}!
-          </div>
-          <div class="text-sm text-gray-400 mt-1">${getTranslation('game_AI', 'final_score')}: ${finalScore.left} - ${finalScore.right}</div>
-          <button onclick="location.reload()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mt-2 text-sm">
-            🔄 ${getTranslation('game_AI', 'play_again')}
-          </button>
-        `;
-      }
+      
+      // ✅ 3. Prepare results data and redirect to results page
+      const gameResults = {
+        winner,
+        loser: finalScore.left > finalScore.right ? player2Name : player1Name,
+        finalScore,
+        gameMode: 'ai' as const,
+        gameDuration: game?.getGameStartTime() ? Date.now() - game.getGameStartTime()!.getTime() : undefined,
+        rallieCount: rallieCount,
+        gameId: dbGameId
+      };
+
+      setGameResults(gameResults);
+      navigateTo('/results');
     },
     onStatusUpdate: (status) => {
       const statusMsg = document.getElementById('status-message');
       if (statusMsg) statusMsg.textContent = status;
     },
     onGameStateUpdate: (gameState) => {
+      rallieCount = gameState.rallieCount || 0;
       const rallyCounter = document.getElementById('rally-counter');
       if (rallyCounter) {
-        rallyCounter.textContent = `Rebotes: ${gameState.rallieCount || 0}`;
+        rallyCounter.textContent = `Rebotes: ${rallieCount}`;
       }
     }
   });
@@ -273,13 +287,13 @@ function setupAIGame(difficulty: 'easy' | 'medium' | 'hard'): void {
   // Setup back button
   const backButton = document.getElementById('back-button');
   backButton?.addEventListener('click', () => {
-    game.cleanup();
+    game?.cleanup();
     renderUnifiedGameAI(); // Volver al selector de dificultad
   });
   
   // Cleanup al salir de la página
   window.addEventListener('beforeunload', () => {
-    game.cleanup();
+    game?.cleanup();
   });
 }
 

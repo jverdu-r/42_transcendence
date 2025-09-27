@@ -1,6 +1,15 @@
 import { UnifiedGameRenderer, GameMode } from '../components/UnifiedGameRenderer';
 import { navigateTo } from '../router';
 import { getCurrentUser } from '../auth';
+import { getTranslation } from '../i18n';
+import { setGameResults } from '../router';
+
+// Local game state
+let game: UnifiedGameRenderer | null = null;
+let startedAt: string | null = null;
+let player1Name = 'Jugador 1';
+let player2Name = 'Jugador 2';
+let rallieCount = 0;
 
 export function renderUnifiedGameLocal(): void {
     const pageContent = document.getElementById('page-content');
@@ -15,27 +24,27 @@ export function renderUnifiedGameLocal(): void {
         <div class="w-full max-w-6xl mx-auto">
             <!-- Header del juego -->
             <div class="text-center mb-6">
-                <h1 class="text-3xl font-bold text-white mb-2">🏠 Juego Local - 2 Jugadores</h1>
-                <p class="text-gray-300">¡Enfréntense cara a cara en el mismo dispositivo!</p>
+                <h1 class="text-3xl font-bold text-white mb-2">🏠 ${getTranslation('game_local', 'title')}</h1>
+                <p class="text-gray-300">${getTranslation('game_local', 'subtitle')}</p>
             </div>
 
             <!-- Información de controles -->
             <div class="bg-gray-800 rounded-lg p-4 mb-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="text-center">
-                        <h3 class="text-lg font-bold text-yellow-400 mb-2">🟡 Jugador 1 (Izquierda)</h3>
+                        <h3 class="text-lg font-bold text-yellow-400 mb-2">🟡 ${getTranslation('game_local', 'player_1')}</h3>
                         <div class="bg-yellow-600 text-black rounded-lg p-3">
-                            <div class="text-xl font-bold mb-2">Controles:</div>
-                            <div>⬆️ <kbd class="bg-gray-200 text-black px-2 py-1 rounded">W</kbd> - Subir</div>
-                            <div>⬇️ <kbd class="bg-gray-200 text-black px-2 py-1 rounded">S</kbd> - Bajar</div>
+                            <div class="text-xl font-bold mb-2">${getTranslation('game_local', 'controls')}:</div>
+                            <div>⬆️ <kbd class="bg-gray-200 text-black px-2 py-1 rounded">W</kbd> - ${getTranslation('game_local', 'move_up')}</div>
+                            <div>⬇️ <kbd class="bg-gray-200 text-black px-2 py-1 rounded">S</kbd> - ${getTranslation('game_local', 'move_down')}</div>
                         </div>
                     </div>
                     <div class="text-center">
-                        <h3 class="text-lg font-bold text-blue-400 mb-2">🔵 Jugador 2 (Derecha)</h3>
+                        <h3 class="text-lg font-bold text-blue-400 mb-2">🔵 ${getTranslation('game_local', 'player_2')}</h3>
                         <div class="bg-blue-600 text-white rounded-lg p-3">
-                            <div class="text-xl font-bold mb-2">Controles:</div>
-                            <div>⬆️ <kbd class="bg-gray-200 text-black px-2 py-1 rounded">O</kbd> - Subir</div>
-                            <div>⬇️ <kbd class="bg-gray-200 text-black px-2 py-1 rounded">L</kbd> - Bajar</div>
+                            <div class="text-xl font-bold mb-2">${getTranslation('game_local', 'controls')}:</div>
+                            <div>⬆️ <kbd class="bg-gray-200 text-black px-2 py-1 rounded">O</kbd> - ${getTranslation('game_local', 'move_up')}</div>
+                            <div>⬇️ <kbd class="bg-gray-200 text-black px-2 py-1 rounded">L</kbd> - ${getTranslation('game_local', 'move_down')}</div>
                         </div>
                     </div>
                 </div>
@@ -49,38 +58,38 @@ export function renderUnifiedGameLocal(): void {
             <!-- Información del juego -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                 <div id="player-info" class="bg-gray-800 rounded-lg p-4">
-                    <h3 class="text-lg font-bold text-green-400 mb-2">📊 Información del Juego</h3>
+                    <h3 class="text-lg font-bold text-green-400 mb-2">📊 ${getTranslation('game_local', 'game_info')}</h3>
                     <div class="space-y-2 text-sm">
-                        <div>🏆 Primer jugador en llegar a <span class="font-bold text-yellow-400">5 puntos</span> gana</div>
-                        <div>⚡ Las físicas se aceleran con cada rebote</div>
-                        <div>🎯 Ángulo de rebote basado en el punto de contacto</div>
+                        <div>🏆 ${getTranslation('game_local', 'first_to')} <span class="font-bold text-yellow-400">5</span> ${getTranslation('game_local', 'points_win')}</div>
+                        <div>⚡ ${getTranslation('game_local', 'physics_speed_up')}</div>
+                        <div>🎯 ${getTranslation('game_local', 'angle_on_contact')}</div>
                     </div>
                 </div>
                 <div id="score-display" class="bg-gray-800 rounded-lg p-4 text-center">
-                    <h3 class="text-lg font-bold text-purple-400 mb-4">⚽ Marcador</h3>
+                    <h3 class="text-lg font-bold text-purple-400 mb-4">⚽ ${getTranslation('game_local', 'score')}</h3>
                     <div class="flex justify-between items-center">
                         <div class="text-center">
                             <div class="text-3xl font-bold text-yellow-400" id="score-left">0</div>
-                            <div class="text-sm text-gray-400">Jugador 1</div>
+                            <div class="text-sm text-gray-400">${getTranslation('game_local', 'player_1').split(' (')[0]}</div>
                         </div>
                         <div class="text-2xl font-bold text-white">-</div>
                         <div class="text-center">
                             <div class="text-3xl font-bold text-blue-400" id="score-right">0</div>
-                            <div class="text-sm text-gray-400">Jugador 2</div>
+                            <div class="text-sm text-gray-400">${getTranslation('game_local', 'player_2').split(' (')[0]}</div>
                         </div>
                     </div>
                 </div>
                 <div id="game-status" class="bg-gray-800 rounded-lg p-4">
-                    <h3 class="text-lg font-bold text-blue-400 mb-2">🎮 Estado del Juego</h3>
-                    <div id="status-message" class="text-sm text-gray-300">Preparando juego...</div>
-                    <div id="rally-counter" class="text-xs text-gray-500 mt-2">Rebotes: 0</div>
+                    <h3 class="text-lg font-bold text-blue-400 mb-2">🎮 ${getTranslation('game_local', 'game_status')}</h3>
+                    <div id="status-message" class="text-sm text-gray-300">${getTranslation('game_local', 'preparing')}</div>
+                    <div id="rally-counter" class="text-xs text-gray-500 mt-2">${getTranslation('game_local', 'rallies')}: 0</div>
                 </div>
             </div>
 
             <!-- Botón de regreso -->
             <div class="text-center mt-6">
                 <button id="back-button" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded transition-colors">
-                    ← Volver al Menú Principal
+                    ← ${getTranslation('game_local', 'back_to_menu')}
                 </button>
             </div>
         </div>
@@ -106,16 +115,20 @@ function setupLocalGame(): void {
   const game = new UnifiedGameRenderer(canvas, 'local');
   
   // Set up player info
+  player1Name = 'Jugador 1';
+  player2Name = 'Jugador 2';
+  rallieCount = 0;
+  
   const player1Info = {
     numero: 1,
-    displayName: 'Jugador 1',
+    displayName: player1Name,
     username: currentUser?.username || 'player1',
     controls: 'W/S'
   };
 
   const player2Info = {
     numero: 2,
-    displayName: 'Jugador 2', 
+    displayName: player2Name, 
     username: 'player2',
     controls: '↑/↓'
   };
@@ -132,18 +145,7 @@ function setupLocalGame(): void {
     },
 
     onGameEnd: async (winner, finalScore) => {
-      const statusMsg = document.getElementById('status-message');
-      if (statusMsg) {
-        statusMsg.innerHTML = `
-          <div class="text-green-400 font-bold">🎉 ¡${winner} ha ganado!</div>
-          <div class="text-sm text-gray-400 mt-1">Resultado final: ${finalScore.left} - ${finalScore.right}</div>
-          <button onclick="location.reload()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mt-2 text-sm">
-            🔄 Jugar de Nuevo
-          </button>
-        `;
-      }
-
-      // ✅ 1. Recuperar el gameId real usando startedAt
+      // ✅ 1. Upload scores to database first
       let dbGameId: number | null = null;
       try {
         const response = await fetch('/api/auth/games/id-by-started-at', {
@@ -161,7 +163,7 @@ function setupLocalGame(): void {
         console.error('Error al obtener gameId por startedAt:', err);
       }
 
-      // ✅ 2. Actualizar la partida en la base de datos
+      // ✅ 2. Update the game in the database
       if (dbGameId) {
         try {
           await fetch('/api/auth/games/finish/local', {
@@ -178,6 +180,20 @@ function setupLocalGame(): void {
           console.error('Error al finalizar partida en DB:', err);
         }
       }
+
+      // ✅ 3. Prepare results data and redirect to results page
+      const gameResults = {
+        winner,
+        loser: finalScore.left > finalScore.right ? player2Name : player1Name,
+        finalScore,
+        gameMode: 'local' as const,
+        gameDuration: game?.getGameStartTime() ? Date.now() - game.getGameStartTime()!.getTime() : undefined,
+        rallieCount: rallieCount,
+        gameId: dbGameId
+      };
+
+      setGameResults(gameResults);
+      navigateTo('/results');
     },
 
     onStatusUpdate: (status) => {
@@ -186,9 +202,10 @@ function setupLocalGame(): void {
     },
 
     onGameStateUpdate: (gameState) => {
+      rallieCount = gameState.rallieCount || 0;
       const rallyCounter = document.getElementById('rally-counter');
       if (rallyCounter) {
-        rallyCounter.textContent = `Rebotes: ${gameState.rallieCount || 0}`;
+        rallyCounter.textContent = `${getTranslation('game_local', 'rallies')}: ${rallieCount}`;
       }
     }
   });
