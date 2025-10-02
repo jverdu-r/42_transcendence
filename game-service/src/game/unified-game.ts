@@ -321,11 +321,13 @@ export class UnifiedGame {
         const player = this.players.find(p => p.id === playerId);
         if (!player) return;
 
-        const { direction, type } = input;
+        const { direction, type, playerNumber } = input;
         const speed = 6; // VELOCIDAD IDÉNTICA AL FRONTEND
 
         if (type === 'move' || !type) { // Compatibilidad con ambos protocolos
-            const paddle = player.number === 1 ? this.gameState.paddles.left : this.gameState.paddles.right;
+            // Usar playerNumber si está disponible, sino usar player.number
+            const paddleNumber = playerNumber || player.number;
+            const paddle = paddleNumber === 1 ? this.gameState.paddles.left : this.gameState.paddles.right;
             
             switch (direction) {
                 case 'up':

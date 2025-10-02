@@ -118,11 +118,16 @@ fastify.register(async function (fastify) {
     // Enviar estado inicial
     if (game) {
       const gameState = game.getGameState();
+      const players = game.getPlayers();
+      const currentPlayer = players.find(p => p.name === username);
+      const playerNumber = players.findIndex(p => p.name === username) + 1; // 1 or 2
+      
       sendToConnection(connectionId, {
         type: 'gameJoined',
         data: {
           gameId,
-          playerNumber: game.getPlayers().length,
+          playerId: currentPlayer?.id,
+          playerNumber: playerNumber,
           gameState
         }
       });
@@ -153,11 +158,16 @@ fastify.register(async function (fastify) {
             // Manejar movimiento del jugador - RESPUESTA INMEDIATA
             if (game) {
               const players = game.getPlayers();
-              const player = players.find(p => p.name === username);
-              if (player) {
-                game.handlePlayerInput(player.id, {
+              const currentPlayer = players.find(p => p.name === username);
+              if (currentPlayer) {
+                // Determinar número de jugador (1 = izquierda, 2 = derecha)
+                const playerIndex = players.findIndex(p => p.id === currentPlayer.id);
+                const playerNumber = playerIndex + 1; // 1 or 2
+                
+                game.handlePlayerInput(currentPlayer.id, {
                   direction: data.direction,
-                  type: 'move'
+                  type: 'move',
+                  playerNumber: playerNumber // Añadir número de jugador
                 });
               }
             }
