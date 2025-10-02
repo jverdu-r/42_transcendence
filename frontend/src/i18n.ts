@@ -81,6 +81,8 @@ const translations: Translations = {
             yourProfileSubtitle: "Accede a tus estadísticas, historial y personaliza tu experiencia.",
             globalRankingTitle: "Ranking Global",
             globalRankingSubtitle: "Descubre a los mejores jugadores de Transcendence.",
+            multipleModesTitle: "Múltiples Modos",
+            multipleModesDescription: "Disfruta de diferentes variantes del clásico Pong.",
             contentNotFound: "Elemento con id 'page-content' no encontrado para renderizar la página de inicio.",
             demoFunctionality: "Esta es una funcionalidad de demostración. Partida:"
         },
@@ -144,7 +146,14 @@ const translations: Translations = {
             chooseModeDescription: "Selecciona un modo de juego para empezar a jugar.",
             backToGame: "Volver al juego",
             vsAIDescription: "Juega contra la inteligencia artificial.",
-            selectDifficulty: "Selecciona la dificultad"
+            selectDifficulty: "Selecciona la dificultad",
+            playerStats: "Estadísticas del Jugador",
+            totalGames: "Partidas Totales",
+            wins: "Victorias",
+            losses: "Derrotas",
+            winRate: "% Victorias",
+            bestStreak: "Mejor Racha",
+            errorLoadingStats: "Error al cargar estadísticas"
         },
         ranking: {
             errorGettingRanking: 'Error al obtener ranking:',
@@ -620,7 +629,11 @@ const translations: Translations = {
             yourProfileTitle: "Your Profile",
             yourProfileSubtitle: "Access your stats, history, and customize your experience.",
             globalRankingTitle: "Global Ranking",
-            globalRankingSubtitle: "Discover the best players in Transcendence."
+            globalRankingSubtitle: "Discover the best players in Transcendence.",
+            multipleModesTitle: "Multiple Modes",
+            multipleModesDescription: "Enjoy different variants of the classic Pong.",
+            contentNotFound: "Element with id 'page-content' not found for rendering home page.",
+            demoFunctionality: "This is demo functionality. Match:"
         },
         profile: {
             profileTitle: "User Profile",
@@ -682,7 +695,14 @@ const translations: Translations = {
             chooseModeDescription: "Select a game mode to start playing.",
             backToGame: "Back to Game",
             vsAIDescription: "Play against AI.",
-            selectDifficulty: "Select Difficulty"
+            selectDifficulty: "Select Difficulty",
+            playerStats: "Player Statistics",
+            totalGames: "Total Games",
+            wins: "Wins",
+            losses: "Losses",
+            winRate: "Win Rate %",
+            bestStreak: "Best Streak",
+            errorLoadingStats: "Error loading statistics"
         },
         ranking: {
             globalRankingTitle: "Global Ranking",
@@ -1120,7 +1140,11 @@ const translations: Translations = {
             yourProfileTitle: "O teu Perfil",
             yourProfileSubtitle: "Accede ás túas estadísticas, historial e personaliza a túa experiencia.",
             globalRankingTitle: "Clasificación Global",
-            globalRankingSubtitle: "Descobre os mellores xogadores de Transcendence."
+            globalRankingSubtitle: "Descobre os mellores xogadores de Transcendence.",
+            multipleModesTitle: "Múltiples Modos",
+            multipleModesDescription: "Disfruta de diferentes variantes do clásico Pong.",
+            contentNotFound: "Elemento con id 'page-content' non atopado para renderizar a páxina de inicio.",
+            demoFunctionality: "Esta é unha funcionalidade de demostración. Partida:"
         },
         profile: {
             profileTitle: "Perfil de Usuario",
@@ -1182,7 +1206,14 @@ const translations: Translations = {
             chooseModeDescription: "Selecciona un modo de xogo para empezar a xogar.",
             backToGame: "Volver ao xogo",
             vsAIDescription: "Xoga contra a intelixencia artificial.",
-            selectDifficulty: "Selecciona a dificultade"
+            selectDifficulty: "Selecciona a dificultade",
+            playerStats: "Estadísticas do Xogador",
+            totalGames: "Partidas Totais",
+            wins: "Victorias",
+            losses: "Derrotas",
+            winRate: "% Victorias",
+            bestStreak: "Mellor Racha",
+            errorLoadingStats: "Error cargando estadísticas"
         },
         ranking: {
             globalRankingTitle: "Clasificación Global",
@@ -1632,7 +1663,11 @@ const translations: Translations = {
             yourProfileTitle: "你的个人资料",
             yourProfileSubtitle: "访问您的统计数据、历史记录并自定义您的体验。",
             globalRankingTitle: "全球排行榜",
-            globalRankingSubtitle: "发现Transcendence中最好的玩家。"
+            globalRankingSubtitle: "发现Transcendence中最好的玩家。",
+            multipleModesTitle: "多种模式",
+            multipleModesDescription: "享受经典乒乓球的不同变化。",
+            contentNotFound: "未找到id为'page-content'的元素来呈现主页。",
+            demoFunctionality: "这是演示功能。比赛："
         },
         profile: {
             profileTitle: "用户资料",
@@ -1694,7 +1729,14 @@ const translations: Translations = {
             chooseModeDescription: "选择游戏模式开始游戏。",
             backToGame: "返回游戏",
             vsAIDescription: "与人工智能对战。",
-            selectDifficulty: "选择难度"
+            selectDifficulty: "选择难度",
+            playerStats: "玩家统计",
+            totalGames: "总游戏数",
+            wins: "胜利",
+            losses: "失败",
+            winRate: "胜率%",
+            bestStreak: "最佳连胜",
+            errorLoadingStats: "加载统计数据错误"
         },
         ranking: {
             globalRankingTitle: "全球排行榜",
