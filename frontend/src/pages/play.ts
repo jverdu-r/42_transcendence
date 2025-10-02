@@ -22,7 +22,7 @@ export function renderPlay(): void {
       </div>
 
       <!-- Grid adjusted to 4 columns for better distribution -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <!-- Juego Local -->
         <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-yellow-400" 
              id="local-game-card">
@@ -79,26 +79,6 @@ export function renderPlay(): void {
             ${getTranslation('playPage', 'playOnline')}
           </button>
         </div>
-
-        <!-- Visor de Partidas -->
-        <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-purple-400" 
-             id="observer-game-card">
-          <div class="text-6xl mb-4">👁️</div>
-          <h2 class="text-xl font-bold text-purple-400 mb-2">${getTranslation('playPage', 'spectatorMode')}</h2>
-          <p class="text-gray-300 mb-4 text-sm">
-            ${getTranslation('playPage', 'spectatorDescription')}
-            ${getTranslation('playPage', 'learnStrategies')}
-          </p>
-          <div class="text-xs text-gray-400 mb-4 space-y-1">
-            <div>📺 ${getTranslation('playPage', 'realTimeViewing')}</div>
-            <div>🍿 ${getTranslation('playPage', 'spectatorMode')}</div>
-            <div>📊 ${getTranslation('playPage', 'matchStatistics')}</div>
-            <div>🎯 ${getTranslation('playPage', 'learnFromOthers')}</div>
-          </div>
-          <button class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition-colors w-full">
-            ${getTranslation('playPage', 'watchMatches')}
-          </button>
-        </div>
       </div>
 
       <!-- Quick statistics section -->
@@ -123,37 +103,6 @@ export function renderPlay(): void {
           </div>
         </div>
       </div>
-
-      <!-- Information about improvements -->
-      <div class="bg-gradient-to-r from-blue-900 to-purple-900 rounded-lg p-6">
-        <h3 class="text-xl font-bold mb-4 text-yellow-400">⚡ ${getTranslation('playPage', 'improvedPhysicsTitle')}</h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
-          <div>
-            <h4 class="font-semibold text-green-400 mb-2">🎯 ${getTranslation('playPage', 'realisticBounces')}</h4>
-            <ul class="text-sm text-gray-300 space-y-1">
-              <li>• ${getTranslation('playPage', 'angleBased')}</li>
-              <li>• ${getTranslation('playPage', 'variableSpeed')}</li>
-              <li>• ${getTranslation('playPage', 'progressiveIncrease')}</li>
-            </ul>
-          </div>
-          <div>
-            <h4 class="font-semibold text-blue-400 mb-2">🚀 ${getTranslation('playPage', 'classicMechanics')}</h4>
-            <ul class="text-sm text-gray-300 space-y-1">
-              <li>• ${getTranslation('playPage', 'faithfulPhysics')}</li>
-              <li>• ${getTranslation('playPage', 'wallBounces')}</li>
-              <li>• ${getTranslation('playPage', 'classicScoring')}</li>
-            </ul>
-          </div>
-          <div>
-            <h4 class="font-semibold text-yellow-400 mb-2">⏰ ${getTranslation('playPage', 'newFeatures')}</h4>
-            <ul class="text-sm text-gray-300 space-y-1">
-              <li>• ${getTranslation('playPage', 'countdown')}</li>
-              <li>• ${getTranslation('playPage', 'immediateMatches')}</li>
-              <li>• ${getTranslation('playPage', 'difficultySelector')}</li>
-            </ul>
-          </div>
-        </div>
-      </div>
     </div>
   `;
 
@@ -171,10 +120,6 @@ export function renderPlay(): void {
 
   document.getElementById('online-game-card')?.addEventListener('click', () => {
     navigateTo('/unified-game-online');
-  });
-
-  document.getElementById('observer-game-card')?.addEventListener('click', () => {
-    navigateTo('/spectator');
   });
 }
 

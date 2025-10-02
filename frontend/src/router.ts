@@ -22,9 +22,6 @@ import { renderGameLobby } from './pages/gameLobby';
 // Game results page
 import { renderGameResults, setResultsData } from './pages/gameResults';
 
-// Spectator page
-import { renderGameSpectator, startSpectatorAutoRefresh, stopSpectatorAutoRefresh, cleanupSpectator } from './pages/gameSpectator';
-
 //tournaments page under construction
 import { renderTournamentsPage } from './pages/tournaments';
 
@@ -91,14 +88,7 @@ const routes: { [key: string]: () => void } = {
   '/results': renderGameResultsWithData,
 
   // Tournaments route
-  '/tournaments': renderTournamentsPage,
-
-  // Spectator route
-  '/spectator': () => {
-    cleanupCurrentPage();
-    renderGameSpectator();
-    startSpectatorAutoRefresh();
-  }
+  '/tournaments': renderTournamentsPage
 };
 
 /**
@@ -212,9 +202,7 @@ export async function navigateTo(path: string): Promise<void> {
 }
 
 function cleanupCurrentPage(): void {
-  // Stop spectator auto-refresh if leaving spectator page
-  stopSpectatorAutoRefresh();
-  cleanupSpectator();
+  // Cleanup function - no specific cleanup needed now
 }
 
 // Event listeners for cleanup

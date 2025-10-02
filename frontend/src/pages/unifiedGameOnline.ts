@@ -62,7 +62,7 @@ export function renderUnifiedGameOnline(): void {
       <!-- Online Statistics -->
       <div class="bg-gradient-to-r from-purple-800 to-purple-900 rounded-lg p-6 mb-8 border-2 border-purple-600">
         <h3 class="text-xl font-bold mb-4 text-center text-purple-300">📊 ${getTranslation('game_online', 'server_status')}</h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
           <div>
             <div class="text-2xl font-bold text-green-400" id="total-online-games">-</div>
             <div class="text-xs text-purple-200">${getTranslation('game_online', 'total_games')}</div>
@@ -74,10 +74,6 @@ export function renderUnifiedGameOnline(): void {
           <div>
             <div class="text-2xl font-bold text-blue-400" id="active-games">-</div>
             <div class="text-xs text-purple-200">${getTranslation('game_online', 'in_game')}</div>
-          </div>
-          <div>
-            <div class="text-2xl font-bold text-red-400" id="spectators-count">-</div>
-            <div class="text-xs text-purple-200">${getTranslation('game_online', 'spectators')}</div>
           </div>
         </div>
       </div>
@@ -342,17 +338,14 @@ function updateServerStats(games: any[]): void {
   const totalGames = games.length;
   const waitingGames = games.filter(g => !g.enJuego && g.jugadoresConectados < g.capacidadMaxima).length;
   const activeGames = games.filter(g => g.enJuego).length;
-  const totalSpectators = games.reduce((sum, g) => sum + (g.espectadores || 0), 0);
 
   const totalEl = document.getElementById('total-online-games');
   const waitingEl = document.getElementById('waiting-games');
   const activeEl = document.getElementById('active-games');
-  const spectatorsEl = document.getElementById('spectators-count');
 
   if (totalEl) totalEl.textContent = totalGames.toString();
   if (waitingEl) waitingEl.textContent = waitingGames.toString();
   if (activeEl) activeEl.textContent = activeGames.toString();
-  if (spectatorsEl) spectatorsEl.textContent = totalSpectators.toString();
 }
 
 async function joinGame(gameId: string): Promise<void> {
