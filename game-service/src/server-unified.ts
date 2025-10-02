@@ -164,12 +164,18 @@ fastify.register(async function (fastify) {
                 const playerIndex = players.findIndex(p => p.id === currentPlayer.id);
                 const playerNumber = playerIndex + 1; // 1 or 2
                 
+                console.log(`🎮 PlayerMove: ${username} (player ${playerNumber}) moving ${data.direction}`);
+                
                 game.handlePlayerInput(currentPlayer.id, {
                   direction: data.direction,
                   type: 'move',
                   playerNumber: playerNumber // Añadir número de jugador
                 });
+              } else {
+                console.log(`❌ Player not found: ${username}`);
               }
+            } else {
+              console.log(`❌ Game not found for playerMove`);
             }
             break;
 

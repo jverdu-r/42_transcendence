@@ -316,30 +316,50 @@ export class UnifiedGame {
     }
 
     public handlePlayerInput(playerId: string, input: any): void {
-        if (!this.gameState.gameRunning) return;
+        if (!this.gameState.gameRunning) {
+            console.log(`⚠️ Game not running, ignoring input from ${playerId}`);
+            return;
+        }
 
         const player = this.players.find(p => p.id === playerId);
-        if (!player) return;
+        if (!player) {
+            console.log(`❌ Player not found: ${playerId}`);
+            return;
+        }
 
         const { direction, type, playerNumber } = input;
         const speed = 6; // VELOCIDAD IDÉNTICA AL FRONTEND
+
+        console.log(`🎮 handlePlayerInput: player ${player.name} (${player.number}) direction: ${direction}, playerNumber: ${playerNumber}`);
 
         if (type === 'move' || !type) { // Compatibilidad con ambos protocolos
             // Usar playerNumber si está disponible, sino usar player.number
             const paddleNumber = playerNumber || player.number;
             const paddle = paddleNumber === 1 ? this.gameState.paddles.left : this.gameState.paddles.right;
             
+            console.log(`🏓 Moving paddle ${paddleNumber} (${paddleNumber === 1 ? 'left' : 'right'}) ${direction}`);
+            
             switch (direction) {
                 case 'up':
                     if (paddle.y > 0) {
+                        const oldY = paddle.y;
                         paddle.y = Math.max(0, paddle.y - speed);
+                        console.log(`⬆️ Paddle ${paddleNumber} moved from ${oldY} to ${paddle.y}`);
+                    } else {
+                        console.log(`⬆️ Paddle ${paddleNumber} already at top`);
                     }
                     break;
                 case 'down':
                     if (paddle.y < this.gameState.canvas.height - paddle.height) {
+                        const oldY = paddle.y;
                         paddle.y = Math.min(this.gameState.canvas.height - paddle.height, paddle.y + speed);
+                        console.log(`⬇️ Paddle ${paddleNumber} moved from ${oldY} to ${paddle.y}`);
+                    } else {
+                        console.log(`⬇️ Paddle ${paddleNumber} already at bottom`);
                     }
                     break;
+                default:
+                    console.log(`❓ Unknown direction: ${direction}`);
             }
         }
     }

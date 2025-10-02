@@ -173,7 +173,10 @@ export class UnifiedGameRenderer {
      * For classic backend: send only up/down as soon as pressed. Never send 'stop'.
      */
     private sendPlayerMove(direction: 'up' | 'down'): void {
-        if (!this.websocket) return;
+        if (!this.websocket) {
+            console.warn('[sendPlayerMove] No websocket connection');
+            return;
+        }
         const msg = {
             type: 'playerMove',
             data: { direction }
@@ -366,22 +369,16 @@ export class UnifiedGameRenderer {
         if (newState.ball) this.gameState.ball = newState.ball;
         if (newState.paddles) {
             if (this.gameMode === 'online') {
-                // Preservar la posición de la paleta del jugador local, actualizar solo la del oponente
-                if (this.playerNumber === 1) {
-                    // Jugador 1 controla izquierda, actualizar solo la derecha del servidor
-                    if (newState.paddles.right) {
-                        this.gameState.paddles.right = newState.paddles.right;
-                    }
-                    // Mantener la posición local de la paleta izquierda
-                } else if (this.playerNumber === 2) {
-                    // Jugador 2 controla derecha, actualizar solo la izquierda del servidor
-                    if (newState.paddles.left) {
-                        this.gameState.paddles.left = newState.paddles.left;
-                    }
-                    // Mantener la posición local de la paleta derecha
+                // En modo online, el servidor es autoritativo para TODAS las paletas
+                // Actualizar ambas paletas del servidor para evitar desincronización
+                if (newState.paddles.left) {
+                    this.gameState.paddles.left = newState.paddles.left;
+                }
+                if (newState.paddles.right) {
+                    this.gameState.paddles.right = newState.paddles.right;
                 }
                 
-                console.log('[updateGameState] Online mode - preserving local paddle for player', this.playerNumber);
+                console.log('[updateGameState] Online mode - updating all paddles from server');
             } else {
                 // Para modos local/AI, actualizar todas las paletas normalmente
                 this.gameState.paddles = newState.paddles;
@@ -419,7 +416,8 @@ export class UnifiedGameRenderer {
     }
     
     private updateOnlinePaddles(): void {
-        const speed = 6;
+        // En modo online, NO mover las paletas localmente
+        // Solo enviar comandos al servidor cuando se detecten teclas
         
         // Debug: verificar playerNumber
         if (!this.playerNumber) {
@@ -434,30 +432,8 @@ export class UnifiedGameRenderer {
             down: this.keys['ArrowDown']
         });
         
-        // Determinar qué paleta controla el jugador local basado en playerNumber
-        if (this.playerNumber === 1) {
-            // Jugador 1 controla paleta izquierda (verde)
-            if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.left.y > 0) {
-                this.gameState.paddles.left.y -= speed;
-                console.log('[updateOnlinePaddles] P1 moving left paddle UP to:', this.gameState.paddles.left.y);
-            }
-            if ((this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) && 
-                this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
-                this.gameState.paddles.left.y += speed;
-                console.log('[updateOnlinePaddles] P1 moving left paddle DOWN to:', this.gameState.paddles.left.y);
-            }
-        } else if (this.playerNumber === 2) {
-            // Jugador 2 controla paleta derecha (roja)
-            if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.right.y > 0) {
-                this.gameState.paddles.right.y -= speed;
-                console.log('[updateOnlinePaddles] P2 moving right paddle UP to:', this.gameState.paddles.right.y);
-            }
-            if ((this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) && 
-                this.gameState.paddles.right.y < this.canvas.height - this.gameState.paddles.right.height) {
-                this.gameState.paddles.right.y += speed;
-                console.log('[updateOnlinePaddles] P2 moving right paddle DOWN to:', this.gameState.paddles.right.y);
-            }
-        }
+        // SOLO enviar al servidor, NO mover localmente para evitar conflictos
+        // El servidor se encarga del movimiento y nos envía el estado actualizado
     }
     
     private updatePaddles(): void {
