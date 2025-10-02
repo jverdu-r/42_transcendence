@@ -199,6 +199,12 @@ export async function generateRankingWithStats(db: any) {
   return userGameDetails;
 }
 
+// Email validation function
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
 // Endpoint para registrar un nuevo usuario
 fastify.post('/auth/register', async (request, reply) => {
   const { username, email, password } = request.body as any;
@@ -207,11 +213,26 @@ fastify.post('/auth/register', async (request, reply) => {
     return reply.code(400).send({ message: 'Faltan campos requeridos' });
   }
 
+  // Validate username length
+  if (username.trim().length < 3 || username.trim().length > 20) {
+    return reply.code(400).send({ message: 'El nombre de usuario debe tener entre 3 y 20 caracteres' });
+  }
+
+  // Validate email format
+  if (!isValidEmail(email.trim())) {
+    return reply.code(400).send({ message: 'Formato de correo electrónico inválido' });
+  }
+
+  // Validate password length
+  if (password.length < 6) {
+    return reply.code(400).send({ message: 'La contraseña debe tener al menos 6 caracteres' });
+  }
+
   try {
     const db = await openDb();
     
     // Verificar si el usuario ya existe
-    const existingUser = await db.get('SELECT * FROM users WHERE email = ? OR username = ?', [email, username]);
+    const existingUser = await db.get('SELECT * FROM users WHERE email = ? OR username = ?', [email.trim(), username.trim()]);
     if (existingUser) {
       await db.close();
       return reply.code(409).send({ message: 'Usuario o email ya existe' });
@@ -222,12 +243,12 @@ fastify.post('/auth/register', async (request, reply) => {
     // Insertar directamente en la base de datos
     await redisClient.rPush('sqlite_write_queue', JSON.stringify({
       sql: 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
-      params: [username, email, hash]
+      params: [username.trim(), email.trim(), hash]
     }));
     await redisClient.rPush('sqlite_write_queue', JSON.stringify({
       sql: `INSERT INTO user_profiles (user_id, avatar_url, language, notifications, doubleFactor, doubleFactorSecret, difficulty) 
             VALUES ((SELECT id FROM users WHERE username = ? AND email = ?), ?, ?, ?, ?, ?, ?)`,
-      params: [username, email, '', 'gl', 'true', 0, null, 'normal']
+      params: [username.trim(), email.trim(), '', 'gl', 'true', 0, null, 'normal']
     }));
     
     await db.close();
