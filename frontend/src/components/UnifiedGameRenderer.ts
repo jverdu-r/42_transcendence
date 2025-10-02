@@ -169,8 +169,12 @@ export class UnifiedGameRenderer {
     private handleKeyUp(e: KeyboardEvent): void {
         this.keys[e.key] = false;
         
-        // Detener movimiento inmediatamente al soltar
-        this.stopPaddleMovement(e.key);
+        // Detener movimiento para todas las teclas de movimiento
+        const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'];
+        if (movementKeys.includes(e.key)) {
+            this.stopPaddleMovement(e.key);
+            console.log('[handleKeyUp] Stopped movement for key:', e.key);
+        }
     }
 
     /**
@@ -361,6 +365,13 @@ export class UnifiedGameRenderer {
     
     public resetGame(): void {
         this.pauseGame();
+        
+        // Limpiar todos los intervals de movimiento
+        Object.keys(this.movementIntervals).forEach(key => {
+            clearInterval(this.movementIntervals[key]);
+        });
+        this.movementIntervals = {};
+        
         this.initializeGameState();
         this.gameStartTime = null;
         this.draw();
@@ -428,6 +439,7 @@ export class UnifiedGameRenderer {
     private startPaddleMovement(key: string): void {
         // Evitar múltiples intervals para la misma tecla
         if (this.movementIntervals[key]) {
+            console.log('[startPaddleMovement] ⚠️ Interval already exists for key:', key);
             return;
         }
         
@@ -440,7 +452,8 @@ export class UnifiedGameRenderer {
             this.draw(); // Redibujar
         }, 16); // ~60 FPS
         
-        console.log('[startPaddleMovement] Started movement for key:', key);
+        console.log('[startPaddleMovement] ✅ Started movement for key:', key);
+        console.log('[startPaddleMovement] Active intervals:', Object.keys(this.movementIntervals));
     }
     
     private stopPaddleMovement(key: string): void {
@@ -448,8 +461,13 @@ export class UnifiedGameRenderer {
         if (this.movementIntervals[key]) {
             clearInterval(this.movementIntervals[key]);
             delete this.movementIntervals[key];
-            console.log('[stopPaddleMovement] Stopped movement for key:', key);
+            console.log('[stopPaddleMovement] ✅ Stopped movement for key:', key);
+        } else {
+            console.log('[stopPaddleMovement] ⚠️ No interval found for key:', key);
         }
+        
+        // Debug: mostrar intervals activos
+        console.log('[stopPaddleMovement] Active intervals:', Object.keys(this.movementIntervals));
     }
     
     private movePaddle(key: string): void {
@@ -879,6 +897,12 @@ export class UnifiedGameRenderer {
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
         }
+        
+        // Limpiar todos los intervals de movimiento
+        Object.keys(this.movementIntervals).forEach(key => {
+            clearInterval(this.movementIntervals[key]);
+        });
+        this.movementIntervals = {};
         
         if (this.websocket) {
             this.websocket.close();
