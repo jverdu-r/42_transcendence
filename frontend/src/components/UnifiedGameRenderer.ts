@@ -146,8 +146,21 @@ export class UnifiedGameRenderer {
         // Immediate paddle response for all modes (including online for better UX)
         this.updatePaddleImmediate(e.key, true);
         
-        // Para modo online, NO enviar aquí - lo hace updateOnlinePaddles() en el loop
-        // Esto evita envío excesivo y permite movimiento continuo
+        // Para modo online, enviar comando inmediato pero con throttle
+        if (this.gameMode === 'online' && this.websocket && this.gameId) {
+            const now = Date.now();
+            if (now - this.lastMoveCommandTime >= this.moveCommandInterval) {
+                if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+                    this.sendPlayerMove('up');
+                    this.lastMoveCommandTime = now;
+                    console.log('[handleKeyDown] Immediate UP command');
+                } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+                    this.sendPlayerMove('down');
+                    this.lastMoveCommandTime = now;
+                    console.log('[handleKeyDown] Immediate DOWN command');
+                }
+            }
+        }
     }
 
     private handleKeyUp(e: KeyboardEvent): void {
@@ -405,6 +418,9 @@ export class UnifiedGameRenderer {
         this.animationId = requestAnimationFrame(() => this.paddleUpdateLoop());
     }
     
+    private lastMoveCommandTime: number = 0;
+    private moveCommandInterval: number = 50; // Enviar comando cada 50ms (20 FPS en lugar de 60)
+
     private updateOnlinePaddles(): void {
         // En modo online, enviar comandos al servidor basado en teclas presionadas
         
@@ -414,15 +430,24 @@ export class UnifiedGameRenderer {
             return;
         }
         
+        // Throttle para evitar spam de comandos
+        const now = Date.now();
+        if (now - this.lastMoveCommandTime < this.moveCommandInterval) {
+            return; // No enviar comando todavía
+        }
+        
         // Detectar teclas presionadas y enviar comandos al servidor
         const isUpPressed = this.keys['w'] || this.keys['W'] || this.keys['ArrowUp'];
         const isDownPressed = this.keys['s'] || this.keys['S'] || this.keys['ArrowDown'];
         
         if (isUpPressed) {
             this.sendPlayerMove('up');
-        }
-        if (isDownPressed) {
+            this.lastMoveCommandTime = now;
+            console.log('[updateOnlinePaddles] Sending UP command');
+        } else if (isDownPressed) {
             this.sendPlayerMove('down');
+            this.lastMoveCommandTime = now;
+            console.log('[updateOnlinePaddles] Sending DOWN command');
         }
         
         console.log('[updateOnlinePaddles] PlayerNumber:', this.playerNumber, 'Keys:', {

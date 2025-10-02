@@ -328,8 +328,8 @@ export class UnifiedGame {
         }
 
         const { direction, type, playerNumber } = input;
-        // Velocidad más baja porque recibimos comandos continuos a 60 FPS
-        const speed = 3; // Reducido de 6 a 3 para movimiento suave
+        // Velocidad ajustada para comandos a 20 FPS (cada 50ms)
+        const speed = 5; // Aumentado de 3 a 5 para compensar menor frecuencia
 
         console.log(`🎮 handlePlayerInput: player ${player.name} (${player.number}) direction: ${direction}, playerNumber: ${playerNumber}`);
 
