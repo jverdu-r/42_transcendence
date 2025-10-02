@@ -127,16 +127,87 @@ function loadGameStats(): void {
   // Show loading state
   showStatsLoading();
 
-  // Get stats from database via API
-  fetchUserStats()
+  // Get stats from database via API (same method as profile page)
+  getUserStats()
     .then(stats => {
-      updateStatsDisplay(stats);
+      if (stats) {
+        updateStatsDisplay({
+          totalGames: stats.totalGames || 0,
+          totalWins: stats.wins || 0,
+          winRate: Math.round(stats.winRate || 0),
+          bestStreak: calculateBestStreak(stats.matchHistory || [])
+        });
+      } else {
+        // If no stats from API, show default values
+        updateStatsDisplay({
+          totalGames: 0,
+          totalWins: 0,
+          winRate: 0,
+          bestStreak: 0
+        });
+      }
     })
     .catch(error => {
       console.error('Error loading game stats from database:', error);
-      // Fallback to localStorage if API fails
-      loadStatsFromLocalStorage();
+      // Show default values on error
+      updateStatsDisplay({
+        totalGames: 0,
+        totalWins: 0,
+        winRate: 0,
+        bestStreak: 0
+      });
     });
+}
+
+async function getUserStats(): Promise<{
+  totalGames: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  elo: number;
+  ranking: number;
+  matchHistory: Array<{
+    id: number;
+    result: 'win' | 'loss';
+    opponent: string;
+    score: string;
+    date: string;
+  }>;
+} | null> {
+  const token = localStorage.getItem('jwt');
+  if (!token) return null;
+
+  try {
+    const response = await fetch('/api/auth/profile/stats', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+function calculateBestStreak(matchHistory: Array<{ result: 'win' | 'loss' }>): number {
+  let bestStreak = 0;
+  let currentStreak = 0;
+  
+  // Calculate streaks from match history
+  for (const match of matchHistory) {
+    if (match.result === 'win') {
+      currentStreak++;
+      bestStreak = Math.max(bestStreak, currentStreak);
+    } else {
+      currentStreak = 0;
+    }
+  }
+  
+  return bestStreak;
 }
 
 async function fetchUserStats(): Promise<{
@@ -176,66 +247,6 @@ async function fetchUserStats(): Promise<{
   } catch (error) {
     console.error('Error fetching user stats from API:', error);
     throw error;
-  }
-}
-
-function loadStatsFromLocalStorage(): void {
-  try {
-    // Fallback: Load stats from localStorage
-    const savedStats = localStorage.getItem('pongGameStats');
-    if (!savedStats) {
-      // Show default values
-      updateStatsDisplay({
-        totalGames: 0,
-        totalWins: 0,
-        winRate: 0,
-        bestStreak: 0
-      });
-      return;
-    }
-
-    const allStats = JSON.parse(savedStats);
-    
-    // Calculate aggregated stats
-    const totalGames = allStats.length;
-    const totalWins = allStats.filter((game: any) => 
-      (game.player1Name === getCurrentUserName() && game.player1Score > game.player2Score) ||
-      (game.player2Name === getCurrentUserName() && game.player2Score > game.player1Score)
-    ).length;
-    
-    const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
-    
-    // Calculate best streak (simplified)
-    let bestStreak = 0;
-    let currentStreak = 0;
-    
-    for (const game of allStats) {
-      const userWon = (game.player1Name === getCurrentUserName() && game.player1Score > game.player2Score) ||
-                      (game.player2Name === getCurrentUserName() && game.player2Score > game.player1Score);
-      
-      if (userWon) {
-        currentStreak++;
-        bestStreak = Math.max(bestStreak, currentStreak);
-      } else {
-        currentStreak = 0;
-      }
-    }
-
-    updateStatsDisplay({
-      totalGames,
-      totalWins,
-      winRate,
-      bestStreak
-    });
-
-  } catch (error) {
-    console.error('Error loading game stats from localStorage:', error);
-    updateStatsDisplay({
-      totalGames: 0,
-      totalWins: 0,
-      winRate: 0,
-      bestStreak: 0
-    });
   }
 }
 
