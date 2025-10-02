@@ -141,23 +141,13 @@ export class UnifiedGameRenderer {
     }
     
     private handleKeyDown(e: KeyboardEvent): void {
-        console.log("[UnifiedGameRenderer] handleKeyDown", e.key, "mode:", this.gameMode);
-        // Prevent key repeat delay
-        if (this.keys[e.key]) return;
-        
         this.keys[e.key] = true;
         
         // Immediate paddle response for all modes (including online for better UX)
         this.updatePaddleImmediate(e.key, true);
         
-        // Send only 'up'/'down' (classic backend protocol) for online mode
-        if (this.gameMode === 'online' && this.websocket && this.gameId) {
-            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
-                this.sendPlayerMove('up');
-            } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
-                this.sendPlayerMove('down');
-            }
-        }
+        // Para modo online, NO enviar aquí - lo hace updateOnlinePaddles() en el loop
+        // Esto evita envío excesivo y permite movimiento continuo
     }
 
     private handleKeyUp(e: KeyboardEvent): void {
@@ -416,13 +406,23 @@ export class UnifiedGameRenderer {
     }
     
     private updateOnlinePaddles(): void {
-        // En modo online, NO mover las paletas localmente
-        // Solo enviar comandos al servidor cuando se detecten teclas
+        // En modo online, enviar comandos al servidor basado en teclas presionadas
         
         // Debug: verificar playerNumber
         if (!this.playerNumber) {
             console.warn('[updateOnlinePaddles] PlayerNumber no está establecido:', this.playerNumber);
             return;
+        }
+        
+        // Detectar teclas presionadas y enviar comandos al servidor
+        const isUpPressed = this.keys['w'] || this.keys['W'] || this.keys['ArrowUp'];
+        const isDownPressed = this.keys['s'] || this.keys['S'] || this.keys['ArrowDown'];
+        
+        if (isUpPressed) {
+            this.sendPlayerMove('up');
+        }
+        if (isDownPressed) {
+            this.sendPlayerMove('down');
         }
         
         console.log('[updateOnlinePaddles] PlayerNumber:', this.playerNumber, 'Keys:', {
@@ -431,9 +431,6 @@ export class UnifiedGameRenderer {
             s: this.keys['s'] || this.keys['S'],
             down: this.keys['ArrowDown']
         });
-        
-        // SOLO enviar al servidor, NO mover localmente para evitar conflictos
-        // El servidor se encarga del movimiento y nos envía el estado actualizado
     }
     
     private updatePaddles(): void {

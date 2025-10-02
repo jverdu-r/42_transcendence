@@ -328,7 +328,8 @@ export class UnifiedGame {
         }
 
         const { direction, type, playerNumber } = input;
-        const speed = 6; // VELOCIDAD IDÉNTICA AL FRONTEND
+        // Velocidad más baja porque recibimos comandos continuos a 60 FPS
+        const speed = 3; // Reducido de 6 a 3 para movimiento suave
 
         console.log(`🎮 handlePlayerInput: player ${player.name} (${player.number}) direction: ${direction}, playerNumber: ${playerNumber}`);
 
