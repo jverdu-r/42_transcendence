@@ -395,13 +395,25 @@ export class UnifiedGameRenderer {
     private updateOnlinePaddles(): void {
         const speed = 6;
         
-        // Only update left paddle (local player) - server handles the other player
-        if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.left.y > 0) {
-            this.gameState.paddles.left.y -= speed;
-        }
-        if ((this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) && 
-            this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
-            this.gameState.paddles.left.y += speed;
+        // Determinar qué paleta controla el jugador local basado en playerNumber
+        if (this.playerNumber === 1) {
+            // Jugador 1 controla paleta izquierda (verde)
+            if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.left.y > 0) {
+                this.gameState.paddles.left.y -= speed;
+            }
+            if ((this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) && 
+                this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
+                this.gameState.paddles.left.y += speed;
+            }
+        } else if (this.playerNumber === 2) {
+            // Jugador 2 controla paleta derecha (roja)
+            if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.right.y > 0) {
+                this.gameState.paddles.right.y -= speed;
+            }
+            if ((this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) && 
+                this.gameState.paddles.right.y < this.canvas.height - this.gameState.paddles.right.height) {
+                this.gameState.paddles.right.y += speed;
+            }
         }
     }
     
