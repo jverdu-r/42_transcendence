@@ -73,7 +73,7 @@ export class UnifiedGameRenderer {
     
     // Online movement throttling
     private lastMoveCommandTime: number = 0;
-    private moveCommandInterval: number = 50; // Enviar comando cada 50ms (20 FPS)
+    private moveCommandInterval: number = 33; // Enviar comando cada 33ms (30 FPS para mejor sync)
 
     // Allow external (lobby) setup of WebSocket for online mode
     public setWebSocketConnection(ws: WebSocket, gameId: string) {
@@ -145,26 +145,22 @@ export class UnifiedGameRenderer {
     }
     
     private handleKeyDown(e: KeyboardEvent): void {
+        // Evitar repetición de eventos keydown del navegador
+        if (this.keys[e.key]) {
+            return; // Ya está presionada, no hacer nada
+        }
+        
         this.keys[e.key] = true;
         
-        // Immediate paddle response for all modes (including online for better UX)
-        this.updatePaddleImmediate(e.key, true);
-        
-        // Para modo online, enviar comando inmediato pero con throttle
-        if (this.gameMode === 'online' && this.websocket && this.gameId) {
-            const now = Date.now();
-            if (now - this.lastMoveCommandTime >= this.moveCommandInterval) {
-                if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
-                    this.sendPlayerMove('up');
-                    this.lastMoveCommandTime = now;
-                    console.log('[handleKeyDown] Immediate UP command');
-                } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
-                    this.sendPlayerMove('down');
-                    this.lastMoveCommandTime = now;
-                    console.log('[handleKeyDown] Immediate DOWN command');
-                }
-            }
+        // Para modo online, el movimiento se maneja completamente en updateOnlinePaddles
+        // No enviar comandos aquí para evitar movimiento en "saltos"
+        if (this.gameMode === 'online') {
+            console.log('[handleKeyDown] Key pressed:', e.key, 'but movement handled in loop');
+            return;
         }
+        
+        // Para modos local/AI, mantener comportamiento original
+        this.updatePaddleImmediate(e.key, true);
     }
 
     private handleKeyUp(e: KeyboardEvent): void {
@@ -439,13 +435,14 @@ export class UnifiedGameRenderer {
             return;
         }
         
-        // 1. MOVIMIENTO LOCAL INMEDIATO (como modo local)
+        // 1. MOVIMIENTO LOCAL INMEDIATO Y CONTINUO (sin throttle)
         const isUpPressed = this.keys['w'] || this.keys['W'] || this.keys['ArrowUp'];
         const isDownPressed = this.keys['s'] || this.keys['S'] || this.keys['ArrowDown'];
         
         // Determinar qué paleta controlar localmente
         const myPaddle = this.playerNumber === 1 ? this.gameState.paddles.left : this.gameState.paddles.right;
         
+        // Movimiento CONTINUO a 60 FPS
         if (isUpPressed && myPaddle.y > 0) {
             myPaddle.y -= speed;
             if (myPaddle.y < 0) myPaddle.y = 0;
@@ -457,17 +454,17 @@ export class UnifiedGameRenderer {
             }
         }
         
-        // 2. ENVÍO AL SERVIDOR (throttled para sincronización)
+        // 2. ENVÍO AL SERVIDOR (throttled SOLO para sincronización)
         const now = Date.now();
         if (now - this.lastMoveCommandTime >= this.moveCommandInterval) {
             if (isUpPressed) {
                 this.sendPlayerMove('up');
                 this.lastMoveCommandTime = now;
-                console.log('[updateOnlinePaddles] Sending UP command + local move');
+                console.log('[updateOnlinePaddles] Sync UP to server');
             } else if (isDownPressed) {
                 this.sendPlayerMove('down');
                 this.lastMoveCommandTime = now;
-                console.log('[updateOnlinePaddles] Sending DOWN command + local move');
+                console.log('[updateOnlinePaddles] Sync DOWN to server');
             }
         }
     }
