@@ -124,8 +124,64 @@ export function renderPlay(): void {
 }
 
 function loadGameStats(): void {
+  // Show loading state
+  showStatsLoading();
+
+  // Get stats from database via API
+  fetchUserStats()
+    .then(stats => {
+      updateStatsDisplay(stats);
+    })
+    .catch(error => {
+      console.error('Error loading game stats from database:', error);
+      // Fallback to localStorage if API fails
+      loadStatsFromLocalStorage();
+    });
+}
+
+async function fetchUserStats(): Promise<{
+  totalGames: number;
+  totalWins: number;
+  winRate: number;
+  bestStreak: number;
+}> {
   try {
-    // Load stats from localStorage
+    const currentUser = getCurrentUser();
+    if (!currentUser?.username) {
+      throw new Error('No authenticated user found');
+    }
+
+    // Make API call to get user statistics
+    const response = await fetch(`/api/users/${currentUser.username}/stats`, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Transform API response to expected format
+    return {
+      totalGames: data.totalGames || 0,
+      totalWins: data.totalWins || 0,
+      winRate: data.winRate || 0,
+      bestStreak: data.bestStreak || 0
+    };
+
+  } catch (error) {
+    console.error('Error fetching user stats from API:', error);
+    throw error;
+  }
+}
+
+function loadStatsFromLocalStorage(): void {
+  try {
+    // Fallback: Load stats from localStorage
     const savedStats = localStorage.getItem('pongGameStats');
     if (!savedStats) {
       // Show default values
@@ -173,7 +229,7 @@ function loadGameStats(): void {
     });
 
   } catch (error) {
-    console.error('Error loading game stats:', error);
+    console.error('Error loading game stats from localStorage:', error);
     updateStatsDisplay({
       totalGames: 0,
       totalWins: 0,
@@ -198,6 +254,18 @@ function updateStatsDisplay(stats: {
   if (totalWinsEl) totalWinsEl.textContent = stats.totalWins.toString();
   if (winRateEl) winRateEl.textContent = `${stats.winRate}%`;
   if (bestStreakEl) bestStreakEl.textContent = stats.bestStreak.toString();
+}
+
+function showStatsLoading(): void {
+  const totalGamesEl = document.getElementById('total-games');
+  const totalWinsEl = document.getElementById('total-wins');
+  const winRateEl = document.getElementById('win-rate');
+  const bestStreakEl = document.getElementById('best-streak');
+
+  if (totalGamesEl) totalGamesEl.textContent = '...';
+  if (totalWinsEl) totalWinsEl.textContent = '...';
+  if (winRateEl) winRateEl.textContent = '...';
+  if (bestStreakEl) bestStreakEl.textContent = '...';
 }
 
 function getCurrentUserName(): string {
