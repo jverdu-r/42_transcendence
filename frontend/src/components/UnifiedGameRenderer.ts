@@ -71,9 +71,8 @@ export class UnifiedGameRenderer {
     private aiDifficulty: 'easy' | 'medium' | 'hard' = 'medium';
     private aiSpeed: number = 3;
     
-    // Online movement throttling
-    private lastMoveCommandTime: number = 0;
-    private moveCommandInterval: number = 33; // Enviar comando cada 33ms (30 FPS para mejor sync)
+    // Movement intervals para movimiento continuo
+    private movementIntervals: { [key: string]: any } = {};
 
     // Allow external (lobby) setup of WebSocket for online mode
     public setWebSocketConnection(ws: WebSocket, gameId: string) {
@@ -145,12 +144,17 @@ export class UnifiedGameRenderer {
     }
     
     private handleKeyDown(e: KeyboardEvent): void {
+        // Evitar repetición de keydown
+        if (this.keys[e.key]) {
+            return;
+        }
+        
         this.keys[e.key] = true;
         
-        // Movimiento inmediato para todos los modos (incluyendo online)
-        this.updatePaddleImmediate(e.key, true);
+        // Iniciar movimiento inmediato al presionar
+        this.startPaddleMovement(e.key);
         
-        // Para modo online, también enviar comando al servidor
+        // Para modo online, enviar comando al servidor
         if (this.gameMode === 'online' && this.websocket && this.gameId) {
             if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
                 this.sendPlayerMove('up');
@@ -165,10 +169,8 @@ export class UnifiedGameRenderer {
     private handleKeyUp(e: KeyboardEvent): void {
         this.keys[e.key] = false;
         
-        // Immediate paddle response for all modes when key is released
-        this.updatePaddleImmediate(e.key, false);
-        
-        // Do NOT send anything on keyup for classic server
+        // Detener movimiento inmediatamente al soltar
+        this.stopPaddleMovement(e.key);
     }
 
     /**
@@ -423,61 +425,94 @@ export class UnifiedGameRenderer {
         this.animationId = requestAnimationFrame(() => this.paddleUpdateLoop());
     }
     
-    private updateOnlinePaddles(): void {
-        const speed = 6;
-        
-        // Debug: verificar playerNumber
-        if (!this.playerNumber) {
-            console.warn('[updateOnlinePaddles] PlayerNumber no está establecido:', this.playerNumber);
+    private startPaddleMovement(key: string): void {
+        // Evitar múltiples intervals para la misma tecla
+        if (this.movementIntervals[key]) {
             return;
         }
         
-        // Determinar qué paleta controlar localmente
-        const isUpPressed = this.keys['w'] || this.keys['W'] || this.keys['ArrowUp'];
-        const isDownPressed = this.keys['s'] || this.keys['S'] || this.keys['ArrowDown'];
+        // Movimiento inmediato
+        this.movePaddle(key);
         
-        // Jugador 1 controla paleta izquierda, Jugador 2 controla paleta derecha
-        if (this.playerNumber === 1) {
-            // Control de paleta izquierda
-            if (isUpPressed && this.gameState.paddles.left.y > 0) {
+        // Iniciar movimiento continuo
+        this.movementIntervals[key] = setInterval(() => {
+            this.movePaddle(key);
+            this.draw(); // Redibujar
+        }, 16); // ~60 FPS
+        
+        console.log('[startPaddleMovement] Started movement for key:', key);
+    }
+    
+    private stopPaddleMovement(key: string): void {
+        // Detener movimiento continuo
+        if (this.movementIntervals[key]) {
+            clearInterval(this.movementIntervals[key]);
+            delete this.movementIntervals[key];
+            console.log('[stopPaddleMovement] Stopped movement for key:', key);
+        }
+    }
+    
+    private movePaddle(key: string): void {
+        const speed = 6;
+        
+        if (this.gameMode === 'online') {
+            // Para modo online, usar playerNumber
+            if (!this.playerNumber) return;
+            
+            if (this.playerNumber === 1) {
+                // Jugador 1 controla paleta izquierda
+                if ((key === 'w' || key === 'W' || key === 'ArrowUp') && this.gameState.paddles.left.y > 0) {
+                    this.gameState.paddles.left.y -= speed;
+                    if (this.gameState.paddles.left.y < 0) this.gameState.paddles.left.y = 0;
+                }
+                if ((key === 's' || key === 'S' || key === 'ArrowDown') && 
+                    this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
+                    this.gameState.paddles.left.y += speed;
+                    if (this.gameState.paddles.left.y > this.canvas.height - this.gameState.paddles.left.height) {
+                        this.gameState.paddles.left.y = this.canvas.height - this.gameState.paddles.left.height;
+                    }
+                }
+            } else if (this.playerNumber === 2) {
+                // Jugador 2 controla paleta derecha
+                if ((key === 'w' || key === 'W' || key === 'ArrowUp') && this.gameState.paddles.right.y > 0) {
+                    this.gameState.paddles.right.y -= speed;
+                    if (this.gameState.paddles.right.y < 0) this.gameState.paddles.right.y = 0;
+                }
+                if ((key === 's' || key === 'S' || key === 'ArrowDown') && 
+                    this.gameState.paddles.right.y < this.canvas.height - this.gameState.paddles.right.height) {
+                    this.gameState.paddles.right.y += speed;
+                    if (this.gameState.paddles.right.y > this.canvas.height - this.gameState.paddles.right.height) {
+                        this.gameState.paddles.right.y = this.canvas.height - this.gameState.paddles.right.height;
+                    }
+                }
+            }
+        } else {
+            // Para modos local/AI
+            // Jugador 1 (izquierda)
+            if ((key === 'w' || key === 'W' || key === 'ArrowUp') && this.gameState.paddles.left.y > 0) {
                 this.gameState.paddles.left.y -= speed;
-                if (this.gameState.paddles.left.y < 0) this.gameState.paddles.left.y = 0;
-                console.log('[updateOnlinePaddles] P1 LEFT paddle UP to:', this.gameState.paddles.left.y);
             }
-            if (isDownPressed && this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
+            if ((key === 's' || key === 'S' || key === 'ArrowDown') && 
+                this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
                 this.gameState.paddles.left.y += speed;
-                if (this.gameState.paddles.left.y > this.canvas.height - this.gameState.paddles.left.height) {
-                    this.gameState.paddles.left.y = this.canvas.height - this.gameState.paddles.left.height;
-                }
-                console.log('[updateOnlinePaddles] P1 LEFT paddle DOWN to:', this.gameState.paddles.left.y);
             }
-        } else if (this.playerNumber === 2) {
-            // Control de paleta derecha
-            if (isUpPressed && this.gameState.paddles.right.y > 0) {
-                this.gameState.paddles.right.y -= speed;
-                if (this.gameState.paddles.right.y < 0) this.gameState.paddles.right.y = 0;
-                console.log('[updateOnlinePaddles] P2 RIGHT paddle UP to:', this.gameState.paddles.right.y);
-            }
-            if (isDownPressed && this.gameState.paddles.right.y < this.canvas.height - this.gameState.paddles.right.height) {
-                this.gameState.paddles.right.y += speed;
-                if (this.gameState.paddles.right.y > this.canvas.height - this.gameState.paddles.right.height) {
-                    this.gameState.paddles.right.y = this.canvas.height - this.gameState.paddles.right.height;
+            
+            // Jugador 2 (derecha) solo en modo local
+            if (this.gameMode === 'local') {
+                if ((key === 'o' || key === 'O') && this.gameState.paddles.right.y > 0) {
+                    this.gameState.paddles.right.y -= speed;
                 }
-                console.log('[updateOnlinePaddles] P2 RIGHT paddle DOWN to:', this.gameState.paddles.right.y);
+                if ((key === 'l' || key === 'L') && 
+                    this.gameState.paddles.right.y < this.canvas.height - this.gameState.paddles.right.height) {
+                    this.gameState.paddles.right.y += speed;
+                }
             }
         }
-        
-        // Enviar comandos al servidor con throttle
-        const now = Date.now();
-        if (now - this.lastMoveCommandTime >= this.moveCommandInterval) {
-            if (isUpPressed) {
-                this.sendPlayerMove('up');
-                this.lastMoveCommandTime = now;
-            } else if (isDownPressed) {
-                this.sendPlayerMove('down');
-                this.lastMoveCommandTime = now;
-            }
-        }
+    }
+    
+    private updateOnlinePaddles(): void {
+        // El movimiento ahora se maneja completamente con eventos keydown/keyup
+        // Esta función ya no necesita hacer nada
     }
     
     private updatePaddles(): void {
