@@ -1,4 +1,5 @@
 // Componente reutilizable para mostrar información de jugadores
+import { getTranslation } from '../i18n';
 export interface PlayerInfo {
   numero: number;
   username: string;
@@ -40,30 +41,30 @@ export class PlayerDisplay {
     
     // Íconos según el tipo de jugador
     let playerIcon = '👤';
-    let playerType = 'Jugador';
-    let playerDescription = 'Jugador humano';
+    let playerType = getTranslation('playerDisplay', 'player');
+    let playerDescription = getTranslation('playerDisplay', 'humanPlayer');
     
     if (player.esIA) {
       playerIcon = '🤖';
-      playerType = 'IA';
-      playerDescription = 'Inteligencia Artificial';
+      playerType = getTranslation('playerDisplay', 'ai');
+      playerDescription = getTranslation('playerDisplay', 'artificialIntelligence');
     } else if (player.isCurrentUser) {
       playerIcon = '📱';
-      playerType = 'Tú';
-      playerDescription = gameMode === 'local' ? 'Jugador local' : 'Jugador actual';
+      playerType = getTranslation('playerDisplay', 'you');
+      playerDescription = gameMode === 'local' ? getTranslation('playerDisplay', 'localPlayer') : getTranslation('playerDisplay', 'currentPlayer');
     } else if (gameMode === 'local') {
       playerIcon = '🎮';
-      playerType = 'Jugador 2';
-      playerDescription = 'Jugador local';
+      playerType = getTranslation('playerDisplay', 'player2');
+      playerDescription = getTranslation('playerDisplay', 'localPlayer');
     }
     
     // Controles según el modo de juego
     const controls = gameMode === 'local' 
-      ? (isPlayer1 ? 'W (arriba) / S (abajo)' : '↑ (arriba) / ↓ (abajo)')
-      : (player.isCurrentUser ? 'W (arriba) / S (abajo)' : 'Controlado remotamente');
+      ? (isPlayer1 ? getTranslation('playerDisplay', 'keyboardControls') : getTranslation('playerDisplay', 'arrowControls'))
+      : (player.isCurrentUser ? getTranslation('playerDisplay', 'keyboardControls') : getTranslation('playerDisplay', 'remoteControlled'));
     
-    const sideText = isPlayer1 ? 'Izquierda' : 'Derecha';
-    const colorText = isPlayer1 ? 'Amarilla' : 'Azul';
+    const sideText = isPlayer1 ? getTranslation('playerDisplay', 'left') : getTranslation('playerDisplay', 'right');
+    const colorText = isPlayer1 ? getTranslation('playerDisplay', 'yellow') : getTranslation('playerDisplay', 'blue');
     
     return `
       <div class="${bgColor} rounded-lg p-3">
@@ -71,10 +72,10 @@ export class PlayerDisplay {
           ${playerIcon} ${player.displayName}
         </h3>
         <p class="text-sm ${textColor}">
-          ${playerType} - Pala ${colorText}
+          ${playerType} - ${getTranslation('playerDisplay', 'paddle')} ${colorText}
         </p>
         <p class="text-sm ${textColor} font-semibold">
-          Lado ${sideText}
+          ${getTranslation('playerDisplay', 'side')} ${sideText}
         </p>
         <p class="text-xs ${textColor}">
           ${controls}

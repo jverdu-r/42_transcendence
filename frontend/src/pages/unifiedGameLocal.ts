@@ -7,15 +7,15 @@ import { setGameResults } from '../router';
 // Local game state
 let game: UnifiedGameRenderer | null = null;
 let startedAt: string | null = null;
-let player1Name = 'Jugador 1';
-let player2Name = 'Jugador 2';
+let player1Name = getTranslation('unifiedGameLocal', 'player1');
+let player2Name = getTranslation('unifiedGameLocal', 'player2');
 let rallieCount = 0;
 
 export function renderUnifiedGameLocal(): void {
     const pageContent = document.getElementById('page-content');
     
     if (!pageContent) {
-        console.error('No se encontró el contenedor de contenido de la página para "/unified-game-local".');
+        console.error(getTranslation('unifiedGameLocal', 'containerNotFound'));
         return;
     }
 
@@ -104,7 +104,7 @@ function setupLocalGame(): void {
   const currentUser = getCurrentUser();
   
   if (!canvas || !currentUser) {
-    console.error('No se encontró el canvas del juego o no hay usuario autenticado');
+    console.error(getTranslation('unifiedGameLocal', 'canvasOrUserNotFound'));
     return;
   }
 
@@ -115,8 +115,8 @@ function setupLocalGame(): void {
   const game = new UnifiedGameRenderer(canvas, 'local');
   
   // Set up player info
-  player1Name = 'Jugador 1';
-  player2Name = 'Jugador 2';
+  player1Name = getTranslation('unifiedGameLocal', 'player1');
+  player2Name = getTranslation('unifiedGameLocal', 'player2');
   rallieCount = 0;
   
   const player1Info = {
@@ -157,10 +157,10 @@ function setupLocalGame(): void {
         if (data.gameId) {
           dbGameId = data.gameId;
         } else {
-          console.error('No se encontró el gameId en la base de datos');
+          console.error(getTranslation('unifiedGameLocal', 'gameIdNotFound'));
         }
       } catch (err) {
-        console.error('Error al obtener gameId por startedAt:', err);
+        console.error(getTranslation('unifiedGameLocal', 'errorGettingGameId'), err);
       }
 
       // ✅ 2. Update the game in the database
@@ -177,7 +177,7 @@ function setupLocalGame(): void {
             })
           });
         } catch (err) {
-          console.error('Error al finalizar partida en DB:', err);
+          console.error(getTranslation('unifiedGameLocal', 'errorFinishingGame'), err);
         }
       }
 
@@ -220,9 +220,9 @@ function setupLocalGame(): void {
         tournamentId: null, // o pasa un valor si es torneo
         startedAt
       })
-    }).catch(err => console.error('Error creando partida local en DB:', err));
+    }).catch(err => console.error(getTranslation('unifiedGameLocal', 'errorCreatingLocalGame'), err));
   } catch (err) {
-    console.error('Error en la llamada a create/local:', err);
+    console.error(getTranslation('unifiedGameLocal', 'errorInCreateCall'), err);
   }
 
   // Iniciar cuenta atrás automáticamente

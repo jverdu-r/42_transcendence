@@ -15,7 +15,7 @@ export function renderUnifiedGameAI(): void {
   const pageContent = document.getElementById('page-content');
 
   if (!pageContent) {
-    console.error('No se encontró el contenedor de contenido de la página para "/unified-game-ai".');
+    console.error(getTranslation('unifiedGameAI', 'containerNotFound'));
     return;
   }
 
@@ -73,7 +73,7 @@ function startGameWithDifficulty(difficulty: 'easy' | 'medium' | 'hard'): void {
   const pageContent = document.getElementById('page-content');
 
   if (!pageContent) {
-    console.error('No se encontró el contenedor de contenido de la página para iniciar el juego.');
+    console.error(getTranslation('unifiedGameAI', 'containerNotFoundGame'));
     return;
   }
 
@@ -82,7 +82,7 @@ function startGameWithDifficulty(difficulty: 'easy' | 'medium' | 'hard'): void {
     <div class="w-full max-w-6xl mx-auto">
       <!-- Header del juego -->
       <div class="text-center mb-6">
-        <h1 class="text-3xl font-bold text-white mb-2">🤖 vs IA - ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}</h1>
+        <h1 class="text-3xl font-bold text-white mb-2">🤖 ${getTranslation('unifiedGameAI', 'vsAI')} - ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}</h1>
         <p class="text-gray-300">${getTranslation('game_AI', 'vs_ai')}</p>
       </div>
 
@@ -163,12 +163,12 @@ function setupAIGame(difficulty: 'easy' | 'medium' | 'hard'): void {
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
   const currentUser = getCurrentUser();
   if (!canvas || !currentUser) {
-    console.error('Canvas o usuario no disponibles');
+    console.error(getTranslation('unifiedGameAI', 'canvasOrUserNotAvailable'));
     return;
   }
   
   if (!canvas) {
-    console.error('No se encontró el canvas del juego');
+    console.error(getTranslation('unifiedGameAI', 'canvasNotFound'));
     return;
   }
 
@@ -184,7 +184,7 @@ function setupAIGame(difficulty: 'easy' | 'medium' | 'hard'): void {
       difficulty,
       startedAt
     })
-  }).catch(err => console.error('Error creando partida contra IA en DB:', err));
+  }).catch(err => console.error(getTranslation('unifiedGameAI', 'errorCreatingAIGame'), err));
 
   // Crear instancia del juego
   game = new UnifiedGameRenderer(canvas, 'ai');
@@ -233,7 +233,7 @@ function setupAIGame(difficulty: 'easy' | 'medium' | 'hard'): void {
         const data = await response.json();
         dbGameId = data.gameId;
       } catch (err) {
-        console.error('Error obteniendo gameId:', err);
+        console.error(getTranslation('unifiedGameAI', 'errorGettingGameId'), err);
       }
       
       // ✅ 2. Update the game in the database
@@ -250,7 +250,7 @@ function setupAIGame(difficulty: 'easy' | 'medium' | 'hard'): void {
             })
           });
         } catch (err) {
-          console.error('Error al finalizar partida contra IA en DB:', err);
+          console.error(getTranslation('unifiedGameAI', 'errorFinishingAIGame'), err);
         }
       }
       

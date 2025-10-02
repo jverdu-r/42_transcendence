@@ -1,3 +1,5 @@
+import { getTranslation } from './i18n';
+
 export interface User {
   id: number;
   username: string;
@@ -29,7 +31,7 @@ function parseJwt(token: string): any {
     );
     return JSON.parse(jsonPayload);
   } catch (err) {
-    console.error(':x: Error al parsear JWT:', err);
+    console.error(getTranslation('auth', 'errorParsingJWT'), err);
     return null;
   }
 }
@@ -49,13 +51,13 @@ export async function getUserSettings(): Promise<UserSettings | null> {
     });
 
     if (!response.ok) {
-      console.error('Error al obtener configuraciones:', response.status);
+      console.error(getTranslation('auth', 'errorGettingSettings'), response.status);
       return null;
     }
 
     return await response.json();
   } catch (error) {
-    console.error('Error en la petición de configuraciones:', error);
+    console.error(getTranslation('auth', 'errorInSettingsRequest'), error);
     return null;
   }
 }
@@ -75,13 +77,13 @@ export async function fetchUserProfile(): Promise<User | null> {
     });
 
     if (!response.ok) {
-      console.error('Error al obtener datos de usuario:', response.status);
+      console.error(getTranslation('auth', 'errorGettingUserData'), response.status);
       return null;
     }
 
     return await response.json();
   } catch (error) {
-    console.error('Error en la petición de datos de usuario:', error);
+    console.error(getTranslation('auth', 'errorInUserDataRequest'), error);
     return null;
   }
 }
@@ -138,19 +140,19 @@ export function getCurrentUser(): User | null {
       if (user.id === payload.user_id) {
         return {
           id: user.id,
-          username: user.username || 'Usuario',
-          email: user.email || 'desconocido@example.com'
+          username: user.username || getTranslation('auth', 'user'),
+          email: user.email || getTranslation('auth', 'unknownEmail')
         };
       }
     } catch (e) {
-      console.error('Error parsing local user:', e);
+      console.error(getTranslation('auth', 'errorParsingLocalUser'), e);
     }
   }
   
   return {
     id: payload.user_id,
-    username: payload.username || 'Usuario',
-    email: payload.email || 'desconocido@example.com'
+    username: payload.username || getTranslation('auth', 'user'),
+    email: payload.email || getTranslation('auth', 'unknownEmail')
   };
 }
 

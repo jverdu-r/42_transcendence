@@ -1,5 +1,6 @@
 import { navigateTo } from '../router';
 import { getCurrentUser } from '../auth';
+import { getTranslation } from '../i18n';
 
 export function renderPlay(): void {
   const content = document.getElementById('page-content');
@@ -13,10 +14,10 @@ export function renderPlay(): void {
     <div class="w-full max-w-6xl mx-auto text-center">
       <div class="mb-8">
         <h1 class="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
-          🎮 Selecciona tu modo de juego
+          🎮 ${getTranslation('playPage', 'selectGameMode')}
         </h1>
         <p class="text-lg text-gray-300">
-          Elige cómo quieres jugar al clásico Pong con físicas mejoradas
+          ${getTranslation('playPage', 'chooseHowToPlay')}
         </p>
       </div>
 
@@ -26,19 +27,18 @@ export function renderPlay(): void {
         <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-yellow-400" 
              id="local-game-card">
           <div class="text-6xl mb-4">🏠</div>
-          <h2 class="text-xl font-bold text-yellow-400 mb-2">Juego Local</h2>
+          <h2 class="text-xl font-bold text-yellow-400 mb-2">${getTranslation('playPage', 'localGame')}</h2>
           <p class="text-gray-300 mb-4 text-sm">
-            Juega contra un amigo en el mismo dispositivo. 
-            Perfecto para partidas rápidas cara a cara.
+            ${getTranslation('playPage', 'localGameDescription')}
           </p>
           <div class="text-xs text-gray-400 mb-4 space-y-1">
-            <div>👥 2 Jugadores</div>
-            <div>🎮 Mismo dispositivo</div>
-            <div>⚡ Partida instantánea</div>
-            <div>🕹️ W/S vs ↑/↓</div>
+            <div>👥 ${getTranslation('playPage', 'twoPlayers')}</div>
+            <div>🎮 ${getTranslation('playPage', 'sameDevice')}</div>
+            <div>⚡ ${getTranslation('playPage', 'instantMatch')}</div>
+            <div>🕹️ ${getTranslation('playPage', 'localControls')}</div>
           </div>
           <button class="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded transition-colors w-full">
-            Jugar Local
+            ${getTranslation('playPage', 'playLocal')}
           </button>
         </div>
 
@@ -46,19 +46,18 @@ export function renderPlay(): void {
         <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-green-400" 
              id="ai-game-card">
           <div class="text-6xl mb-4">🤖</div>
-          <h2 class="text-xl font-bold text-green-400 mb-2">vs IA</h2>
+          <h2 class="text-xl font-bold text-green-400 mb-2">${getTranslation('playPage', 'vsAI')}</h2>
           <p class="text-gray-300 mb-4 text-sm">
-            Enfréntate a la IA con físicas realistas del Pong original. 
-            Elige tu nivel de desafío.
+            ${getTranslation('playPage', 'aiGameDescription')}
           </p>
           <div class="text-xs text-gray-400 mb-4 space-y-1">
-            <div>🎯 3 Dificultades</div>
-            <div>🧠 IA adaptativa</div>
-            <div>⚡ Físicas mejoradas</div>
-            <div>📊 Entrena habilidades</div>
+            <div>🎯 ${getTranslation('playPage', 'threeDifficulties')}</div>
+            <div>🧠 ${getTranslation('playPage', 'adaptiveAI')}</div>
+            <div>⚡ ${getTranslation('playPage', 'improvedPhysics')}</div>
+            <div>📊 ${getTranslation('playPage', 'trainSkills')}</div>
           </div>
           <button class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-colors w-full">
-            Jugar vs IA
+            ${getTranslation('playPage', 'playVsAI')}
           </button>
         </div>
 
@@ -66,19 +65,18 @@ export function renderPlay(): void {
         <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-blue-400" 
              id="online-game-card">
           <div class="text-6xl mb-4">🌐</div>
-          <h2 class="text-xl font-bold text-blue-400 mb-2">Juego Online</h2>
+          <h2 class="text-xl font-bold text-blue-400 mb-2">${getTranslation('playPage', 'onlineGame')}</h2>
           <p class="text-gray-300 mb-4 text-sm">
-            Conéctate con jugadores de todo el mundo.
-            Crea o únete a partidas online multijugador.
+            ${getTranslation('playPage', 'onlineGameDescription')}
           </p>
           <div class="text-xs text-gray-400 mb-4 space-y-1">
-            <div>🌍 Multijugador global</div>
-            <div>🏆 Partidas competitivas</div>
-            <div>💬 Chat en tiempo real</div>
-            <div>⚡ Físicas sincronizadas</div>
+            <div>🌍 ${getTranslation('playPage', 'globalMultiplayer')}</div>
+            <div>🏆 ${getTranslation('playPage', 'competitiveMatches')}</div>
+            <div>💬 ${getTranslation('playPage', 'realTimeChat')}</div>
+            <div>⚡ ${getTranslation('playPage', 'synchronizedPhysics')}</div>
           </div>
           <button class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors w-full">
-            Jugar Online
+            ${getTranslation('playPage', 'playOnline')}
           </button>
         </div>
 
@@ -86,72 +84,72 @@ export function renderPlay(): void {
         <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-purple-400" 
              id="observer-game-card">
           <div class="text-6xl mb-4">👁️</div>
-          <h2 class="text-xl font-bold text-purple-400 mb-2">Modo Espectador</h2>
+          <h2 class="text-xl font-bold text-purple-400 mb-2">${getTranslation('playPage', 'spectatorMode')}</h2>
           <p class="text-gray-300 mb-4 text-sm">
-            Partidas en vivo de otros jugadores.
-            Aprende estrategias de otros jugadores.
+            ${getTranslation('playPage', 'spectatorDescription')}
+            ${getTranslation('playPage', 'learnStrategies')}
           </p>
           <div class="text-xs text-gray-400 mb-4 space-y-1">
-            <div>📺 Visualización en tiempo real</div>
-            <div>🍿 Modo espectador</div>
-            <div>📊 Estadísticas de partida</div>
-            <div>🎯 Aprende de otros</div>
+            <div>📺 ${getTranslation('playPage', 'realTimeViewing')}</div>
+            <div>🍿 ${getTranslation('playPage', 'spectatorMode')}</div>
+            <div>📊 ${getTranslation('playPage', 'matchStatistics')}</div>
+            <div>🎯 ${getTranslation('playPage', 'learnFromOthers')}</div>
           </div>
           <button class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition-colors w-full">
-            Ver Partidas
+            ${getTranslation('playPage', 'watchMatches')}
           </button>
         </div>
       </div>
 
       <!-- Sección de estadísticas rápidas -->
       <div class="bg-gray-800 rounded-lg p-6 mb-8">
-        <h3 class="text-2xl font-bold mb-4 text-purple-400">📊 Tus Estadísticas</h3>
+        <h3 class="text-2xl font-bold mb-4 text-purple-400">📊 ${getTranslation('playPage', 'yourStatistics')}</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="stats-container">
           <div class="text-center">
             <div class="text-2xl font-bold text-yellow-400" id="total-games">-</div>
-            <div class="text-sm text-gray-400">Partidas Totales</div>
+            <div class="text-sm text-gray-400">${getTranslation('playPage', 'totalMatches')}</div>
           </div>
           <div class="text-center">
             <div class="text-2xl font-bold text-green-400" id="total-wins">-</div>
-            <div class="text-sm text-gray-400">Victorias</div>
+            <div class="text-sm text-gray-400">${getTranslation('playPage', 'victories')}</div>
           </div>
           <div class="text-center">
             <div class="text-2xl font-bold text-blue-400" id="win-rate">-</div>
-            <div class="text-sm text-gray-400">% Victorias</div>
+            <div class="text-sm text-gray-400">${getTranslation('playPage', 'winPercentage')}</div>
           </div>
           <div class="text-center">
             <div class="text-2xl font-bold text-purple-400" id="best-streak">-</div>
-            <div class="text-sm text-gray-400">Mejor Racha</div>
+            <div class="text-sm text-gray-400">${getTranslation('playPage', 'bestStreak')}</div>
           </div>
         </div>
       </div>
 
       <!-- Información sobre las mejoras -->
       <div class="bg-gradient-to-r from-blue-900 to-purple-900 rounded-lg p-6">
-        <h3 class="text-xl font-bold mb-4 text-yellow-400">⚡ Físicas Mejoradas del Pong Original</h3>
+        <h3 class="text-xl font-bold mb-4 text-yellow-400">⚡ ${getTranslation('playPage', 'improvedPhysicsTitle')}</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
           <div>
-            <h4 class="font-semibold text-green-400 mb-2">🎯 Rebotes Realistas</h4>
+            <h4 class="font-semibold text-green-400 mb-2">🎯 ${getTranslation('playPage', 'realisticBounces')}</h4>
             <ul class="text-sm text-gray-300 space-y-1">
-              <li>• Ángulo basado en punto de contacto</li>
-              <li>• Velocidad variable según posición</li>
-              <li>• Incremento progresivo de velocidad</li>
+              <li>• ${getTranslation('playPage', 'angleBased')}</li>
+              <li>• ${getTranslation('playPage', 'variableSpeed')}</li>
+              <li>• ${getTranslation('playPage', 'progressiveIncrease')}</li>
             </ul>
           </div>
           <div>
-            <h4 class="font-semibold text-blue-400 mb-2">🚀 Mecánicas Clásicas</h4>
+            <h4 class="font-semibold text-blue-400 mb-2">🚀 ${getTranslation('playPage', 'classicMechanics')}</h4>
             <ul class="text-sm text-gray-300 space-y-1">
-              <li>• Física de pelota fiel al original</li>
-              <li>• Rebotes en paredes superior/inferior</li>
-              <li>• Sistema de puntuación clásico</li>
+              <li>• ${getTranslation('playPage', 'faithfulPhysics')}</li>
+              <li>• ${getTranslation('playPage', 'wallBounces')}</li>
+              <li>• ${getTranslation('playPage', 'classicScoring')}</li>
             </ul>
           </div>
           <div>
-            <h4 class="font-semibold text-yellow-400 mb-2">⏰ Nuevas Características</h4>
+            <h4 class="font-semibold text-yellow-400 mb-2">⏰ ${getTranslation('playPage', 'newFeatures')}</h4>
             <ul class="text-sm text-gray-300 space-y-1">
-              <li>• Cuenta atrás antes de iniciar</li>
-              <li>• Partidas inmediatas sin botones</li>
-              <li>• Selector de dificultad para IA</li>
+              <li>• ${getTranslation('playPage', 'countdown')}</li>
+              <li>• ${getTranslation('playPage', 'immediateMatches')}</li>
+              <li>• ${getTranslation('playPage', 'difficultySelector')}</li>
             </ul>
           </div>
         </div>
@@ -261,8 +259,8 @@ function getCurrentUserName(): string {
   // Use the getCurrentUser function from auth.ts
   try {
     const user = getCurrentUser();
-    return user?.username || 'Jugador';
+    return user?.username || getTranslation('playPage', 'player');
   } catch {
-    return 'Jugador';
+    return getTranslation('playPage', 'player');
   }
 }

@@ -1,4 +1,5 @@
 import { navigateTo } from '../router';
+import { getTranslation } from '../i18n';
 
 let spectatorSocket: WebSocket | null = null;
 let currentGameId: string | null = null;
@@ -8,7 +9,7 @@ export function renderGameSpectator(): void {
   const content = document.getElementById('page-content');
 
   if (!content) {
-    console.error('No se encontró el contenedor principal para renderizar el observador de juego.');
+    console.error(getTranslation('spectator', 'containerNotFound'));
     return;
   }
 
@@ -16,18 +17,18 @@ export function renderGameSpectator(): void {
     <div class="w-full max-w-6xl mx-auto p-8">
       <div class="text-center mb-8">
         <h1 class="text-4xl font-bold mb-4 bg-gradient-to-r from-red-400 to-purple-600 bg-clip-text text-transparent">
-          👁️ Modo Espectador
+          👁️ ${getTranslation('spectator', 'title')}
         </h1>
-        <p class="text-lg text-gray-300">Observa partidas en vivo y aprende de otros jugadores</p>
+        <p class="text-lg text-gray-300">${getTranslation('spectator', 'subtitle')}</p>
       </div>
       
       <!-- Sección Partidas en Vivo -->
       <div class="bg-gradient-to-r from-red-800 to-red-900 rounded-lg p-6 mb-8 border-2 border-red-600">
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-bold text-red-300">🔴 Partidas en Vivo</h2>
+          <h2 class="text-2xl font-bold text-red-300">🔴 ${getTranslation('spectator', 'liveGames')}</h2>
           <div class="flex gap-3">
             <button id="refresh-live-games" class="bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-all duration-200 transform hover:scale-105">
-              🔄 Actualizar
+              🔄 ${getTranslation('spectator', 'refresh')}
             </button>
             <div class="flex items-center">
               <input type="checkbox" id="auto-refresh-spectator" class="mr-2" checked>
@@ -178,9 +179,9 @@ async function loadLiveGames(): Promise<void> {
       liveGamesContainer.innerHTML = `
         <div class="bg-gray-700 rounded-lg p-8 text-center border-2 border-gray-600">
           <div class="text-6xl mb-4">📺</div>
-          <h3 class="text-xl font-bold text-gray-300 mb-2">No hay partidas en vivo</h3>
-          <p class="text-gray-400 mb-4">No se encontraron partidas en curso en este momento.</p>
-          <p class="text-sm text-gray-500">💡 ¡Vuelve más tarde o crea tu propia partida!</p>
+          <h3 class="text-xl font-bold text-gray-300 mb-2">${getTranslation('spectator', 'noLiveGames')}</h3>
+          <p class="text-gray-400 mb-4">${getTranslation('spectator', 'noLiveGamesFound')}</p>
+          <p class="text-sm text-gray-500">💡 ${getTranslation('spectator', 'comeBackLater')}</p>
         </div>
       `;
       return;
@@ -267,14 +268,14 @@ async function loadLiveGames(): Promise<void> {
     });
 
   } catch (error) {
-    console.error('❌ Error cargando partidas en vivo:', error);
+    console.error(`❌ ${getTranslation('spectator', 'errorLoadingLiveGames')}:`, error);
     liveGamesContainer.innerHTML = `
       <div class="bg-red-800 rounded-lg p-6 text-center border-2 border-red-600">
         <div class="text-4xl mb-4">❌</div>
-        <h3 class="text-xl font-bold text-red-200 mb-2">Error al cargar partidas</h3>
-        <p class="text-red-300 mb-4">${error instanceof Error ? error.message : 'Error desconocido'}</p>
+        <h3 class="text-xl font-bold text-red-200 mb-2">${getTranslation('spectator', 'errorLoadingGamesTitle')}</h3>
+        <p class="text-red-300 mb-4">${error instanceof Error ? error.message : getTranslation('spectator', 'unknownError')}</p>
         <button id="retry-load-live" class="bg-red-600 text-white font-semibold py-2 px-4 rounded hover:bg-red-700 transition">
-          🔄 Reintentar
+          🔄 ${getTranslation('spectator', 'retry')}
         </button>
       </div>
     `;
@@ -325,12 +326,12 @@ function watchGame(gameId: string): void {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${protocol}//${window.location.host}/ws/spectate/${gameId}`;
   
-  console.log('🔗 Conectando al WebSocket del espectador:', wsUrl);
+  console.log(`🔗 ${getTranslation('spectator', 'connectingWebSocket')}:`, wsUrl);
   spectatorSocket = new WebSocket(wsUrl);
   
   spectatorSocket.onopen = () => {
-    console.log('✅ Conectado al WebSocket del observador');
-    updateSpectatorStatus('🔗 Conectado, cargando partida...');
+    console.log(`✅ ${getTranslation('spectator', 'connectedWebSocket')}`);
+    updateSpectatorStatus(`🔗 ${getTranslation('spectator', 'connectedLoadingGame')}`);
     updateConnectionStatus('🟢');
   };
 
@@ -360,17 +361,17 @@ function watchGame(gameId: string): void {
           stopWatching();
         }, 3000);
       } else if (data.type === 'error') {
-        console.error('❌ Error del observador:', data.data?.message || data.mensaje);
-        updateSpectatorStatus(`❌ Error: ${data.data?.message || data.mensaje || 'Error desconocido'}`);
+        console.error(`❌ ${getTranslation('spectator', 'spectatorError')}:`, data.data?.message || data.mensaje);
+        updateSpectatorStatus(`❌ ${getTranslation('spectator', 'error')}: ${data.data?.message || data.mensaje || getTranslation('spectator', 'unknownError')}`);
       }
     } catch (error) {
-      console.error('❌ Error procesando mensaje del espectador:', error);
+      console.error(`❌ ${getTranslation('spectator', 'errorProcessingMessage')}:`, error);
     }
   };
 
   spectatorSocket.onclose = () => {
-    console.log('🔌 Desconectado del WebSocket del observador');
-    updateSpectatorStatus('🔌 Desconectado');
+    console.log(`🔌 ${getTranslation('spectator', 'disconnectedWebSocket')}`);
+    updateSpectatorStatus(`🔌 ${getTranslation('spectator', 'disconnected')}`);
     updateConnectionStatus('🔴');
     spectatorSocket = null;
   };

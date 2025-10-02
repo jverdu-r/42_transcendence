@@ -8,7 +8,7 @@ export function renderUnifiedGameOnline(): void {
   const content = document.getElementById('page-content');
 
   if (!content) {
-    console.error('No se encontró el contenedor principal.');
+    console.error(getTranslation('unifiedGameOnline', 'containerNotFound'));
     return;
   }
 
@@ -150,11 +150,11 @@ async function createNewGame(): Promise<void> {
 
   // Deshabilitar botón mientras se crea la partida
   createButton.disabled = true;
-  createButton.innerHTML = '⏳ Creando partida...';
+  createButton.innerHTML = `⏳ ${getTranslation('unifiedGameOnline', 'creatingGame')}...`;
 
   try {
     const currentUser = getCurrentUser();
-    const gameName = `Partida de ${currentUser?.username || getTranslation('notifications', 'username_default')} - ${new Date().toLocaleTimeString()}`;
+    const gameName = `${getTranslation('unifiedGameOnline', 'gameOf')} ${currentUser?.username || getTranslation('notifications', 'username_default')} - ${new Date().toLocaleTimeString()}`;
     
     const response = await fetch('/api/games', {
       method: 'POST',
@@ -196,12 +196,12 @@ async function createNewGame(): Promise<void> {
     }, 2000);
     
   } catch (error) {
-    console.error('❌ Error creando partida:', error);
+    console.error(`❌ ${getTranslation('unifiedGameOnline', 'errorCreatingGame')}:`, error);
     showNotification('❌ ' + getTranslation('notifications', 'game_create_error'), 'error');
     
     // Restaurar botón
     createButton.disabled = false;
-    createButton.innerHTML = '🎮 Crear Partida Online';
+    createButton.innerHTML = `🎮 ${getTranslation('unifiedGameOnline', 'createOnlineGame')}`;
   }
 }
 
@@ -235,9 +235,9 @@ async function loadAvailableGames(): Promise<void> {
       gamesContainer.innerHTML = `
         <div class="bg-gray-700 rounded-lg p-8 text-center border-2 border-gray-600">
           <div class="text-6xl mb-4">😴</div>
-          <h3 class="text-xl font-bold text-gray-300 mb-2">No hay partidas disponibles</h3>
-          <p class="text-gray-400 mb-4">No se encontraron partidas disponibles para unirse en este momento.</p>
-          <p class="text-sm text-gray-500">💡 ¡Crea tu propia partida para empezar a jugar!</p>
+          <h3 class="text-xl font-bold text-gray-300 mb-2">${getTranslation('unifiedGameOnline', 'noGamesAvailable')}</h3>
+          <p class="text-gray-400 mb-4">${getTranslation('unifiedGameOnline', 'noGamesFound')}</p>
+          <p class="text-sm text-gray-500">💡 ${getTranslation('unifiedGameOnline', 'createOwnGame')}</p>
         </div>
       `;
       return;
@@ -254,8 +254,8 @@ async function loadAvailableGames(): Promise<void> {
                 <div class="text-2xl mr-3">🎮</div>
                 <div>
                   <h3 class="text-lg font-bold text-white flex items-center">
-                    ${game.nombre || `Partida ${game.id.substring(0, 8)}`}
-                    ${isCreatedByMe ? '<span class="ml-2 text-xs bg-green-500 text-white px-2 py-1 rounded-full">TU PARTIDA</span>' : ''}
+                    ${game.nombre || `${getTranslation('unifiedGameOnline', 'game')} ${game.id.substring(0, 8)}`}
+                    ${isCreatedByMe ? `<span class="ml-2 text-xs bg-green-500 text-white px-2 py-1 rounded-full">${getTranslation('unifiedGameOnline', 'yourGame')}</span>` : ''}
                   </h3>
                   <p class="text-sm text-gray-400">ID: ${game.id.substring(0, 12)}...</p>
                 </div>
@@ -322,14 +322,14 @@ joinGame(gameId);
     });
 
   } catch (error) {
-    console.error('❌ Error cargando partidas:', error);
+    console.error(`❌ ${getTranslation('unifiedGameOnline', 'errorLoadingGames')}:`, error);
     gamesContainer.innerHTML = `
       <div class="bg-red-800 rounded-lg p-6 text-center border-2 border-red-600">
         <div class="text-4xl mb-4">❌</div>
-        <h3 class="text-xl font-bold text-red-200 mb-2">Error al cargar partidas</h3>
-        <p class="text-red-300 mb-4">${error instanceof Error ? error.message : 'Error desconocido'}</p>
+        <h3 class="text-xl font-bold text-red-200 mb-2">${getTranslation('unifiedGameOnline', 'errorLoadingGamesTitle')}</h3>
+        <p class="text-red-300 mb-4">${error instanceof Error ? error.message : getTranslation('unifiedGameOnline', 'unknownError')}</p>
         <button id="retry-load" class="bg-red-600 text-white font-semibold py-2 px-4 rounded hover:bg-red-700 transition">
-          🔄 Reintentar
+          🔄 ${getTranslation('unifiedGameOnline', 'retry')}
         </button>
       </div>
     `;
