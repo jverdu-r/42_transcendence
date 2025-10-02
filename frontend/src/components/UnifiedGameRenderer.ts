@@ -152,10 +152,11 @@ export class UnifiedGameRenderer {
         
         this.keys[e.key] = true;
         
-        // Para modo online, el movimiento se maneja completamente en updateOnlinePaddles
-        // No enviar comandos aquí para evitar movimiento en "saltos"
+        // Para modo online, tanto movimiento inmediato como en loop
         if (this.gameMode === 'online') {
-            console.log('[handleKeyDown] Key pressed:', e.key, 'but movement handled in loop');
+            console.log('[handleKeyDown] Key pressed:', e.key, 'gameRunning:', this.gameState.gameRunning);
+            // Mantener respuesta inmediata como respaldo
+            this.updatePaddleImmediate(e.key, true);
             return;
         }
         
@@ -416,7 +417,12 @@ export class UnifiedGameRenderer {
     }
     
     private paddleUpdateLoop(): void {
-        if (!this.gameState.gameRunning) return;
+        if (!this.gameState.gameRunning) {
+            console.warn('[paddleUpdateLoop] Game not running, stopping loop');
+            return;
+        }
+        
+        console.log('[paddleUpdateLoop] Executing - gameRunning:', this.gameState.gameRunning);
         
         // Only update local player paddle for online mode
         this.updateOnlinePaddles();
@@ -429,6 +435,8 @@ export class UnifiedGameRenderer {
         // MOVIMIENTO HÍBRIDO: Local inmediato + sincronización servidor
         const speed = 6; // Misma velocidad que modo local
         
+        console.log('[updateOnlinePaddles] Called - playerNumber:', this.playerNumber);
+        
         // Debug: verificar playerNumber
         if (!this.playerNumber) {
             console.warn('[updateOnlinePaddles] PlayerNumber no está establecido:', this.playerNumber);
@@ -439,19 +447,32 @@ export class UnifiedGameRenderer {
         const isUpPressed = this.keys['w'] || this.keys['W'] || this.keys['ArrowUp'];
         const isDownPressed = this.keys['s'] || this.keys['S'] || this.keys['ArrowDown'];
         
+        console.log('[updateOnlinePaddles] Keys state:', {
+            isUpPressed,
+            isDownPressed,
+            keys: Object.keys(this.keys).filter(k => this.keys[k])
+        });
+        
         // Determinar qué paleta controlar localmente
         const myPaddle = this.playerNumber === 1 ? this.gameState.paddles.left : this.gameState.paddles.right;
+        const paddleName = this.playerNumber === 1 ? 'left' : 'right';
+        
+        console.log(`[updateOnlinePaddles] Player ${this.playerNumber} controlling ${paddleName} paddle at y:`, myPaddle.y);
         
         // Movimiento CONTINUO a 60 FPS
         if (isUpPressed && myPaddle.y > 0) {
+            const oldY = myPaddle.y;
             myPaddle.y -= speed;
             if (myPaddle.y < 0) myPaddle.y = 0;
+            console.log(`[updateOnlinePaddles] Moved UP from ${oldY} to ${myPaddle.y}`);
         }
         if (isDownPressed && myPaddle.y < this.canvas.height - myPaddle.height) {
+            const oldY = myPaddle.y;
             myPaddle.y += speed;
             if (myPaddle.y > this.canvas.height - myPaddle.height) {
                 myPaddle.y = this.canvas.height - myPaddle.height;
             }
+            console.log(`[updateOnlinePaddles] Moved DOWN from ${oldY} to ${myPaddle.y}`);
         }
         
         // 2. ENVÍO AL SERVIDOR (throttled SOLO para sincronización)
