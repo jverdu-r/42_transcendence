@@ -238,12 +238,28 @@ export class UnifiedGameRenderer {
             this.websocket.onmessage = (event) => {
                 try {
                     const message = JSON.parse(event.data);
-                    // On gameJoined/gameCreated, record playerId
+                    console.log('[WebSocket] Message received:', message); // Debug log
+                    
+                    // On gameJoined, update both playerId and playerNumber from server
                     if (message.type === 'gameJoined' && message.data) {
-                        this.playerId = message.data.playerId;
+                        if (message.data.playerId) {
+                            this.playerId = message.data.playerId;
+                            console.log('[WebSocket] PlayerId assigned:', this.playerId);
+                        }
+                        if (message.data.playerNumber) {
+                            this.playerNumber = message.data.playerNumber;
+                            console.log('[WebSocket] PlayerNumber assigned:', this.playerNumber);
+                        }
                     }
                     if (message.type === 'gameCreated' && message.data) {
-                        this.playerId = message.data.playerId;
+                        if (message.data.playerId) {
+                            this.playerId = message.data.playerId;
+                            console.log('[WebSocket] PlayerId assigned (created):', this.playerId);
+                        }
+                        if (message.data.playerNumber) {
+                            this.playerNumber = message.data.playerNumber;
+                            console.log('[WebSocket] PlayerNumber assigned (created):', this.playerNumber);
+                        }
                     }
                     this.handleWebSocketMessage(message);
                 } catch (error) {
@@ -349,15 +365,25 @@ export class UnifiedGameRenderer {
         // Update game state (used for online mode)
         if (newState.ball) this.gameState.ball = newState.ball;
         if (newState.paddles) {
-            // In online mode, preserve local player's paddle position (left paddle)
-            // Only update opponent's paddle (right paddle) from server
             if (this.gameMode === 'online') {
-                if (newState.paddles.right) {
-                    this.gameState.paddles.right = newState.paddles.right;
+                // Preservar la posición de la paleta del jugador local, actualizar solo la del oponente
+                if (this.playerNumber === 1) {
+                    // Jugador 1 controla izquierda, actualizar solo la derecha del servidor
+                    if (newState.paddles.right) {
+                        this.gameState.paddles.right = newState.paddles.right;
+                    }
+                    // Mantener la posición local de la paleta izquierda
+                } else if (this.playerNumber === 2) {
+                    // Jugador 2 controla derecha, actualizar solo la izquierda del servidor
+                    if (newState.paddles.left) {
+                        this.gameState.paddles.left = newState.paddles.left;
+                    }
+                    // Mantener la posición local de la paleta derecha
                 }
-                // Keep local paddle position (left) as is - managed by our paddle loop
+                
+                console.log('[updateGameState] Online mode - preserving local paddle for player', this.playerNumber);
             } else {
-                // For local/AI modes, update all paddles normally
+                // Para modos local/AI, actualizar todas las paletas normalmente
                 this.gameState.paddles = newState.paddles;
             }
         }
@@ -395,24 +421,41 @@ export class UnifiedGameRenderer {
     private updateOnlinePaddles(): void {
         const speed = 6;
         
+        // Debug: verificar playerNumber
+        if (!this.playerNumber) {
+            console.warn('[updateOnlinePaddles] PlayerNumber no está establecido:', this.playerNumber);
+            return;
+        }
+        
+        console.log('[updateOnlinePaddles] PlayerNumber:', this.playerNumber, 'Keys:', {
+            w: this.keys['w'] || this.keys['W'],
+            up: this.keys['ArrowUp'],
+            s: this.keys['s'] || this.keys['S'],
+            down: this.keys['ArrowDown']
+        });
+        
         // Determinar qué paleta controla el jugador local basado en playerNumber
         if (this.playerNumber === 1) {
             // Jugador 1 controla paleta izquierda (verde)
             if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.left.y > 0) {
                 this.gameState.paddles.left.y -= speed;
+                console.log('[updateOnlinePaddles] P1 moving left paddle UP to:', this.gameState.paddles.left.y);
             }
             if ((this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) && 
                 this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
                 this.gameState.paddles.left.y += speed;
+                console.log('[updateOnlinePaddles] P1 moving left paddle DOWN to:', this.gameState.paddles.left.y);
             }
         } else if (this.playerNumber === 2) {
             // Jugador 2 controla paleta derecha (roja)
             if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.right.y > 0) {
                 this.gameState.paddles.right.y -= speed;
+                console.log('[updateOnlinePaddles] P2 moving right paddle UP to:', this.gameState.paddles.right.y);
             }
             if ((this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) && 
                 this.gameState.paddles.right.y < this.canvas.height - this.gameState.paddles.right.height) {
                 this.gameState.paddles.right.y += speed;
+                console.log('[updateOnlinePaddles] P2 moving right paddle DOWN to:', this.gameState.paddles.right.y);
             }
         }
     }
