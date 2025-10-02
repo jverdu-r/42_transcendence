@@ -19,10 +19,10 @@ export function renderUnifiedGameAI(): void {
     return;
   }
 
-  // Obtener dificultad preferida del usuario
+  // Get user's preferred difficulty
   const defaultDifficulty = getSetting('game_difficulty') || 'normal'; // fallback
 
-  // Interfaz inicial para seleccionar la dificultad de la IA
+  // Initial interface to select AI difficulty
   pageContent.innerHTML = `
     <div class="w-full max-w-4xl mx-auto text-center">
       <div class="mb-8">
@@ -58,7 +58,7 @@ export function renderUnifiedGameAI(): void {
     </div>
   `;
 
-  // Event listeners para las tarjetas de dificultad
+  // Event listeners for difficulty cards
   document.getElementById('easy-card')?.addEventListener('click', () => startGameWithDifficulty('easy'));
   document.getElementById('medium-card')?.addEventListener('click', () => startGameWithDifficulty('medium'));
   document.getElementById('hard-card')?.addEventListener('click', () => startGameWithDifficulty('hard'));
@@ -77,7 +77,7 @@ function startGameWithDifficulty(difficulty: 'easy' | 'medium' | 'hard'): void {
     return;
   }
 
-  // Configurar la interfaz de juego
+  // Set up the game interface
   pageContent.innerHTML = `
     <div class="w-full max-w-6xl mx-auto">
       <!-- Header del juego -->

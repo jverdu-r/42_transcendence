@@ -13,7 +13,7 @@ declare global {
       };
     };
 
-    // Funciones globales del juego
+    // Global game functions
     showNotification: (message: string, type?: 'toast' | 'snackbar', duration?: number) => void;
     checkRankingChange: () => void;
   }

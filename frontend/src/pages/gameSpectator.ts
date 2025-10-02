@@ -40,7 +40,7 @@ export function renderGameSpectator(): void {
         <div id="live-games-container" class="space-y-4">
           <div class="text-center py-8">
             <div class="animate-spin inline-block w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full mb-4"></div>
-            <p class="text-red-300">🔄 Buscando partidas en vivo...</p>
+            <p class="text-red-300">🔄 ${getTranslation('spectator', 'searchingLiveGames')}...</p>
           </div>
         </div>
       </div>
@@ -48,9 +48,9 @@ export function renderGameSpectator(): void {
       <!-- Visor de Partida -->
       <div id="game-viewer" class="bg-gradient-to-r from-purple-800 to-purple-900 rounded-lg p-6 mb-8 border-2 border-purple-600 hidden">
         <div class="flex justify-between items-center mb-4">
-          <h2 class="text-2xl font-bold text-purple-300">🎮 Observando Partida</h2>
+          <h2 class="text-2xl font-bold text-purple-300">🎮 ${getTranslation('spectator', 'watchingGame')}</h2>
           <button id="stop-watching" class="bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition">
-            ⏹️ Dejar de Observar
+            ⏹️ ${getTranslation('spectator', 'stopWatching')}
           </button>
         </div>
         
@@ -61,31 +61,31 @@ export function renderGameSpectator(): void {
         <div class="text-center">
           <div id="spectator-score" class="grid grid-cols-2 gap-4 text-lg font-bold mb-4">
             <div class="text-left bg-yellow-600/20 rounded-lg p-3 border border-yellow-400">
-              <span class="text-yellow-400" id="spectator-player1">Jugador 1</span>: 
+              <span class="text-yellow-400" id="spectator-player1">${getTranslation('spectator', 'player1')}</span>: 
               <span class="text-2xl" id="spectator-score1">0</span>
             </div>
             <div class="text-right bg-blue-600/20 rounded-lg p-3 border border-blue-400">
-              <span class="text-blue-400" id="spectator-player2">Jugador 2</span>: 
+              <span class="text-blue-400" id="spectator-player2">${getTranslation('spectator', 'player2')}</span>: 
               <span class="text-2xl" id="spectator-score2">0</span>
             </div>
           </div>
           <div id="spectator-status" class="mt-4 text-purple-300 bg-purple-800/50 rounded-lg p-3">
-            <p>🔴 Observando partida en vivo</p>
+            <p>🔴 ${getTranslation('spectator', 'watchingLive')}</p>
           </div>
         </div>
       </div>
 
       <!-- Estadísticas de Espectador -->
       <div class="bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg p-6 mb-8 border-2 border-gray-600">
-        <h3 class="text-xl font-bold mb-4 text-center text-gray-300">📊 Estado del Servidor</h3>
+        <h3 class="text-xl font-bold mb-4 text-center text-gray-300">📊 ${getTranslation('spectator', 'serverStatus')}</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           <div>
             <div class="text-2xl font-bold text-green-400" id="total-live-games">-</div>
-            <div class="text-xs text-gray-400">Partidas en Vivo</div>
+            <div class="text-xs text-gray-400">${getTranslation('spectator', 'liveGames')}</div>
           </div>
           <div>
             <div class="text-2xl font-bold text-blue-400" id="total-players">-</div>
-            <div class="text-xs text-gray-400">Jugadores Activos</div>
+            <div class="text-xs text-gray-400">${getTranslation('spectator', 'activePlayers')}</div>
           </div>
           <div>
             <div class="text-2xl font-bold text-purple-400" id="total-spectators">-</div>
@@ -341,7 +341,7 @@ function watchGame(gameId: string): void {
       console.log('📡 Mensaje del espectador recibido:', data);
       
       if (data.type === 'spectator_connected') {
-        updateSpectatorStatus('✅ Conectado como espectador');
+        updateSpectatorStatus(`✅ ${getTranslation('spectator', 'connectedAsSpectator')}`);
       } else if (data.type === 'game_state' && data.data) {
         // Manejar estado del juego para espectadores
         if (data.data.gameState) {
@@ -427,7 +427,7 @@ function drawInitialCanvas(): void {
   ctx.fillStyle = 'white';
   ctx.font = '24px Arial';
   ctx.textAlign = 'center';
-  ctx.fillText('Conectando al espectador...', canvas.width / 2, canvas.height / 2);
+  ctx.fillText(getTranslation('spectator', 'connectingToSpectator'), canvas.width / 2, canvas.height / 2);
 }
 
 function drawGame(gameState: any): void {

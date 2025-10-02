@@ -159,7 +159,7 @@ export function getCurrentUser(): User | null {
 // Función para hacer login y aplicar configuraciones
 export async function loginUser(token: string): Promise<void> {
   localStorage.setItem('jwt', token);
-  console.log(':candado: Sesión iniciada');
+  console.log(getTranslation('auth', 'sessionStarted'));
   
   // Aplicar configuraciones del usuario
   await applyUserSettings();
@@ -177,6 +177,6 @@ export function logout(): void {
   localStorage.removeItem('username');
   localStorage.removeItem('email');
   
-  console.log(':candado: Sesión cerrada');
+  console.log(getTranslation('auth', 'sessionClosed'));
   window.location.href = '/login';
 }

@@ -95,11 +95,11 @@ export class PlayerDisplay {
     opponent: PlayerInfo,
     gameMode: 'online' | 'local' = 'online'
   ): string {
-    const opponentType = opponent.esIA ? 'IA' : 
-                        (gameMode === 'local' ? 'Jugador Local' : 'Jugador Online');
+    const opponentType = opponent.esIA ? getTranslation('playerDisplay', 'ai') : 
+                        (gameMode === 'local' ? getTranslation('playerDisplay', 'localPlayer') : getTranslation('playerDisplay', 'onlinePlayer'));
     
-    const playerSide = currentPlayer.numero === 1 ? 'Izquierda' : 'Derecha';
-    const playerColor = currentPlayer.numero === 1 ? 'Amarilla' : 'Azul';
+    const playerSide = currentPlayer.numero === 1 ? getTranslation('playerDisplay', 'left') : getTranslation('playerDisplay', 'right');
+    const playerColor = currentPlayer.numero === 1 ? getTranslation('playerDisplay', 'yellow') : getTranslation('playerDisplay', 'blue');
     
     return `
       <div class="text-green-400 font-bold text-center">

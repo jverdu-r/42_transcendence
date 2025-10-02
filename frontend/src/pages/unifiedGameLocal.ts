@@ -19,7 +19,7 @@ export function renderUnifiedGameLocal(): void {
         return;
     }
 
-    // Configurar la interfaz de juego directamente (sin botones)
+    // Set up the game interface directly (without buttons)
     pageContent.innerHTML = `
         <div class="w-full max-w-6xl mx-auto">
             <!-- Header del juego -->
@@ -95,7 +95,7 @@ export function renderUnifiedGameLocal(): void {
         </div>
     `;
 
-    // Configurar el juego
+    // Set up the game
     setupLocalGame();
 }
 
@@ -108,10 +108,10 @@ function setupLocalGame(): void {
     return;
   }
 
-  // ✅ Generar marca de tiempo al inicio
+  // ✅ Generate timestamp at the start
   const startedAt = new Date().toISOString();
 
-  // Crear instancia del juego
+  // Create game instance
   const game = new UnifiedGameRenderer(canvas, 'local');
   
   // Set up player info
@@ -135,7 +135,7 @@ function setupLocalGame(): void {
 
   game.setPlayerInfo(player1Info, player2Info);
   
-  // Configurar callbacks del juego
+  // Set up game callbacks
   game.setCallbacks({
     onScoreUpdate: (score) => {
       const leftScore = document.getElementById('score-left');
@@ -210,14 +210,14 @@ function setupLocalGame(): void {
     }
   });
 
-  // ✅ 3. Crear partida en la base de datos al inicio
+  // ✅ 3. Create game in the database at the start
   try {
     fetch('/api/auth/games/create/local', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         player1Id: currentUser.id,
-        tournamentId: null, // o pasa un valor si es torneo
+        tournamentId: null, // or pass a value if it's a tournament
         startedAt
       })
     }).catch(err => console.error(getTranslation('unifiedGameLocal', 'errorCreatingLocalGame'), err));

@@ -153,14 +153,14 @@ export function renderHomePage(): void {
                     event.preventDefault();
                     console.log(`Navegando a partida: ${href}`);
                     // En lugar de navegar, solo mostramos información del match
-                    alert(`Esta es una funcionalidad de demostración. Partida: ${href}`);
+                    alert(`${getTranslation('home', 'demoFunctionality')} ${href}`);
                 }
             });
         renderLiveMatches();
         });
 
     } else {
-        console.error('Elemento con id "page-content" no encontrado para renderizar la página de inicio.');
+        console.error(getTranslation('home', 'contentNotFound'));
     }
 }
 

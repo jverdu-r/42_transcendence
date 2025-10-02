@@ -1,5 +1,6 @@
 import { navigateTo } from '../router';
 import { getCurrentUser } from '../auth';
+import { getTranslation } from '../i18n';
 import { PlayerDisplay, PlayerInfo } from '../components/playerDisplay';
 
 export interface GameState {
@@ -262,8 +263,8 @@ export class GameRenderer {
     
     private showGameResult(): void {
         const winner = this.gameState.puntuacion.jugador1 > this.gameState.puntuacion.jugador2 ? 
-            this.player1Info?.displayName || 'Jugador 1' : 
-            this.player2Info?.displayName || 'Jugador 2';
+            this.player1Info?.displayName || getTranslation('gameRenderer', 'player1') : 
+            this.player2Info?.displayName || getTranslation('gameRenderer', 'player2');
         
         const isPlayer1Winner = this.gameState.puntuacion.jugador1 > this.gameState.puntuacion.jugador2;
         

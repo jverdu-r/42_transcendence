@@ -5,6 +5,7 @@
 
 import { navigateTo } from '../router';
 import { getCurrentUser } from '../auth';
+import { getTranslation } from '../i18n';
 import { PlayerDisplay, PlayerInfo } from './playerDisplay';
 import { showNotification, checkRankingChange } from '../utils/utils';
 
@@ -224,7 +225,7 @@ export class UnifiedGameRenderer {
             
             // Connect to WebSocket
             const currentUser = getCurrentUser();
-            const username = currentUser?.username || 'Usuario';
+            const username = currentUser?.username || getTranslation('auth', 'defaultUser');
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${serverHost}:8002/pong/${gameId}?username=${encodeURIComponent(username)}`;
             this.websocket = new WebSocket(wsUrl);
@@ -609,7 +610,7 @@ export class UnifiedGameRenderer {
         } else if (this.gameMode === 'ai') {
             this.ctx.fillText('Jugador: W/S - IA controlada automáticamente', this.canvas.width / 2, this.canvas.height / 2 + 40);
         } else if (this.gameMode === 'online') {
-            this.ctx.fillText('Conectando al juego online...', this.canvas.width / 2, this.canvas.height / 2 + 40);
+            this.ctx.fillText(getTranslation('unifiedGameRenderer', 'connectingToOnlineGame'), this.canvas.width / 2, this.canvas.height / 2 + 40);
         }
     }
     

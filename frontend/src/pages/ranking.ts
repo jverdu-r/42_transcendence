@@ -36,13 +36,13 @@ async function getRankingData(): Promise<RankingPlayer[]> {
         });
 
         if (!response.ok) {
-            console.error('Error al obtener ranking:', response.status);
+            console.error(getTranslation('ranking', 'errorGettingRanking'), response.status);
             return [];
         }
 
         return await response.json();
     } catch (error) {
-        console.error('Error en la petición del ranking:', error);
+        console.error(getTranslation('ranking', 'errorInRankingRequest'), error);
         return [];
     }
 }
@@ -62,13 +62,13 @@ async function getUserStats(): Promise<UserStats | null> {
         });
 
         if (!response.ok) {
-            console.error('Error al obtener estadísticas del usuario:', response.status);
+            console.error(getTranslation('ranking', 'errorGettingUserStats'), response.status);
             return null;
         }
 
         return await response.json();
     } catch (error) {
-        console.error('Error en la petición de estadísticas del usuario:', error);
+        console.error(getTranslation('ranking', 'errorInUserStatsRequest'), error);
         return null;
     }
 }

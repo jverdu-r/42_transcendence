@@ -21,7 +21,7 @@ export function renderUnifiedGameOnline(): void {
         <p class="text-lg text-gray-300">${getTranslation('game_online', 'subtitle')}</p>
       </div>
       
-      <!-- Sección Crear Partida -->
+      <!-- Create Game Section -->
       <div class="bg-gradient-to-r from-green-800 to-green-900 rounded-lg p-6 mb-8 border-2 border-green-600">
         <h2 class="text-2xl font-bold mb-4 text-center text-green-300">
           ➕ ${getTranslation('game_online', 'create_game')}
@@ -36,7 +36,7 @@ export function renderUnifiedGameOnline(): void {
         </div>
       </div>
 
-      <!-- Sección Unirse a Partida -->
+      <!-- Join Game Section -->
       <div class="bg-gradient-to-r from-blue-800 to-blue-900 rounded-lg p-6 mb-8 border-2 border-blue-600">
         <div class="flex justify-between items-center mb-6">
           <h2 class="text-2xl font-bold text-blue-300">🔍 ${getTranslation('game_online', 'available_games')}</h2>
@@ -59,7 +59,7 @@ export function renderUnifiedGameOnline(): void {
         </div>
       </div>
 
-      <!-- Estadísticas Online -->
+      <!-- Online Statistics -->
       <div class="bg-gradient-to-r from-purple-800 to-purple-900 rounded-lg p-6 mb-8 border-2 border-purple-600">
         <h3 class="text-xl font-bold mb-4 text-center text-purple-300">📊 ${getTranslation('game_online', 'server_status')}</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
@@ -82,7 +82,7 @@ export function renderUnifiedGameOnline(): void {
         </div>
       </div>
 
-      <!-- Botón Volver -->
+      <!-- Back Button -->
       <div class="text-center">
         <button id="back-to-play" class="bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transition-all duration-200 transform hover:scale-105">
           ← ${getTranslation('game_online', 'back_to_menu')}
@@ -103,7 +103,7 @@ export function renderUnifiedGameOnline(): void {
   const autoRefreshCheckbox = document.getElementById('auto-refresh') as HTMLInputElement;
   autoRefreshCheckbox?.addEventListener('change', toggleAutoRefresh);
 
-  // Cargar partidas al inicializar
+  // Load games on initialization
   loadAvailableGames();
   startAutoRefresh();
 }
@@ -118,7 +118,7 @@ function startAutoRefresh(): void {
     if (autoRefreshCheckbox?.checked) {
       loadAvailableGames();
     }
-  }, 5000); // Actualizar cada 5 segundos
+  }, 5000); // Update every 5 seconds
 }
 
 function stopAutoRefresh(): void {
@@ -148,7 +148,7 @@ async function createNewGame(): Promise<void> {
   // Use current hostname automatically
   const serverHost = window.location.hostname;
 
-  // Deshabilitar botón mientras se crea la partida
+  // Disable button while creating the game
   createButton.disabled = true;
   createButton.innerHTML = `⏳ ${getTranslation('unifiedGameOnline', 'creatingGame')}...`;
 
@@ -177,20 +177,20 @@ async function createNewGame(): Promise<void> {
     const game = await response.json();
     console.log('✅ Partida creada:', game);
     
-    // Mostrar mensaje de éxito
+    // Show success message
     showNotification('✅ ' + getTranslation('notifications', 'game_created'), 'success');
     
-    // Guardar información de la partida
+    // Save game information
     sessionStorage.setItem('currentGameId', game.id);
     sessionStorage.setItem('currentGameMode', 'pvp');
     sessionStorage.setItem('isGameCreator', 'true');
     
-    // Actualizar lista inmediatamente
+    // Update list immediately
     setTimeout(() => {
       loadAvailableGames();
     }, 1000);
     
-    // Redirigir al lobby después de un breve delay
+    // Redirect to lobby after a short delay
     setTimeout(() => {
       navigateTo('/game-lobby');
     }, 2000);
@@ -199,7 +199,7 @@ async function createNewGame(): Promise<void> {
     console.error(`❌ ${getTranslation('unifiedGameOnline', 'errorCreatingGame')}:`, error);
     showNotification('❌ ' + getTranslation('notifications', 'game_create_error'), 'error');
     
-    // Restaurar botón
+    // Restore button
     createButton.disabled = false;
     createButton.innerHTML = `🎮 ${getTranslation('unifiedGameOnline', 'createOnlineGame')}`;
   }
@@ -223,10 +223,10 @@ async function loadAvailableGames(): Promise<void> {
     const data = await response.json();
     console.log('📋 Partidas recibidas:', data);
     
-    // Actualizar estadísticas del servidor
+    // Update server statistics
     updateServerStats(data.games || []);
     
-    // Filtrar solo partidas disponibles (no llenas y no en juego)
+    // Filter only available games (not full and not in play)
     const availableGames = (data.games || []).filter((game: any) => 
       game.jugadoresConectados < game.capacidadMaxima && !game.enJuego
     );
@@ -243,7 +243,7 @@ async function loadAvailableGames(): Promise<void> {
       return;
     }
 
-    // Renderizar partidas disponibles
+    // Render available games
     gamesContainer.innerHTML = availableGames.map((game: any) => {
       const isCreatedByMe = sessionStorage.getItem('currentGameId') === game.id;
       return `
@@ -284,7 +284,7 @@ async function loadAvailableGames(): Promise<void> {
               
               ${game.jugadores && game.jugadores.length > 0 ? `
                 <div class="mt-3 pt-3 border-t border-gray-600">
-                  <div class="text-xs text-gray-400 mb-1">Jugadores:</div>
+                  <div class="text-xs text-gray-400 mb-1">${getTranslation('unifiedGameOnline', 'players')}:</div>
                   <div class="flex flex-wrap gap-2">
                     ${game.jugadores.map((jugador: any) => `
                       <span class="bg-blue-600 text-white px-2 py-1 rounded text-xs">
@@ -302,8 +302,8 @@ async function loadAvailableGames(): Promise<void> {
                 data-game-id="${game.id}"
                 ${game.jugadoresConectados >= game.capacidadMaxima ? 'disabled' : ''}
               >
-                ${game.jugadoresConectados >= game.capacidadMaxima ? '🚫 Llena' : 
-                  isCreatedByMe ? '🎮 Entrar' : '➡️ Unirse'}
+                ${game.jugadoresConectados >= game.capacidadMaxima ? `🚫 ${getTranslation('unifiedGameOnline', 'full')}` : 
+                  isCreatedByMe ? `🎮 ${getTranslation('unifiedGameOnline', 'enter')}` : `➡️ ${getTranslation('unifiedGameOnline', 'join')}`}
               </button>
             </div>
           </div>
@@ -311,7 +311,7 @@ async function loadAvailableGames(): Promise<void> {
       `;
     }).join('');
 
-    // Agregar event listeners a los botones de unirse
+    // Add event listeners to join buttons
     document.querySelectorAll('.join-game-btn').forEach(button => {
       button.addEventListener('click', (e) => {
         const gameId = (e.target as HTMLElement).getAttribute('data-game-id');
@@ -362,7 +362,7 @@ async function joinGame(gameId: string): Promise<void> {
   // Use current hostname automatically
   const serverHost = window.location.hostname;
 
-  // Deshabilitar botón mientras se une a la partida
+  // Disable button while joining the game
   const originalText = joinButton.innerHTML;
   joinButton.disabled = true;
   joinButton.innerHTML = '⏳ Uniéndose...';
@@ -370,7 +370,7 @@ async function joinGame(gameId: string): Promise<void> {
   try {
     console.log(`🔗 Intentando unirse a la partida ${gameId}...`);
     
-    // Verificar que la partida aún esté disponible
+    // Check that the game is still available
     const response = await fetch(`/api/games/${gameId}`, {
       headers: {
         'Accept': 'application/json'
@@ -384,49 +384,49 @@ async function joinGame(gameId: string): Promise<void> {
     const game = await response.json();
     console.log('📋 Información de la partida:', game);
     
-    // Validar disponibilidad
+    // Validate availability
     if (game.jugadoresConectados >= game.capacidadMaxima) {
-      showNotification('❌ La partida está llena. Intenta con otra partida.', 'error');
-      loadAvailableGames(); // Recargar la lista
+      showNotification(`❌ ${getTranslation('unifiedGameOnline', 'gameFullError')}`, 'error');
+      loadAvailableGames(); // Reload the list
       return;
     }
     
     if (game.enJuego) {
-      showNotification('❌ La partida ya está en progreso. Intenta con otra partida.', 'error');
-      loadAvailableGames(); // Recargar la lista
+      showNotification(`❌ ${getTranslation('unifiedGameOnline', 'gameInProgressError')}`, 'error');
+      loadAvailableGames(); // Reload the list
       return;
     }
     
     console.log('✅ Uniéndose a la partida:', game);
     
-    // Mostrar mensaje de éxito
-    showNotification('✅ Te has unido a la partida! Dirigiéndote al juego...', 'success');
+    // Show success message
+    showNotification('✅ ' + getTranslation('notifications', 'game_joined'), 'success');
     
-    // Guardar información de la partida
+    // Save game information
     sessionStorage.setItem('currentGameId', gameId);
     sessionStorage.setItem('currentGameMode', 'pvp');
-    sessionStorage.removeItem('isGameCreator'); // No somos el creador
+    sessionStorage.removeItem('isGameCreator'); // We are not the creator
     
-    // Redirigir al lobby después de un breve delay
+    // Redirect to lobby after a short delay
     setTimeout(() => {
       navigateTo('/game-lobby');
     }, 1500);
     
   } catch (error) {
     console.error('❌ Error uniéndose a la partida:', error);
-    showNotification('❌ Error al unirse a la partida. Inténtalo de nuevo.', 'error');
+    showNotification('❌ ' + getTranslation('notifications', 'game_join_error'), 'error');
     
-    // Restaurar botón
+    // Restore button
     joinButton.disabled = false;
     joinButton.innerHTML = originalText;
   }
 }
 
 function showNotification(message: string, type: 'success' | 'error'): void {
-  // Remover notificaciones existentes
+  // Remove existing notifications
   document.querySelectorAll('.notification').forEach(n => n.remove());
   
-  // Crear elemento de notificación
+  // Create notification element
   const notification = document.createElement('div');
   notification.className = `notification fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full max-w-md`;
   
@@ -445,12 +445,12 @@ function showNotification(message: string, type: 'success' | 'error'): void {
   
   document.body.appendChild(notification);
   
-  // Animar entrada
+  // Animate entry
   setTimeout(() => {
     notification.classList.remove('translate-x-full');
   }, 100);
   
-  // Remover después de 4 segundos
+  // Remove after 4 seconds
   setTimeout(() => {
     notification.classList.add('translate-x-full');
     setTimeout(() => {
@@ -461,5 +461,5 @@ function showNotification(message: string, type: 'success' | 'error'): void {
   }, 4000);
 }
 
-// Limpiar al salir de la página
+// Clean up on page exit
 window.addEventListener('beforeunload', cleanupOnlineMode);

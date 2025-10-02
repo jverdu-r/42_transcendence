@@ -6,7 +6,7 @@ export function renderPlay(): void {
   const content = document.getElementById('page-content');
 
   if (!content) {
-    console.error('No se encontró el contenedor para mostrar la página de juego.');
+    console.error(getTranslation('playPage', 'containerNotFound'));
     return;
   }
 
@@ -21,7 +21,7 @@ export function renderPlay(): void {
         </p>
       </div>
 
-      <!-- Grid ajustado a 4 columnas para mejor distribución -->
+      <!-- Grid adjusted to 4 columns for better distribution -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <!-- Juego Local -->
         <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-yellow-400" 
@@ -101,7 +101,7 @@ export function renderPlay(): void {
         </div>
       </div>
 
-      <!-- Sección de estadísticas rápidas -->
+      <!-- Quick statistics section -->
       <div class="bg-gray-800 rounded-lg p-6 mb-8">
         <h3 class="text-2xl font-bold mb-4 text-purple-400">📊 ${getTranslation('playPage', 'yourStatistics')}</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="stats-container">
@@ -124,7 +124,7 @@ export function renderPlay(): void {
         </div>
       </div>
 
-      <!-- Información sobre las mejoras -->
+      <!-- Information about improvements -->
       <div class="bg-gradient-to-r from-blue-900 to-purple-900 rounded-lg p-6">
         <h3 class="text-xl font-bold mb-4 text-yellow-400">⚡ ${getTranslation('playPage', 'improvedPhysicsTitle')}</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">

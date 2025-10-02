@@ -1,5 +1,6 @@
 import { renderNavbar } from '../components/navbar';
 import { getCurrentUser } from '../auth';
+import { getTranslation } from '../i18n';
 
 //const API_BASE = 'http://localhost:9000';
 
@@ -277,6 +278,6 @@ const joined = !!(currentUser && currentUser.id && players.find((p:any) => p.id=
             document.body.appendChild(footer);
         }
     } else {
-        console.error('No se encontró el contenedor #page-content para renderizar torneos.');
+        console.error(getTranslation('tournaments', 'containerNotFound'));
     }
 }

@@ -80,7 +80,9 @@ const translations: Translations = {
             yourProfileTitle: "Tu Perfil",
             yourProfileSubtitle: "Accede a tus estadísticas, historial y personaliza tu experiencia.",
             globalRankingTitle: "Ranking Global",
-            globalRankingSubtitle: "Descubre a los mejores jugadores de Transcendence."
+            globalRankingSubtitle: "Descubre a los mejores jugadores de Transcendence.",
+            contentNotFound: "Elemento con id 'page-content' no encontrado para renderizar la página de inicio.",
+            demoFunctionality: "Esta es una funcionalidad de demostración. Partida:"
         },
         profile: {
             profileTitle: "Perfil de Usuario",
@@ -145,6 +147,10 @@ const translations: Translations = {
             selectDifficulty: "Selecciona la dificultad"
         },
         ranking: {
+            errorGettingRanking: 'Error al obtener ranking:',
+            errorInRankingRequest: 'Error en la petición del ranking:',
+            errorGettingUserStats: 'Error al obtener estadísticas del usuario:',
+            errorInUserStatsRequest: 'Error en la petición de estadísticas del usuario:',
             globalRankingTitle: "Ranking Global",
             bestPlayers: "Los mejores jugadores de Transcendence",
             wins: "Victorias:",
@@ -177,9 +183,11 @@ const translations: Translations = {
         },
         chat: {
             underConstruction: "¡En construcción!",
-            comingSoon: "Pronto podrás chatear en Transcendence"
+            comingSoon: "Pronto podrás chatear en Transcendence",
+            chatPageError: "Elemento con id 'page-content' no encontrado para renderizar la página de chat."
         },
         tournaments: {
+            containerNotFound: 'No se encontró el contenedor #page-content para renderizar torneos.',
             underConstruction: "¡En construcción!",
             comingSoon: "¡¡Próximamente!!"
         },
@@ -320,6 +328,19 @@ const translations: Translations = {
             spectators: 'Espectadores',
             back_to_menu: 'Volver al Menú Principal'
         },
+        gameLobby: {
+            title: 'Sala de Juego',
+            gameId: 'ID',
+            player1: 'Jugador 1',
+            player2: 'Jugador 2',
+            you: 'Tú',
+            waitingChallenger: 'Esperando retador',
+            connected: '✓ Conectado',
+            waiting: '⏳ Esperando',
+            gameStartingSoon: '¡El juego comenzará pronto!',
+            waitingForPlayer: 'Esperando a que se conecte otro jugador...',
+            leaveRoom: 'Abandonar Sala'
+        },
         game_local: {
             title: 'Juego Local - 2 Jugadores',
             subtitle: 'Enfréntense cara a cara en el mismo dispositivo',
@@ -368,6 +389,8 @@ const translations: Translations = {
         notifications: {
             game_created: 'Partida creada exitosamente! Dirigiéndote al lobby...',
             game_create_error: 'Error al crear la partida. Inténtalo de nuevo.',
+            game_joined: 'Te has unido a la partida! Dirigiéndote al juego...',
+            game_join_error: 'Error al unirse a la partida. Inténtalo de nuevo.',
             username_default: 'Usuario'
         },
         game_lobby: {
@@ -390,6 +413,10 @@ const translations: Translations = {
             player1: 'Jugador 1',
             player2: 'Jugador 2'
         },
+        gameRenderer: {
+            player1: 'Jugador 1',
+            player2: 'Jugador 2'
+        },
         playerDisplay: {
             player: 'Jugador',
             ai: 'IA',
@@ -398,8 +425,25 @@ const translations: Translations = {
             humanPlayer: 'Jugador humano',
             artificialIntelligence: 'Inteligencia Artificial',
             localPlayer: 'Jugador local',
+            onlinePlayer: 'Jugador online',
             currentPlayer: 'Jugador actual',
             remoteControlled: 'Controlado remotamente',
+            keyboardControls: 'W (arriba) / S (abajo)',
+            arrowControls: '↑ (arriba) / ↓ (abajo)',
+            left: 'Izquierda',
+            right: 'Derecha',
+            yellow: 'Amarilla',
+            blue: 'Azul',
+            red: 'Rojo',
+            green: 'Verde',
+            purple: 'Morado',
+            cyan: 'Cian',
+            pink: 'Rosa',
+            orange: 'Naranja',
+            gray: 'Gris',
+            brown: 'Marrón',
+            black: 'Negro',
+            white: 'Blanco',
             moveUp: 'Subir',
             moveDown: 'Bajar',
             yellowPaddle: 'Pala Amarilla',
@@ -410,6 +454,7 @@ const translations: Translations = {
             paddle: 'Pala'
         },
         playPage: {
+            containerNotFound: 'No se encontró el contenedor para mostrar la página de juego.',
             selectGameModeTitle: '🎮 Selecciona tu modo de juego',
             selectGameModeSubtitle: 'Elige cómo quieres jugar al clásico Pong con físicas mejoradas',
             localGameTitle: 'Juego Local',
@@ -476,7 +521,9 @@ const translations: Translations = {
             activePlayers: 'Jugadores Activos',
             totalSpectators: 'Espectadores Totales',
             connectionStatus: 'Estado Conexión',
-            backToMainMenu: '← Volver al Menú Principal'
+            backToMainMenu: '← Volver al Menú Principal',
+            connectedAsSpectator: '✅ Conectado como espectador',
+            connectingToSpectator: 'Conectando al espectador...'
         },
         utils: {
             rankedUp: 'subido',
@@ -531,6 +578,14 @@ const translations: Translations = {
             sessionStarted: 'Sesión iniciada',
             sessionClosed: 'Sesión cerrada',
             jwtParseError: 'Error al parsear JWT:'
+        },
+        router: {
+            redirectingToHome: 'Usuario autenticado intentando acceder a página de auth, redirigiendo a home',
+            redirectingToLogin: 'Usuario no autenticado intentando acceder a página protegida, redirigiendo a login',
+            pageContentNotFound: 'Contenedor de contenido de página (#page-content) no encontrado después de configurar el layout.'
+        },
+        unifiedGameRenderer: {
+            connectingToOnlineGame: 'Conectando al juego online...'
         }
     },
     en: {
@@ -841,6 +896,19 @@ const translations: Translations = {
             spectators: 'Spectators',
             back_to_menu: 'Back to Main Menu'
         },
+        gameLobby: {
+            title: 'Game Room',
+            gameId: 'ID',
+            player1: 'Player 1',
+            player2: 'Player 2',
+            you: 'You',
+            waitingChallenger: 'Waiting for challenger',
+            connected: '✓ Connected',
+            waiting: '⏳ Waiting',
+            gameStartingSoon: 'The game will start soon!',
+            waitingForPlayer: 'Waiting for another player to connect...',
+            leaveRoom: 'Leave Room'
+        },
         game_local: {
             title: 'Local Game - 2 Players',
             subtitle: 'Face off on the same device',
@@ -889,6 +957,8 @@ const translations: Translations = {
         notifications: {
             game_created: 'Game created successfully! Redirecting to lobby...',
             game_create_error: 'Error creating game. Please try again.',
+            game_joined: 'You have joined the game! Redirecting...',
+            game_join_error: 'Error joining the game. Please try again.',
             username_default: 'User'
         },
         game_lobby: {
@@ -1362,6 +1432,19 @@ const translations: Translations = {
             spectators: 'Espectadores',
             back_to_menu: 'Volver ao Menú Principal'
         },
+        gameLobby: {
+            title: 'Sala de Xogo',
+            gameId: 'ID',
+            player1: 'Xogador 1',
+            player2: 'Xogador 2',
+            you: 'Ti',
+            waitingChallenger: 'Agardando retador',
+            connected: '✓ Conectado',
+            waiting: '⏳ Agardando',
+            gameStartingSoon: 'O xogo comezará pronto!',
+            waitingForPlayer: 'Agardando a que se conecte outro xogador...',
+            leaveRoom: 'Abandonar Sala'
+        },
         game_local: {
             title: 'Xogo Local - 2 Xogadores',
             subtitle: 'Enfróntanse cara a cara no mesmo dispositivo',
@@ -1410,6 +1493,8 @@ const translations: Translations = {
         notifications: {
             game_created: 'Partida creada exitosamente! Dirixíndote ao lobby...',
             game_create_error: 'Erro ao crear a partida. Inténtao de novo.',
+            game_joined: 'Unícheste á partida! Dirixíndote ao xogo...',
+            game_join_error: 'Erro ao unirse á partida. Inténtao de novo.',
             username_default: 'Usuario'
         },
         game_lobby: {
@@ -1883,6 +1968,19 @@ const translations: Translations = {
             spectators: '观众',
             back_to_menu: '返回主菜单'
         },
+        gameLobby: {
+            title: '游戏房间',
+            gameId: 'ID',
+            player1: '玩家1',
+            player2: '玩家2',
+            you: '你',
+            waitingChallenger: '等待挑战者',
+            connected: '✓ 已连接',
+            waiting: '⏳ 等待中',
+            gameStartingSoon: '游戏即将开始！',
+            waitingForPlayer: '等待另一位玩家连接...',
+            leaveRoom: '离开房间'
+        },
         game_local: {
             title: '本地游戏 - 2名玩家',
             subtitle: '在同一设备上对战',
@@ -1931,6 +2029,8 @@ const translations: Translations = {
         notifications: {
             game_created: '游戏创建成功！正在跳转到大厅...',
             game_create_error: '创建游戏时出错。请重试。',
+            game_joined: '你已加入游戏！正在跳转...',
+            game_join_error: '加入游戏时出错。请重试。',
             username_default: '用户'
         },
         game_lobby: {
