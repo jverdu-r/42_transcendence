@@ -93,6 +93,7 @@ export function renderRegister(): void {
                             type="password"
                             id="password"
                             name="password"
+                            autocomplete="new-password"
                             class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
                             placeholder=" "
                             minlength="6"
@@ -111,6 +112,7 @@ export function renderRegister(): void {
                             type="password"
                             id="confirm-password"
                             name="confirm-password"
+                            autocomplete="new-password"
                             class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
                             placeholder=" "
                             minlength="6"
@@ -275,7 +277,7 @@ export function renderRegister(): void {
                 window.google.accounts.id.renderButton(googleDiv, {
                     theme: 'outline',
                     size: 'large',
-                    width: '100%'
+                    width: 400
                 });
             } else {
                 setTimeout(renderGoogleButton, 100);

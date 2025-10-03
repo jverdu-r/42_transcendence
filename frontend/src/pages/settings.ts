@@ -205,7 +205,7 @@ export async function renderSettingsPage(): Promise<void> {
                                         <label class="block text-sm font-medium text-gray-300">
                                             ${getTranslation('settings', 'currentPasswordLabel')}
                                         </label>
-                                        <input type="password" id="current-password" 
+                                        <input type="password" id="current-password" autocomplete="current-password"
                                                class="w-full px-4 py-3 bg-[#001d3d] border border-[#003566] rounded-xl text-gray-100 focus:outline-none focus:border-[#ffc300] focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-50 transition-all duration-200 placeholder-gray-400"
                                                placeholder="${getTranslation('settings', 'currentPasswordPlaceholder')}">
                                     </div>
@@ -214,7 +214,7 @@ export async function renderSettingsPage(): Promise<void> {
                                         <label class="block text-sm font-medium text-gray-300">
                                             ${getTranslation('settings', 'newPasswordLabel')}
                                         </label>
-                                        <input type="password" id="new-password" 
+                                        <input type="password" id="new-password" autocomplete="new-password"
                                                class="w-full px-4 py-3 bg-[#001d3d] border border-[#003566] rounded-xl text-gray-100 focus:outline-none focus:border-[#ffc300] focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-50 transition-all duration-200 placeholder-gray-400"
                                                placeholder="${getTranslation('settings', 'newPasswordPlaceholder')}">
                                     </div>
