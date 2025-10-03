@@ -183,7 +183,7 @@ export async function renderSettingsPage(): Promise<void> {
                                 <label class="block text-sm font-medium text-gray-300">
                                     📝 ${getTranslation('settings', 'usernameLabel')}
                                 </label>
-                                <input type="text" id="username" value="${user.username}" 
+                                <input type="text" id="username" value="${user.username}" autocomplete="username"
                                        class="w-full px-4 py-3 bg-[#001d3d] border border-[#003566] rounded-xl text-gray-100 focus:outline-none focus:border-[#ffc300] focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-50 transition-all duration-200 placeholder-gray-400"
                                        placeholder="${getTranslation('settings', 'usernameLabelPlaceholder')}">
                             </div>
@@ -192,7 +192,7 @@ export async function renderSettingsPage(): Promise<void> {
                                 <label class="block text-sm font-medium text-gray-300">
                                     📧 ${getTranslation('settings', 'emailLabel')}
                                 </label>
-                                <input type="email" id="email" value="${user.email}" 
+                                <input type="email" id="email" value="${user.email}" autocomplete="email"
                                        class="w-full px-4 py-3 bg-[#001d3d] border border-[#003566] rounded-xl text-gray-100 focus:outline-none focus:border-[#ffc300] focus:ring-2 focus:ring-[#ffc300] focus:ring-opacity-50 transition-all duration-200 placeholder-gray-400"
                                        placeholder="${getTranslation('settings', 'emailLabelPlaceholder')}">
                             </div>
