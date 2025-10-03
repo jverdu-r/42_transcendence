@@ -140,33 +140,46 @@ export class UnifiedGameRenderer {
         if (this.gameMode === 'local' || this.gameMode === 'ai' || this.gameMode === 'online') {
             document.addEventListener('keydown', this.handleKeyDown.bind(this));
             document.addEventListener('keyup', this.handleKeyUp.bind(this));
+            
+            // Detectar pérdida de foco para limpiar movimientos
+            window.addEventListener('blur', this.handleWindowBlur.bind(this));
+            document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
         }
     }
     
     private handleKeyDown(e: KeyboardEvent): void {
-        // Evitar repetición de keydown
-        if (this.keys[e.key]) {
-            return;
-        }
-        
+        // Marcar la tecla como presionada
+        const wasPressed = this.keys[e.key];
         this.keys[e.key] = true;
         
-        // Iniciar movimiento inmediato al presionar
-        this.startPaddleMovement(e.key);
-        
-        // Para modo online, enviar comando al servidor
-        if (this.gameMode === 'online' && this.websocket && this.gameId) {
-            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
-                this.sendPlayerMove('up');
-                console.log('[handleKeyDown] Sent UP command');
-            } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
-                this.sendPlayerMove('down');
-                console.log('[handleKeyDown] Sent DOWN command');
+        // Solo iniciar movimiento si la tecla no estaba ya presionada
+        // Esto evita crear múltiples intervalos pero permite reiniciar si se perdió
+        if (!wasPressed) {
+            console.log('[handleKeyDown] Key pressed:', e.key);
+            this.startPaddleMovement(e.key);
+            
+            // Para modo online, enviar comando al servidor solo una vez por presión
+            if (this.gameMode === 'online' && this.websocket && this.gameId) {
+                if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+                    this.sendPlayerMove('up');
+                    console.log('[handleKeyDown] Sent UP command');
+                } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+                    this.sendPlayerMove('down');
+                    console.log('[handleKeyDown] Sent DOWN command');
+                }
+            }
+        } else {
+            // Si la tecla ya estaba presionada pero no hay intervalo, reiniciarlo
+            const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'];
+            if (movementKeys.includes(e.key) && !this.movementIntervals[e.key]) {
+                console.log('[handleKeyDown] Restarting lost movement for key:', e.key);
+                this.startPaddleMovement(e.key);
             }
         }
     }
 
     private handleKeyUp(e: KeyboardEvent): void {
+        console.log('[handleKeyUp] Key released:', e.key);
         this.keys[e.key] = false;
         
         // Detener movimiento para todas las teclas de movimiento
@@ -174,6 +187,21 @@ export class UnifiedGameRenderer {
         if (movementKeys.includes(e.key)) {
             this.stopPaddleMovement(e.key);
             console.log('[handleKeyUp] Stopped movement for key:', e.key);
+            
+            // Para modo online, podríamos enviar un comando de stop si el servidor lo soporta
+            // Pero según el comentario del código, el backend clásico no usa 'stop'
+        }
+    }
+
+    private handleWindowBlur(): void {
+        console.log('[handleWindowBlur] Window lost focus, clearing all movements');
+        this.clearAllMovementIntervals();
+    }
+
+    private handleVisibilityChange(): void {
+        if (document.hidden) {
+            console.log('[handleVisibilityChange] Page became hidden, clearing all movements');
+            this.clearAllMovementIntervals();
         }
     }
 
@@ -360,17 +388,18 @@ export class UnifiedGameRenderer {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
         }
+        
+        // Limpiar todos los intervalos de movimiento al pausar
+        this.clearAllMovementIntervals();
+        
         this.callbacks.onStatusUpdate?.('⏸️ Juego pausado');
     }
     
     public resetGame(): void {
         this.pauseGame();
         
-        // Limpiar todos los intervals de movimiento
-        Object.keys(this.movementIntervals).forEach(key => {
-            clearInterval(this.movementIntervals[key]);
-        });
-        this.movementIntervals = {};
+        // Limpiar todos los intervals de movimiento usando la función centralizada
+        this.clearAllMovementIntervals();
         
         this.initializeGameState();
         this.gameStartTime = null;
@@ -437,19 +466,32 @@ export class UnifiedGameRenderer {
     }
     
     private startPaddleMovement(key: string): void {
-        // Evitar múltiples intervals para la misma tecla
+        // Solo procesar teclas de movimiento
+        const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'];
+        if (!movementKeys.includes(key)) {
+            return;
+        }
+        
+        // Si ya existe un intervalo para esta tecla, no crear otro
         if (this.movementIntervals[key]) {
             console.log('[startPaddleMovement] ⚠️ Interval already exists for key:', key);
             return;
         }
         
-        // Movimiento inmediato
+        // Movimiento inmediato al presionar
         this.movePaddle(key);
         
-        // Iniciar movimiento continuo
+        // Iniciar movimiento continuo mientras la tecla esté presionada
         this.movementIntervals[key] = setInterval(() => {
-            this.movePaddle(key);
-            this.draw(); // Redibujar
+            // Verificar que la tecla sigue presionada antes de mover
+            if (this.keys[key]) {
+                this.movePaddle(key);
+                this.draw(); // Redibujar solo si se movió la paleta
+            } else {
+                // Si la tecla ya no está presionada, detener el movimiento
+                console.log('[startPaddleMovement] Key released during interval, stopping:', key);
+                this.stopPaddleMovement(key);
+            }
         }, 16); // ~60 FPS
         
         console.log('[startPaddleMovement] ✅ Started movement for key:', key);
@@ -468,6 +510,18 @@ export class UnifiedGameRenderer {
         
         // Debug: mostrar intervals activos
         console.log('[stopPaddleMovement] Active intervals:', Object.keys(this.movementIntervals));
+    }
+    
+    private clearAllMovementIntervals(): void {
+        console.log('[clearAllMovementIntervals] Clearing all movement intervals');
+        Object.keys(this.movementIntervals).forEach(key => {
+            clearInterval(this.movementIntervals[key]);
+            delete this.movementIntervals[key];
+        });
+        
+        // También resetear el estado de todas las teclas
+        this.keys = {};
+        console.log('[clearAllMovementIntervals] All intervals cleared and keys reset');
     }
     
     private movePaddle(key: string): void {
@@ -898,11 +952,8 @@ export class UnifiedGameRenderer {
             cancelAnimationFrame(this.animationId);
         }
         
-        // Limpiar todos los intervals de movimiento
-        Object.keys(this.movementIntervals).forEach(key => {
-            clearInterval(this.movementIntervals[key]);
-        });
-        this.movementIntervals = {};
+        // Limpiar todos los intervals de movimiento usando la función centralizada
+        this.clearAllMovementIntervals();
         
         if (this.websocket) {
             this.websocket.close();
@@ -911,5 +962,7 @@ export class UnifiedGameRenderer {
         // Remove event listeners
         document.removeEventListener('keydown', this.handleKeyDown.bind(this));
         document.removeEventListener('keyup', this.handleKeyUp.bind(this));
+        window.removeEventListener('blur', this.handleWindowBlur.bind(this));
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
     }
 }
