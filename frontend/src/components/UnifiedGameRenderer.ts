@@ -74,11 +74,15 @@ export class UnifiedGameRenderer {
     // Movement intervals para movimiento continuo
     private movementIntervals: { [key: string]: any } = {};
     
-    // Nuevo sistema de movimiento continuo para online
+    // Nuevo sistema de polling continuo para online
     private paddleMovementState = {
         up: false,
         down: false
     };
+    
+    // Sistema de polling para detectar teclas presionadas
+    private keyPollingInterval?: any;
+    private currentlyPressedKeys = new Set<string>();
 
     // Allow external (lobby) setup of WebSocket for online mode
     public setWebSocketConnection(ws: WebSocket, gameId: string) {
@@ -143,16 +147,107 @@ export class UnifiedGameRenderer {
     
     private setupEventListeners(): void {
         console.log("[UnifiedGameRenderer] setupEventListeners called, mode:", this.gameMode);
-        if (this.gameMode === 'local' || this.gameMode === 'ai' || this.gameMode === 'online') {
+        if (this.gameMode === 'local' || this.gameMode === 'ai') {
+            // Sistema tradicional para local/AI
             document.addEventListener('keydown', this.handleKeyDown.bind(this));
             document.addEventListener('keyup', this.handleKeyUp.bind(this));
             
             // Detectar pérdida de foco para limpiar movimientos
             window.addEventListener('blur', this.handleWindowBlur.bind(this));
             document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
+        } else if (this.gameMode === 'online') {
+            // SISTEMA COMPLETAMENTE NUEVO PARA ONLINE: Polling continuo
+            this.setupKeyPolling();
+            
+            // Detectar pérdida de foco
+            window.addEventListener('blur', this.handleWindowBlur.bind(this));
+            document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
         }
     }
     
+    private setupKeyPolling(): void {
+        console.log('[setupKeyPolling] Iniciando sistema de polling para modo online');
+        
+        // Usar keydown/keyup solo para detectar inicio/fin, no para movimiento
+        document.addEventListener('keydown', this.handleKeyDownPolling.bind(this));
+        document.addEventListener('keyup', this.handleKeyUpPolling.bind(this));
+        
+        // Polling continuo para movimiento suave
+        this.keyPollingInterval = setInterval(() => {
+            this.pollKeysAndMove();
+        }, 8); // 125 FPS para movimiento ultra-suave
+    }
+    
+    private handleKeyDownPolling(e: KeyboardEvent): void {
+        if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+            if (!this.currentlyPressedKeys.has('up')) {
+                this.currentlyPressedKeys.add('up');
+                this.sendPlayerMove('up');
+                console.log('[Polling] UP key pressed');
+            }
+        } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+            if (!this.currentlyPressedKeys.has('down')) {
+                this.currentlyPressedKeys.add('down');
+                this.sendPlayerMove('down');
+                console.log('[Polling] DOWN key pressed');
+            }
+        }
+    }
+    
+    private handleKeyUpPolling(e: KeyboardEvent): void {
+        if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+            this.currentlyPressedKeys.delete('up');
+            console.log('[Polling] UP key released');
+        } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+            this.currentlyPressedKeys.delete('down');
+            console.log('[Polling] DOWN key released');
+        }
+    }
+    
+    private pollKeysAndMove(): void {
+        if (!this.playerNumber || !this.gameState.gameRunning) return;
+        
+        const speed = 5; // Velocidad consistente
+        let moved = false;
+        
+        if (this.playerNumber === 1) {
+            // Jugador 1 - paleta izquierda
+            if (this.currentlyPressedKeys.has('up') && this.gameState.paddles.left.y > 0) {
+                this.gameState.paddles.left.y -= speed;
+                if (this.gameState.paddles.left.y < 0) this.gameState.paddles.left.y = 0;
+                moved = true;
+            }
+            if (this.currentlyPressedKeys.has('down') && 
+                this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
+                this.gameState.paddles.left.y += speed;
+                if (this.gameState.paddles.left.y > this.canvas.height - this.gameState.paddles.left.height) {
+                    this.gameState.paddles.left.y = this.canvas.height - this.gameState.paddles.left.height;
+                }
+                moved = true;
+            }
+        } else if (this.playerNumber === 2) {
+            // Jugador 2 - paleta derecha
+            if (this.currentlyPressedKeys.has('up') && this.gameState.paddles.right.y > 0) {
+                this.gameState.paddles.right.y -= speed;
+                if (this.gameState.paddles.right.y < 0) this.gameState.paddles.right.y = 0;
+                moved = true;
+            }
+            if (this.currentlyPressedKeys.has('down') && 
+                this.gameState.paddles.right.y < this.canvas.height - this.gameState.paddles.right.height) {
+                this.gameState.paddles.right.y += speed;
+                if (this.gameState.paddles.right.y > this.canvas.height - this.gameState.paddles.right.height) {
+                    this.gameState.paddles.right.y = this.canvas.height - this.gameState.paddles.right.height;
+                }
+                moved = true;
+            }
+        }
+        
+        // Solo redibujar si hubo movimiento
+        if (moved) {
+            this.draw();
+        }
+    }
+
     private handleKeyDown(e: KeyboardEvent): void {
         // Marcar la tecla como presionada
         const wasPressed = this.keys[e.key];
@@ -474,9 +569,12 @@ export class UnifiedGameRenderer {
             return;
         }
         
-        // Only update local player paddle for online mode
-        this.updateOnlinePaddles();
-        this.draw();
+        // Para modo online con nuevo sistema de polling, solo necesitamos redibujar
+        // El movimiento se maneja en pollKeysAndMove()
+        // Solo redibujamos si no se está moviendo (evitar doble-dibujo)
+        if (!this.currentlyPressedKeys.has('up') && !this.currentlyPressedKeys.has('down')) {
+            this.draw();
+        }
         
         this.animationId = requestAnimationFrame(() => this.paddleUpdateLoop());
     }
@@ -535,22 +633,29 @@ export class UnifiedGameRenderer {
     }
     
     private clearAllMovementIntervals(): void {
-        console.log('[clearAllMovementIntervals] Clearing all movement intervals');
+        console.log('[clearAllMovementIntervals] Clearing all movement intervals and polling');
+        
+        // Limpiar intervalos tradicionales
         Object.keys(this.movementIntervals).forEach(key => {
             clearInterval(this.movementIntervals[key]);
             delete this.movementIntervals[key];
         });
         
-        // También resetear el estado de todas las teclas
-        this.keys = {};
+        // Limpiar sistema de polling
+        if (this.keyPollingInterval) {
+            clearInterval(this.keyPollingInterval);
+            this.keyPollingInterval = undefined;
+        }
         
-        // Resetear el nuevo estado de movimiento para online
+        // Resetear estados
+        this.keys = {};
         this.paddleMovementState = {
             up: false,
             down: false
         };
+        this.currentlyPressedKeys.clear();
         
-        console.log('[clearAllMovementIntervals] All intervals cleared and keys reset');
+        console.log('[clearAllMovementIntervals] All intervals, polling and keys cleared');
     }
     
     private movePaddle(key: string): void {
@@ -612,39 +717,9 @@ export class UnifiedGameRenderer {
     }
     
     private updateOnlinePaddles(): void {
-        if (!this.playerNumber) return;
-        
-        // NUEVO SISTEMA: Velocidad más alta para movimiento ultrasuave
-        const speed = 6; 
-        
-        // Mover paleta basándose en el estado de movimiento continuo
-        if (this.playerNumber === 1) {
-            // Jugador 1 controla paleta izquierda
-            if (this.paddleMovementState.up && this.gameState.paddles.left.y > 0) {
-                this.gameState.paddles.left.y -= speed;
-                if (this.gameState.paddles.left.y < 0) this.gameState.paddles.left.y = 0;
-            }
-            if (this.paddleMovementState.down && 
-                this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
-                this.gameState.paddles.left.y += speed;
-                if (this.gameState.paddles.left.y > this.canvas.height - this.gameState.paddles.left.height) {
-                    this.gameState.paddles.left.y = this.canvas.height - this.gameState.paddles.left.height;
-                }
-            }
-        } else if (this.playerNumber === 2) {
-            // Jugador 2 controla paleta derecha
-            if (this.paddleMovementState.up && this.gameState.paddles.right.y > 0) {
-                this.gameState.paddles.right.y -= speed;
-                if (this.gameState.paddles.right.y < 0) this.gameState.paddles.right.y = 0;
-            }
-            if (this.paddleMovementState.down && 
-                this.gameState.paddles.right.y < this.canvas.height - this.gameState.paddles.right.height) {
-                this.gameState.paddles.right.y += speed;
-                if (this.gameState.paddles.right.y > this.canvas.height - this.gameState.paddles.right.height) {
-                    this.gameState.paddles.right.y = this.canvas.height - this.gameState.paddles.right.height;
-                }
-            }
-        }
+        // El movimiento ahora se maneja completamente en pollKeysAndMove()
+        // Esta función ya no es necesaria para el nuevo sistema de polling
+        // Solo se mantiene para compatibilidad
     }
     
     private updatePaddles(): void {
@@ -1019,9 +1094,11 @@ export class UnifiedGameRenderer {
             this.websocket.close();
         }
         
-        // Remove event listeners
+        // Remove event listeners para ambos sistemas
         document.removeEventListener('keydown', this.handleKeyDown.bind(this));
         document.removeEventListener('keyup', this.handleKeyUp.bind(this));
+        document.removeEventListener('keydown', this.handleKeyDownPolling.bind(this));
+        document.removeEventListener('keyup', this.handleKeyUpPolling.bind(this));
         window.removeEventListener('blur', this.handleWindowBlur.bind(this));
         document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
     }
