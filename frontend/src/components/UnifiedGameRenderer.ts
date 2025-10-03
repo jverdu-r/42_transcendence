@@ -83,6 +83,9 @@ export class UnifiedGameRenderer {
     // Sistema de polling para detectar teclas presionadas
     private keyPollingInterval?: any;
     private currentlyPressedKeys = new Set<string>();
+    
+    // Sistema de envío continuo de comandos al servidor
+    private serverCommandInterval?: any;
 
     // Allow external (lobby) setup of WebSocket for online mode
     public setWebSocketConnection(ws: WebSocket, gameId: string) {
@@ -172,24 +175,31 @@ export class UnifiedGameRenderer {
         document.addEventListener('keydown', this.handleKeyDownPolling.bind(this));
         document.addEventListener('keyup', this.handleKeyUpPolling.bind(this));
         
-        // Polling continuo para movimiento suave
+        // Polling continuo para movimiento suave LOCAL
         this.keyPollingInterval = setInterval(() => {
             this.pollKeysAndMove();
         }, 8); // 125 FPS para movimiento ultra-suave
+        
+        // NUEVO: Envío continuo de comandos al servidor
+        this.serverCommandInterval = setInterval(() => {
+            this.sendContinuousCommands();
+        }, 50); // 20 FPS para comandos al servidor (como espera el backend)
     }
     
     private handleKeyDownPolling(e: KeyboardEvent): void {
         if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
             if (!this.currentlyPressedKeys.has('up')) {
                 this.currentlyPressedKeys.add('up');
-                this.sendPlayerMove('up');
                 console.log('[Polling] UP key pressed');
+                // El primer comando se envía inmediatamente para responsividad
+                this.sendPlayerMove('up');
             }
         } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
             if (!this.currentlyPressedKeys.has('down')) {
                 this.currentlyPressedKeys.add('down');
-                this.sendPlayerMove('down');
                 console.log('[Polling] DOWN key pressed');
+                // El primer comando se envía inmediatamente para responsividad
+                this.sendPlayerMove('down');
             }
         }
     }
@@ -245,6 +255,22 @@ export class UnifiedGameRenderer {
         // Solo redibujar si hubo movimiento
         if (moved) {
             this.draw();
+        }
+    }
+    
+    private sendContinuousCommands(): void {
+        if (!this.websocket || !this.gameId || this.currentlyPressedKeys.size === 0) {
+            return;
+        }
+        
+        // Enviar comando para cada tecla presionada
+        if (this.currentlyPressedKeys.has('up')) {
+            this.sendPlayerMove('up');
+            console.log('[sendContinuousCommands] Sent continuous UP command');
+        }
+        if (this.currentlyPressedKeys.has('down')) {
+            this.sendPlayerMove('down');
+            console.log('[sendContinuousCommands] Sent continuous DOWN command');
         }
     }
 
@@ -645,6 +671,12 @@ export class UnifiedGameRenderer {
         if (this.keyPollingInterval) {
             clearInterval(this.keyPollingInterval);
             this.keyPollingInterval = undefined;
+        }
+        
+        // Limpiar sistema de comandos al servidor
+        if (this.serverCommandInterval) {
+            clearInterval(this.serverCommandInterval);
+            this.serverCommandInterval = undefined;
         }
         
         // Resetear estados
