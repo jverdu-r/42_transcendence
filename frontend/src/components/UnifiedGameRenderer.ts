@@ -452,11 +452,8 @@ export class UnifiedGameRenderer {
     
     private paddleUpdateLoop(): void {
         if (!this.gameState.gameRunning) {
-            console.warn('[paddleUpdateLoop] Game not running, stopping loop');
             return;
         }
-        
-        console.log('[paddleUpdateLoop] Executing - gameRunning:', this.gameState.gameRunning);
         
         // Only update local player paddle for online mode
         this.updateOnlinePaddles();
@@ -472,6 +469,12 @@ export class UnifiedGameRenderer {
             return;
         }
         
+        // Para modo online, no usar intervalos - el movimiento se maneja en paddleUpdateLoop
+        if (this.gameMode === 'online') {
+            console.log('[startPaddleMovement] Online mode - movement handled by paddleUpdateLoop');
+            return;
+        }
+        
         // Si ya existe un intervalo para esta tecla, no crear otro
         if (this.movementIntervals[key]) {
             console.log('[startPaddleMovement] ⚠️ Interval already exists for key:', key);
@@ -481,7 +484,7 @@ export class UnifiedGameRenderer {
         // Movimiento inmediato al presionar
         this.movePaddle(key);
         
-        // Iniciar movimiento continuo mientras la tecla esté presionada
+        // Para modos local/AI, usar intervalo con mayor frecuencia
         this.movementIntervals[key] = setInterval(() => {
             // Verificar que la tecla sigue presionada antes de mover
             if (this.keys[key]) {
@@ -492,7 +495,7 @@ export class UnifiedGameRenderer {
                 console.log('[startPaddleMovement] Key released during interval, stopping:', key);
                 this.stopPaddleMovement(key);
             }
-        }, 16); // ~60 FPS
+        }, 8); // Aumentar frecuencia a ~120 FPS para movimiento más suave
         
         console.log('[startPaddleMovement] ✅ Started movement for key:', key);
         console.log('[startPaddleMovement] Active intervals:', Object.keys(this.movementIntervals));
@@ -525,7 +528,7 @@ export class UnifiedGameRenderer {
     }
     
     private movePaddle(key: string): void {
-        const speed = 6;
+        const speed = 4; // Velocidad ajustada para movimiento más fluido
         
         if (this.gameMode === 'online') {
             // Para modo online, usar playerNumber
@@ -583,12 +586,41 @@ export class UnifiedGameRenderer {
     }
     
     private updateOnlinePaddles(): void {
-        // El movimiento ahora se maneja completamente con eventos keydown/keyup
-        // Esta función ya no necesita hacer nada
+        if (!this.playerNumber) return;
+        
+        const speed = 4; // Velocidad más alta para movimiento más fluido
+        
+        if (this.playerNumber === 1) {
+            // Jugador 1 controla paleta izquierda
+            if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.left.y > 0) {
+                this.gameState.paddles.left.y -= speed;
+                if (this.gameState.paddles.left.y < 0) this.gameState.paddles.left.y = 0;
+            }
+            if ((this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) && 
+                this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
+                this.gameState.paddles.left.y += speed;
+                if (this.gameState.paddles.left.y > this.canvas.height - this.gameState.paddles.left.height) {
+                    this.gameState.paddles.left.y = this.canvas.height - this.gameState.paddles.left.height;
+                }
+            }
+        } else if (this.playerNumber === 2) {
+            // Jugador 2 controla paleta derecha
+            if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.right.y > 0) {
+                this.gameState.paddles.right.y -= speed;
+                if (this.gameState.paddles.right.y < 0) this.gameState.paddles.right.y = 0;
+            }
+            if ((this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) && 
+                this.gameState.paddles.right.y < this.canvas.height - this.gameState.paddles.right.height) {
+                this.gameState.paddles.right.y += speed;
+                if (this.gameState.paddles.right.y > this.canvas.height - this.gameState.paddles.right.height) {
+                    this.gameState.paddles.right.y = this.canvas.height - this.gameState.paddles.right.height;
+                }
+            }
+        }
     }
     
     private updatePaddles(): void {
-        const speed = 6;
+        const speed = 4; // Velocidad consistente con otras funciones
         
         // Left paddle (Player 1) - W/S or Arrow Up/Down
         if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.left.y > 0) {
