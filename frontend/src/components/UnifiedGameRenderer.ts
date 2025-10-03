@@ -86,6 +86,9 @@ export class UnifiedGameRenderer {
     
     // Sistema de envío continuo de comandos al servidor
     private serverCommandInterval?: any;
+    
+    // Sistema de verificación de integridad
+    private systemCheckInterval?: any;
 
     // Allow external (lobby) setup of WebSocket for online mode
     public setWebSocketConnection(ws: WebSocket, gameId: string) {
@@ -157,6 +160,7 @@ export class UnifiedGameRenderer {
             
             // Detectar pérdida de foco para limpiar movimientos
             window.addEventListener('blur', this.handleWindowBlur.bind(this));
+            window.addEventListener('focus', this.handleWindowFocus.bind(this));
             document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
         } else if (this.gameMode === 'online') {
             // SISTEMA COMPLETAMENTE NUEVO PARA ONLINE: Polling continuo
@@ -184,6 +188,11 @@ export class UnifiedGameRenderer {
         this.serverCommandInterval = setInterval(() => {
             this.sendContinuousCommands();
         }, 50); // 20 FPS para comandos al servidor (como espera el backend)
+        
+        // NUEVO: Verificación periódica del sistema
+        this.systemCheckInterval = setInterval(() => {
+            this.checkSystemIntegrity();
+        }, 2000); // Verificar cada 2 segundos
     }
     
     private handleKeyDownPolling(e: KeyboardEvent): void {
@@ -263,6 +272,13 @@ export class UnifiedGameRenderer {
             return;
         }
         
+        // Verificar que la conexión WebSocket sigue activa
+        if (this.websocket.readyState !== WebSocket.OPEN) {
+            console.warn('[sendContinuousCommands] WebSocket connection lost, clearing movements');
+            this.clearAllMovementIntervals();
+            return;
+        }
+        
         // Enviar comando para cada tecla presionada
         if (this.currentlyPressedKeys.has('up')) {
             this.sendPlayerMove('up');
@@ -271,6 +287,29 @@ export class UnifiedGameRenderer {
         if (this.currentlyPressedKeys.has('down')) {
             this.sendPlayerMove('down');
             console.log('[sendContinuousCommands] Sent continuous DOWN command');
+        }
+    }
+    
+    private checkSystemIntegrity(): void {
+        // Solo verificar si estamos en modo online y el juego está corriendo
+        if (this.gameMode !== 'online' || !this.gameState.gameRunning) {
+            return;
+        }
+        
+        // Verificar que los intervalos críticos estén activos
+        const missingIntervals = [];
+        if (!this.keyPollingInterval) missingIntervals.push('keyPolling');
+        if (!this.serverCommandInterval) missingIntervals.push('serverCommand');
+        
+        if (missingIntervals.length > 0) {
+            console.warn(`[checkSystemIntegrity] Missing intervals: ${missingIntervals.join(', ')} - Reinitializing`);
+            this.reinitializeOnlineSystem();
+        }
+        
+        // Verificar estado de WebSocket
+        if (this.websocket && this.websocket.readyState !== WebSocket.OPEN) {
+            console.warn('[checkSystemIntegrity] WebSocket connection lost');
+            this.clearAllMovementIntervals();
         }
     }
 
@@ -338,10 +377,47 @@ export class UnifiedGameRenderer {
         this.clearAllMovementIntervals();
     }
 
+    private handleWindowFocus(): void {
+        console.log('[handleWindowFocus] Window gained focus, checking system state');
+        // Al volver el foco a la ventana, reinicializar si es necesario
+        if (this.gameMode === 'online' && this.gameState.gameRunning) {
+            // Pequeño delay para asegurar que todo está estable
+            setTimeout(() => {
+                // Solo reinicializar si no hay intervalos activos
+                if (!this.keyPollingInterval || !this.serverCommandInterval) {
+                    console.log('[handleWindowFocus] Reinitializing due to missing intervals');
+                    this.reinitializeOnlineSystem();
+                }
+            }, 200);
+        }
+    }
+
     private handleVisibilityChange(): void {
         if (document.hidden) {
             console.log('[handleVisibilityChange] Page became hidden, clearing all movements');
             this.clearAllMovementIntervals();
+        } else {
+            console.log('[handleVisibilityChange] Page became visible again, reinitializing system');
+            // Al volver a la aplicación, reinicializar el sistema de polling si es online
+            if (this.gameMode === 'online' && this.gameState.gameRunning) {
+                // Pequeño delay para asegurar que la página está completamente visible
+                setTimeout(() => {
+                    this.reinitializeOnlineSystem();
+                }, 100);
+            }
+        }
+    }
+    
+    private reinitializeOnlineSystem(): void {
+        console.log('[reinitializeOnlineSystem] Reinitializing online polling system');
+        
+        // Limpiar cualquier sistema previo
+        this.clearAllMovementIntervals();
+        
+        // Reinicializar el sistema de polling para online
+        if (this.gameMode === 'online') {
+            this.setupKeyPolling();
+            console.log('[reinitializeOnlineSystem] ✅ Online system reinitialized');
         }
     }
 
@@ -677,6 +753,12 @@ export class UnifiedGameRenderer {
         if (this.serverCommandInterval) {
             clearInterval(this.serverCommandInterval);
             this.serverCommandInterval = undefined;
+        }
+        
+        // Limpiar sistema de verificación
+        if (this.systemCheckInterval) {
+            clearInterval(this.systemCheckInterval);
+            this.systemCheckInterval = undefined;
         }
         
         // Resetear estados
@@ -1132,6 +1214,7 @@ export class UnifiedGameRenderer {
         document.removeEventListener('keydown', this.handleKeyDownPolling.bind(this));
         document.removeEventListener('keyup', this.handleKeyUpPolling.bind(this));
         window.removeEventListener('blur', this.handleWindowBlur.bind(this));
+        window.removeEventListener('focus', this.handleWindowFocus.bind(this));
         document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
     }
 }
