@@ -478,13 +478,14 @@ export class UnifiedGameRenderer {
         
         // Verificar que el WebSocket esté en estado OPEN antes de enviar
         if (this.websocket.readyState !== WebSocket.OPEN) {
-            const stateNames = {
+            const stateNames: Record<number, string> = {
                 [WebSocket.CONNECTING]: 'CONNECTING',
                 [WebSocket.OPEN]: 'OPEN', 
                 [WebSocket.CLOSING]: 'CLOSING',
                 [WebSocket.CLOSED]: 'CLOSED'
             };
-            console.warn(`[sendPlayerMove] WebSocket is not in OPEN state. Current state: ${stateNames[this.websocket.readyState]} (${this.websocket.readyState})`);
+            const stateName = stateNames[this.websocket.readyState] || 'UNKNOWN';
+            console.warn(`[sendPlayerMove] WebSocket is not in OPEN state. Current state: ${stateName} (${this.websocket.readyState})`);
             return;
         }
         
