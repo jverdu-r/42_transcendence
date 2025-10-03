@@ -322,6 +322,22 @@ export class UnifiedGameManager {
         return this.getAllGames().filter(game => game.getStatus() === 'paused');
     }
 
+    public removePlayerFromGame(gameId: string, playerId: string): boolean {
+        const game = this.games.get(gameId);
+        if (!game) return false;
+
+        const success = game.removePlayer(playerId);
+        if (success) {
+            console.log(`👤 Jugador ${playerId} removido del juego ${gameId}`);
+            
+            // Si no quedan jugadores, remover el juego
+            if (game.getPlayers().length === 0) {
+                this.removeGame(gameId);
+            }
+        }
+        return success;
+    }
+
     public getGameStats(gameId: string): any {
         const game = this.games.get(gameId);
         if (!game) return null;
