@@ -73,6 +73,12 @@ export class UnifiedGameRenderer {
     
     // Movement intervals para movimiento continuo
     private movementIntervals: { [key: string]: any } = {};
+    
+    // Nuevo sistema de movimiento continuo para online
+    private paddleMovementState = {
+        up: false,
+        down: false
+    };
 
     // Allow external (lobby) setup of WebSocket for online mode
     public setWebSocketConnection(ws: WebSocket, gameId: string) {
@@ -152,28 +158,33 @@ export class UnifiedGameRenderer {
         const wasPressed = this.keys[e.key];
         this.keys[e.key] = true;
         
-        // Solo iniciar movimiento si la tecla no estaba ya presionada
-        // Esto evita crear múltiples intervalos pero permite reiniciar si se perdió
-        if (!wasPressed) {
-            console.log('[handleKeyDown] Key pressed:', e.key);
-            this.startPaddleMovement(e.key);
-            
-            // Para modo online, enviar comando al servidor solo una vez por presión
-            if (this.gameMode === 'online' && this.websocket && this.gameId) {
-                if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+        if (this.gameMode === 'online') {
+            // NUEVO SISTEMA PARA ONLINE: Solo marcar estado de movimiento
+            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+                if (!this.paddleMovementState.up) {
+                    this.paddleMovementState.up = true;
                     this.sendPlayerMove('up');
-                    console.log('[handleKeyDown] Sent UP command');
-                } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+                    console.log('[handleKeyDown] Started UP movement');
+                }
+            } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+                if (!this.paddleMovementState.down) {
+                    this.paddleMovementState.down = true;
                     this.sendPlayerMove('down');
-                    console.log('[handleKeyDown] Sent DOWN command');
+                    console.log('[handleKeyDown] Started DOWN movement');
                 }
             }
         } else {
-            // Si la tecla ya estaba presionada pero no hay intervalo, reiniciarlo
-            const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'];
-            if (movementKeys.includes(e.key) && !this.movementIntervals[e.key]) {
-                console.log('[handleKeyDown] Restarting lost movement for key:', e.key);
+            // SISTEMA ANTERIOR PARA LOCAL/AI
+            if (!wasPressed) {
+                console.log('[handleKeyDown] Key pressed:', e.key);
                 this.startPaddleMovement(e.key);
+            } else {
+                // Si la tecla ya estaba presionada pero no hay intervalo, reiniciarlo
+                const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'];
+                if (movementKeys.includes(e.key) && !this.movementIntervals[e.key]) {
+                    console.log('[handleKeyDown] Restarting lost movement for key:', e.key);
+                    this.startPaddleMovement(e.key);
+                }
             }
         }
     }
@@ -182,14 +193,22 @@ export class UnifiedGameRenderer {
         console.log('[handleKeyUp] Key released:', e.key);
         this.keys[e.key] = false;
         
-        // Detener movimiento para todas las teclas de movimiento
-        const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'];
-        if (movementKeys.includes(e.key)) {
-            this.stopPaddleMovement(e.key);
-            console.log('[handleKeyUp] Stopped movement for key:', e.key);
-            
-            // Para modo online, podríamos enviar un comando de stop si el servidor lo soporta
-            // Pero según el comentario del código, el backend clásico no usa 'stop'
+        if (this.gameMode === 'online') {
+            // NUEVO SISTEMA PARA ONLINE: Solo marcar estado de parada
+            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+                this.paddleMovementState.up = false;
+                console.log('[handleKeyUp] Stopped UP movement');
+            } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+                this.paddleMovementState.down = false;
+                console.log('[handleKeyUp] Stopped DOWN movement');
+            }
+        } else {
+            // SISTEMA ANTERIOR PARA LOCAL/AI
+            const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'];
+            if (movementKeys.includes(e.key)) {
+                this.stopPaddleMovement(e.key);
+                console.log('[handleKeyUp] Stopped movement for key:', e.key);
+            }
         }
     }
 
@@ -524,6 +543,13 @@ export class UnifiedGameRenderer {
         
         // También resetear el estado de todas las teclas
         this.keys = {};
+        
+        // Resetear el nuevo estado de movimiento para online
+        this.paddleMovementState = {
+            up: false,
+            down: false
+        };
+        
         console.log('[clearAllMovementIntervals] All intervals cleared and keys reset');
     }
     
@@ -588,15 +614,17 @@ export class UnifiedGameRenderer {
     private updateOnlinePaddles(): void {
         if (!this.playerNumber) return;
         
-        const speed = 4; // Velocidad más alta para movimiento más fluido
+        // NUEVO SISTEMA: Velocidad más alta para movimiento ultrasuave
+        const speed = 6; 
         
+        // Mover paleta basándose en el estado de movimiento continuo
         if (this.playerNumber === 1) {
             // Jugador 1 controla paleta izquierda
-            if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.left.y > 0) {
+            if (this.paddleMovementState.up && this.gameState.paddles.left.y > 0) {
                 this.gameState.paddles.left.y -= speed;
                 if (this.gameState.paddles.left.y < 0) this.gameState.paddles.left.y = 0;
             }
-            if ((this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) && 
+            if (this.paddleMovementState.down && 
                 this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
                 this.gameState.paddles.left.y += speed;
                 if (this.gameState.paddles.left.y > this.canvas.height - this.gameState.paddles.left.height) {
@@ -605,11 +633,11 @@ export class UnifiedGameRenderer {
             }
         } else if (this.playerNumber === 2) {
             // Jugador 2 controla paleta derecha
-            if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.right.y > 0) {
+            if (this.paddleMovementState.up && this.gameState.paddles.right.y > 0) {
                 this.gameState.paddles.right.y -= speed;
                 if (this.gameState.paddles.right.y < 0) this.gameState.paddles.right.y = 0;
             }
-            if ((this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) && 
+            if (this.paddleMovementState.down && 
                 this.gameState.paddles.right.y < this.canvas.height - this.gameState.paddles.right.height) {
                 this.gameState.paddles.right.y += speed;
                 if (this.gameState.paddles.right.y > this.canvas.height - this.gameState.paddles.right.height) {
