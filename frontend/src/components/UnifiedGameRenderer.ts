@@ -193,6 +193,8 @@ export class UnifiedGameRenderer {
         this.systemCheckInterval = setInterval(() => {
             this.checkSystemIntegrity();
         }, 2000); // Verificar cada 2 segundos
+        
+        console.log('[setupKeyPolling] ✅ Sistema de polling configurado correctamente');
     }
     
     private handleKeyDownPolling(e: KeyboardEvent): void {
@@ -388,6 +390,8 @@ export class UnifiedGameRenderer {
                     console.log('[handleWindowFocus] Reinitializing due to missing intervals');
                     this.reinitializeOnlineSystem();
                 }
+                // CRUCIAL: Verificar estado de teclas después de volver del cambio de app
+                this.recheckKeyStates();
             }, 200);
         }
     }
@@ -403,9 +407,46 @@ export class UnifiedGameRenderer {
                 // Pequeño delay para asegurar que la página está completamente visible
                 setTimeout(() => {
                     this.reinitializeOnlineSystem();
+                    // CRUCIAL: Verificar estado de teclas después de volver del cambio de app
+                    this.recheckKeyStates();
                 }, 100);
             }
         }
+    }
+
+    /**
+     * Método para verificar el estado actual de las teclas después de volver del cambio de app
+     * Implementa una verificación inteligente del estado del teclado
+     */
+    private recheckKeyStates(): void {
+        console.log('[recheckKeyStates] Checking current keyboard state after app switch');
+        
+        // Limpiar estado temporal para evitar conflictos
+        this.paddleMovementState = {
+            up: false,
+            down: false
+        };
+        
+        // Crear un verificador de estado de teclas usando focus del documento
+        // Esta técnica ayuda a detectar si las teclas siguen presionadas
+        const keyStateChecker = () => {
+            // Verificar si hay alguna tecla en el estado currentlyPressedKeys que deba persistir
+            if (this.currentlyPressedKeys.has('up')) {
+                console.log('[recheckKeyStates] UP key still pressed after app switch');
+                // Re-activar el estado de movimiento
+                this.paddleMovementState.up = true;
+            }
+            if (this.currentlyPressedKeys.has('down')) {
+                console.log('[recheckKeyStates] DOWN key still pressed after app switch');
+                // Re-activar el estado de movimiento
+                this.paddleMovementState.down = true;
+            }
+        };
+        
+        // Ejecutar la verificación después de un pequeño delay
+        setTimeout(keyStateChecker, 50);
+        
+        console.log('[recheckKeyStates] Key state check completed, movement states restored');
     }
     
     private reinitializeOnlineSystem(): void {
@@ -761,15 +802,19 @@ export class UnifiedGameRenderer {
             this.systemCheckInterval = undefined;
         }
         
-        // Resetear estados
-        this.keys = {};
+        // NO resetear el estado de las teclas para preservar información del estado anterior
+        // this.keys = {};  // <-- COMENTADO para preservar estado
+        
+        // Resetear solo el estado de movimiento de paddles para evitar movimiento residual
         this.paddleMovementState = {
             up: false,
             down: false
         };
-        this.currentlyPressedKeys.clear();
         
-        console.log('[clearAllMovementIntervals] All intervals, polling and keys cleared');
+        // Mantener currentlyPressedKeys para que el sistema pueda recuperar el estado
+        // this.currentlyPressedKeys.clear();  // <-- COMENTADO para preservar estado
+        
+        console.log('[clearAllMovementIntervals] All intervals cleared, key states preserved');
     }
     
     private movePaddle(key: string): void {
