@@ -281,14 +281,19 @@ export class UnifiedGameRenderer {
             return;
         }
         
-        // Enviar comando para cada tecla presionada
-        if (this.currentlyPressedKeys.has('up')) {
-            this.sendPlayerMove('up');
-            console.log('[sendContinuousCommands] Sent continuous UP command');
-        }
-        if (this.currentlyPressedKeys.has('down')) {
-            this.sendPlayerMove('down');
-            console.log('[sendContinuousCommands] Sent continuous DOWN command');
+        try {
+            // Enviar comando para cada tecla presionada
+            if (this.currentlyPressedKeys.has('up')) {
+                this.sendPlayerMove('up');
+                console.log('[sendContinuousCommands] Sent continuous UP command');
+            }
+            if (this.currentlyPressedKeys.has('down')) {
+                this.sendPlayerMove('down');
+                console.log('[sendContinuousCommands] Sent continuous DOWN command');
+            }
+        } catch (error) {
+            console.error('[sendContinuousCommands] Error sending continuous commands:', error);
+            this.clearAllMovementIntervals();
         }
     }
     
@@ -470,12 +475,30 @@ export class UnifiedGameRenderer {
             console.warn('[sendPlayerMove] No websocket connection');
             return;
         }
+        
+        // Verificar que el WebSocket esté en estado OPEN antes de enviar
+        if (this.websocket.readyState !== WebSocket.OPEN) {
+            const stateNames = {
+                [WebSocket.CONNECTING]: 'CONNECTING',
+                [WebSocket.OPEN]: 'OPEN', 
+                [WebSocket.CLOSING]: 'CLOSING',
+                [WebSocket.CLOSED]: 'CLOSED'
+            };
+            console.warn(`[sendPlayerMove] WebSocket is not in OPEN state. Current state: ${stateNames[this.websocket.readyState]} (${this.websocket.readyState})`);
+            return;
+        }
+        
         const msg = {
             type: 'playerMove',
             data: { direction }
         };
-        console.log('[WebSocket] Sending playerMove:', msg);
-        this.websocket.send(JSON.stringify(msg));
+        
+        try {
+            console.log('[WebSocket] Sending playerMove:', msg);
+            this.websocket.send(JSON.stringify(msg));
+        } catch (error) {
+            console.error('[sendPlayerMove] Error sending message:', error);
+        }
     }
     
     public setPlayerInfo(player1: PlayerInfo, player2: PlayerInfo): void {
