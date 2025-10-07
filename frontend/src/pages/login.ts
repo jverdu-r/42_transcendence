@@ -45,12 +45,12 @@ export function renderLoginPage(): void {
 
           <form class="space-y-6">
             <div class="relative z-0 group">
-              <input type="email" id="email" name="email" class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer" placeholder=" " required />
+              <input type="email" id="email" name="email" autocomplete="username" class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer" placeholder=" " required />
               <label for="email" class="peer-focus:font-medium absolute text-lg text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:start-0 peer-focus:text-[#ffc300] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6" data-i18n="login.emailLabel">Email</label>
             </div>
 
             <div class="relative z-0 group">
-              <input type="password" id="password" name="password" class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer" placeholder=" " required />
+              <input type="password" id="password" name="password" autocomplete="current-password" class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer" placeholder=" " required />
               <label for="password" class="peer-focus:font-medium absolute text-lg text-gray-400 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:start-0 peer-focus:text-[#ffc300] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-6" data-i18n="login.passwordLabel">${getTranslation('login', 'passwordLabel')}</label>
             </div>
 
@@ -208,6 +208,11 @@ export function renderLoginPage(): void {
         const renderGoogleButton = () => {
             const googleLoginDiv = document.getElementById('google-login-button');
             if (window.google?.accounts?.id && googleLoginDiv) {
+                // NOTA: Si aparece error "The given origin is not allowed for the given client ID"
+                // necesitas configurar los dominios autorizados en Google Cloud Console:
+                // 1. Ir a https://console.cloud.google.com/apis/credentials
+                // 2. Editar el OAuth 2.0 Client ID
+                // 3. Agregar tu dominio a "Authorized JavaScript origins"
                 window.google.accounts.id.initialize({
                     client_id: "58128894262-ak29ohah5ovkh31dvp2srdbm16thp961.apps.googleusercontent.com",
                     callback: (window as any).handleGoogleCredentialResponse,
@@ -217,7 +222,7 @@ export function renderLoginPage(): void {
                 window.google.accounts.id.renderButton(googleLoginDiv, {
                     theme: 'outline',
                     size: 'large',
-                    width: '100%'
+                    width: 400
                 });
             } else {
                 setTimeout(renderGoogleButton, 100);

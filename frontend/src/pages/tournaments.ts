@@ -1,6 +1,7 @@
 import { renderNavbar } from '../components/navbar';
 import { getTranslation } from '../i18n';
 import { getCurrentUser } from '../auth';
+import { getTranslation } from '../i18n';
 
 export function renderTournamentsPage() {
     // Render navbar at the top
@@ -262,6 +263,6 @@ export function renderTournamentsPage() {
         }
 
     } else {
-        console.error('No se encontró el contenedor #page-content para renderizar torneos.');
+        console.error(getTranslation('tournaments', 'containerNotFound'));
     }
 }

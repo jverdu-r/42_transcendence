@@ -1,5 +1,6 @@
 // src/router.ts
 
+import { getTranslation } from './i18n';
 import { renderHomePage } from './pages/home';
 import { renderPlay } from './pages/play';
 import { renderProfilePage } from './pages/profile';
@@ -12,24 +13,56 @@ import { renderRegister } from './pages/register';
 import { renderNavbar } from './components/navbar';
 import { isAuthenticated } from './auth';
 
-// New unified game pages (páginas que usamos)
+// New unified game pages (pages we use)
 import { renderUnifiedGameLocal } from './pages/unifiedGameLocal';
 import { renderUnifiedGameAI } from './pages/unifiedGameAI';
 import { renderUnifiedGameOnline } from './pages/unifiedGameOnline';
 import { renderGameLobby } from './pages/gameLobby';
 
-// Spectator page
-import { renderGameSpectator, startSpectatorAutoRefresh, stopSpectatorAutoRefresh, cleanupSpectator } from './pages/gameSpectator';
+// Game results page
+import { renderGameResults, setResultsData } from './pages/gameResults';
 
 //tournaments
 import { renderTournamentsPage } from './pages/tournaments';
-import { renderTournamentsFinishedPage } from './pages/tournamentsFinished';
-import { renderTournamentsOngoingPage } from './pages/tournamentsOngoing';
-// Define las rutas que realmente usamos
+
+// Global variable to store game results for routing
+let pendingGameResults: any = null;
+
+export function setGameResults(results: any): void {
+  pendingGameResults = results;
+  setResultsData(results);
+}
+
+function renderGameResultsWithData(): void {
+  if (!pendingGameResults) {
+    console.error('No game results data available');
+    navigateTo('/home');
+    return;
+  }
+  
+  cleanupCurrentPage();
+  if (!isAuthenticated()) {
+    navigateTo('/login');
+    return;
+  }
+  
+  setupMainAppLayout();
+  renderNavbar('/results');
+  
+  const pageContent = document.getElementById('page-content');
+  if (pageContent) {
+    renderGameResults();
+  }
+  
+  // Clear the pending results after use
+  pendingGameResults = null;
+}
+
+// Define the routes we actually use
 const routes: { [key: string]: () => void } = {
   '/home': renderHomePage,
   '/': () => {
-    // Redirigir al login si no está autenticado, al home si lo está
+    // Redirect to login if not authenticated, to home if authenticated
     if (isAuthenticated()) {
       navigateTo('/home');
     } else {
@@ -45,23 +78,17 @@ const routes: { [key: string]: () => void } = {
   '/login': renderLoginPage,
   '/register': renderRegister,
   
-  // Rutas de juego unificadas (las que usamos)
+  // Unified game routes (the ones we use)
   '/unified-game-local': renderUnifiedGameLocal,
   '/unified-game-ai': renderUnifiedGameAI,
   '/unified-game-online': renderUnifiedGameOnline,
   '/game-lobby': renderGameLobby,
+  
+  // Game results page
+  '/results': renderGameResultsWithData,
 
-  // Tournaments routes
-  '/tournaments': renderTournamentsPage,
-  '/tournamentsFinished': renderTournamentsFinishedPage,
-  '/tournamentsOngoing': renderTournamentsOngoingPage,
-
-  // Spectator route
-  '/spectator': () => {
-    cleanupCurrentPage();
-    renderGameSpectator();
-    startSpectatorAutoRefresh();
-  }
+  // Tournaments route
+  '/tournaments': renderTournamentsPage
 };
 
 /**
@@ -113,14 +140,14 @@ export async function navigateTo(path: string): Promise<void> {
   // Protección de rutas
   if (isAuthPage && userIsAuthenticated) {
     // Si el usuario está autenticado y trata de acceder a login/register, redirigir a home
-    console.log('Usuario autenticado intentando acceder a página de auth, redirigiendo a home');
+    console.log(getTranslation('router', 'redirectingToHome'));
     navigateTo('/home');
     return;
   }
 
   if (!isAuthPage && !userIsAuthenticated) {
     // Si el usuario no está autenticado y trata de acceder a páginas protegidas, redirigir a login
-    console.log('Usuario no autenticado intentando acceder a página protegida, redirigiendo a login');
+    console.log(getTranslation('router', 'redirectingToLogin'));
     navigateTo('/login');
     return;
   }
@@ -148,7 +175,7 @@ export async function navigateTo(path: string): Promise<void> {
 
     const pageContentContainer = document.getElementById('page-content');
     if (!pageContentContainer) {
-      console.error('Contenedor de contenido de página (#page-content) no encontrado después de configurar el layout.');
+      console.error(getTranslation('router', 'pageContentNotFound'));
       return;
     }
 
@@ -175,9 +202,7 @@ export async function navigateTo(path: string): Promise<void> {
 }
 
 function cleanupCurrentPage(): void {
-  // Stop spectator auto-refresh if leaving spectator page
-  stopSpectatorAutoRefresh();
-  cleanupSpectator();
+  // Cleanup function - no specific cleanup needed now
 }
 
 // Event listeners for cleanup

@@ -4,6 +4,10 @@ import fastifyCors from '@fastify/cors';
 import { v4 as uuidv4 } from 'uuid';
 import { WebSocket } from 'ws';
 import redis from './redis-client.js';
+import { notifyGameFinished } from './services/game-api-client.js';
+
+const DB_SERVICE_URL = process.env.DB_SERVICE_URL || 'http://db-service:3000';
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://auth-service:8000';
 
 const fastify = Fastify({
   logger: {
@@ -60,14 +64,49 @@ function broadcastToGame(gameId: string, message: any): void {
 
 // WebSocket route for game lobbies
 fastify.register(async function (fastify) {
-  fastify.get('/pong/:gameId', { websocket: true }, (connection, request: any) => {
+  fastify.get('/pong/:gameId', { websocket: true }, async (connection, request: any) => {
     const gameId = request.params.gameId;
     const clientId = uuidv4();
-    const username = new URL(request.url, 'http://localhost').searchParams.get('username') || 'Usuario';
+    
+    // Obtener user_id desde la autorización (token JWT o parámetro)
+    let userId: string | null = null;
+    let username = 'Usuario';
+    
+    // Intentar obtener del token JWT
+    const authHeader = request.headers['authorization'];
+    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    
+    if (token) {
+      try {
+        // Verificar token con auth-service
+        const response = await fetch('http://auth-service:3000/api/verify-token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          userId = userData.user_id.toString();
+          username = userData.username;
+        }
+      } catch (error) {
+        fastify.log.warn('Error verifying token:', error);
+      }
+    }
+    
+    // Fallback a parámetro URL si no hay token válido
+    if (!userId) {
+      const urlParams = new URL(request.url, 'http://localhost').searchParams;
+      username = urlParams.get('username') || 'Usuario';
+      userId = urlParams.get('user_id') || null;
+    }
     
     connections.set(clientId, connection.socket);
     
-    fastify.log.info(`🔗 Client ${username} connected to game ${gameId}: ${clientId}`);
+    fastify.log.info(`🔗 Client ${username} (ID: ${userId}) connected to game ${gameId}: ${clientId}`);
     
     // Get or create game
     let game = activeGames.get(gameId);
@@ -84,7 +123,8 @@ fastify.register(async function (fastify) {
           pelota: { x: 400, y: 300, vx: 4, vy: 2, radio: 8 },
           puntuacion: { jugador1: 0, jugador2: 0 },
           palaAncho: 15,
-          palaAlto: 100
+          palaAlto: 100,
+          rallieCount: 0
         },
         createdAt: Date.now()
       };
@@ -261,7 +301,7 @@ function startGameLoop(gameId: string): void {
     // Update game physics
     updateGamePhysics(currentGame);
     
-    // Broadcast game state
+    // Broadcast game state con nombres de ambos jugadores y colores de palas
     broadcastToGame(gameId, {
       type: 'gameState',
       data: {
@@ -278,23 +318,29 @@ function startGameLoop(gameId: string): void {
               x: currentGame.gameState.palas.jugador1.x,
               y: currentGame.gameState.palas.jugador1.y,
               width: currentGame.gameState.palaAncho,
-              height: currentGame.gameState.palaAlto
+              height: currentGame.gameState.palaAlto,
+              color: '#00ff00' // Verde para jugador 1
             },
             right: {
               x: currentGame.gameState.palas.jugador2.x,
               y: currentGame.gameState.palas.jugador2.y,
               width: currentGame.gameState.palaAncho,
-              height: currentGame.gameState.palaAlto
+              height: currentGame.gameState.palaAlto,
+              color: '#ff0000' // Rojo para jugador 2
             }
           },
           score: {
             left: currentGame.gameState.puntuacion.jugador1,
             right: currentGame.gameState.puntuacion.jugador2
           },
+          playerNames: {
+            left: (currentGame.players.find((p: any) => p.numero === 1)?.nombre) || 'Jugador 1',
+            right: (currentGame.players.find((p: any) => p.numero === 2)?.nombre) || 'Jugador 2'
+          },
           gameRunning: true,
           canvas: { width: 800, height: 600 },
           maxScore: 5,
-          rallieCount: 0
+          rallieCount: currentGame.gameState.rallieCount || 0
         }
       }
     });
@@ -313,49 +359,165 @@ function updateGamePhysics(game: any): void {
   // Move ball
   state.pelota.x += state.pelota.vx;
   state.pelota.y += state.pelota.vy;
+
+  // Ball collision with top/bottom walls (física realista como frontend)
+  if (state.pelota.y <= state.pelota.radio) {
+    state.pelota.y = state.pelota.radio;
+    state.pelota.vy = Math.abs(state.pelota.vy); // Asegurar rebote hacia abajo
+  } else if (state.pelota.y >= 600 - state.pelota.radio) {
+    state.pelota.y = 600 - state.pelota.radio;
+    state.pelota.vy = -Math.abs(state.pelota.vy); // Asegurar rebote hacia arriba
+  }
+
+  // Advanced paddle collision detection (como frontend)
+  const leftPaddle = state.palas.jugador1;
+  const rightPaddle = state.palas.jugador2;
   
-  // Ball collision with top/bottom walls
-  if (state.pelota.y <= state.pelota.radio || state.pelota.y >= 600 - state.pelota.radio) {
-    state.pelota.vy = -state.pelota.vy;
+  // Left paddle collision (mejorado como frontend)
+  if (state.pelota.vx < 0 && // Solo si se mueve hacia la izquierda
+      state.pelota.x - state.pelota.radio <= leftPaddle.x + state.palaAncho &&
+      state.pelota.x - state.pelota.radio >= leftPaddle.x &&
+      state.pelota.y >= leftPaddle.y - state.pelota.radio &&
+      state.pelota.y <= leftPaddle.y + state.palaAlto + state.pelota.radio) {
+    
+    handlePaddleCollision(state, leftPaddle, 'left');
   }
   
-  // Ball collision with paddles
-  const ballLeft = state.pelota.x - state.pelota.radio;
-  const ballRight = state.pelota.x + state.pelota.radio;
-  const ballTop = state.pelota.y - state.pelota.radio;
-  const ballBottom = state.pelota.y + state.pelota.radio;
-  
-  // Left paddle collision
-  if (ballLeft <= state.palas.jugador1.x + state.palaAncho &&
-      ballRight >= state.palas.jugador1.x &&
-      ballBottom >= state.palas.jugador1.y &&
-      ballTop <= state.palas.jugador1.y + state.palaAlto) {
-    state.pelota.vx = Math.abs(state.pelota.vx);
+  // Right paddle collision (mejorado como frontend)
+  if (state.pelota.vx > 0 && // Solo si se mueve hacia la derecha
+      state.pelota.x + state.pelota.radio >= rightPaddle.x &&
+      state.pelota.x + state.pelota.radio <= rightPaddle.x + state.palaAncho &&
+      state.pelota.y >= rightPaddle.y - state.pelota.radio &&
+      state.pelota.y <= rightPaddle.y + state.palaAlto + state.pelota.radio) {
+    
+    handlePaddleCollision(state, rightPaddle, 'right');
   }
-  
-  // Right paddle collision
-  if (ballRight >= state.palas.jugador2.x &&
-      ballLeft <= state.palas.jugador2.x + state.palaAncho &&
-      ballBottom >= state.palas.jugador2.y &&
-      ballTop <= state.palas.jugador2.y + state.palaAlto) {
-    state.pelota.vx = -Math.abs(state.pelota.vx);
-  }
-  
+
   // Score points
   if (state.pelota.x < 0) {
     state.puntuacion.jugador2++;
     resetBall(state);
+    state.rallieCount = 0;
   } else if (state.pelota.x > 800) {
     state.puntuacion.jugador1++;
     resetBall(state);
+    state.rallieCount = 0;
   }
 }
 
+// Nueva función para manejo de colisiones realistas (como frontend)
+function handlePaddleCollision(state: any, paddle: any, side: 'left' | 'right'): void {
+  // Calcular el punto de contacto relativo en la pala (0 = arriba, 1 = abajo)
+  const contactPoint = (state.pelota.y - paddle.y) / state.palaAlto;
+  const normalizedContact = Math.max(0, Math.min(1, contactPoint)); // Clamp entre 0 y 1
+  
+  // Calcular el ángulo de rebote basado en el punto de contacto
+  // En el centro (0.5) = ángulo 0, en los extremos = ángulo máximo
+  const maxAngle = Math.PI / 3; // 60 grados máximo
+  const angle = (normalizedContact - 0.5) * maxAngle;
+  
+  // Calcular la velocidad actual de la pelota
+  const currentSpeed = Math.sqrt(state.pelota.vx * state.pelota.vx + 
+                               state.pelota.vy * state.pelota.vy);
+  
+  // Incrementar ligeramente la velocidad con cada rebote (como en el frontend)
+  const speedIncrease = 1.05;
+  const newSpeed = Math.min(currentSpeed * speedIncrease, 12); // Límite máximo de velocidad
+  
+  // Calcular nuevas velocidades basadas en el ángulo
+  if (side === 'left') {
+    state.pelota.vx = newSpeed * Math.cos(angle);
+    state.pelota.vy = newSpeed * Math.sin(angle);
+    // Asegurar que la pelota se mueva hacia la derecha
+    state.pelota.vx = Math.abs(state.pelota.vx);
+    // Posicionar la pelota justo fuera de la pala para evitar colisiones múltiples
+    state.pelota.x = paddle.x + state.palaAncho + state.pelota.radio;
+  } else {
+    state.pelota.vx = -newSpeed * Math.cos(angle);
+    state.pelota.vy = newSpeed * Math.sin(angle);
+    // Asegurar que la pelota se mueva hacia la izquierda
+    state.pelota.vx = -Math.abs(state.pelota.vx);
+    // Posicionar la pelota justo fuera de la pala para evitar colisiones múltiples
+    state.pelota.x = paddle.x - state.pelota.radio;
+  }
+  
+  // Incrementar contador de rallies
+  state.rallieCount = (state.rallieCount || 0) + 1;
+}
+
 function resetBall(state: any): void {
-  state.pelota.x = 400;
-  state.pelota.y = 300;
-  state.pelota.vx = Math.random() > 0.5 ? 4 : -4;
-  state.pelota.vy = Math.random() * 4 - 2;
+  state.pelota.x = 400; // Centro horizontal
+  state.pelota.y = 300; // Centro vertical
+  // Velocidad aleatoria como en el frontend
+  state.pelota.vx = Math.random() > 0.5 ? 5 : -5;
+  state.pelota.vy = (Math.random() - 0.5) * 6;
+}
+
+// Function to get user ID from username
+async function getUserId(username: string): Promise<number | null> {
+  try {
+    const response = await fetch(`${AUTH_SERVICE_URL}/api/games/user-id?username=${encodeURIComponent(username)}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.userId || null;
+  } catch (error) {
+    fastify.log.error(`Error getting user ID for ${username}:`, error);
+    return null;
+  }
+}
+
+// Function to save game statistics to database
+async function saveGameStats(gameId: string, game: any, winnerPlayer: number, winnerName: string, loserName: string): Promise<void> {
+  try {
+    const endTime = new Date().toISOString();
+    const startTime = new Date(game.createdAt).toISOString();
+    
+    // Get player IDs from usernames
+    const player1 = game.players.find((p: any) => p.numero === 1);
+    const player2 = game.players.find((p: any) => p.numero === 2);
+    
+    if (!player1 || !player2) {
+      fastify.log.error(`Missing players in game ${gameId}`);
+      return;
+    }
+
+    const player1_id = await getUserId(player1.nombre);
+    const player2_id = await getUserId(player2.nombre);
+    
+    if (!player1_id || !player2_id) {
+      fastify.log.error(`Could not get user IDs for players in game ${gameId}`);
+      return;
+    }
+
+    const score1 = game.gameState.puntuacion.jugador1;
+    const score2 = game.gameState.puntuacion.jugador2;
+
+    // Create game in games table using auth-service
+    const createGameResponse = await fetch(`${AUTH_SERVICE_URL}/api/games/create-online`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        player1_id,
+        player2_id,
+        winner_player: winnerPlayer,
+        score1,
+        score2,
+        start_time: startTime,
+        end_time: endTime
+      })
+    });
+
+    if (createGameResponse.ok) {
+      fastify.log.info(`Online game stats saved successfully for game ${gameId}`);
+    } else {
+      fastify.log.error(`Failed to save online game stats for game ${gameId}: ${createGameResponse.status}`);
+    }
+
+  } catch (error) {
+    fastify.log.error(`Error saving game stats for game ${gameId}:`, error);
+  }
 }
 
 function endGame(gameId: string): void {
@@ -366,16 +528,32 @@ function endGame(gameId: string): void {
 
   const winnerPlayer = game.gameState.puntuacion.jugador1 > game.gameState.puntuacion.jugador2 ? 1 : 2;
   const winnerName = game.players.find((p: any) => p.numero === winnerPlayer)?.nombre || `Jugador ${winnerPlayer}`;
+  const loserName = game.players.find((p: any) => p.numero !== winnerPlayer)?.nombre || `Jugador ${winnerPlayer === 1 ? 2 : 1}`;
+
+  // Save game statistics to database via db-service
+  saveGameStats(gameId, game, winnerPlayer, winnerName, loserName).catch(err => {
+    fastify.log.error(`Error saving game stats for ${gameId}:`, err);
+  });
 
   broadcastToGame(gameId, {
     type: 'gameEnded',
     data: {
       winner: winnerName,
+      loser: loserName,
       score: {
         left: game.gameState.puntuacion.jugador1,
-        right: game.gameState.puntuacion.jugador2
+        right: game.gameState.puntuacion.jugador2,
+        winner: winnerPlayer === 1 ? game.gameState.puntuacion.jugador1 : game.gameState.puntuacion.jugador2,
+        loser: winnerPlayer === 1 ? game.gameState.puntuacion.jugador2 : game.gameState.puntuacion.jugador1
       },
-      message: `¡Fin de la partida! ${winnerName} gana!`
+      message: `¡Fin de la partida!`,
+      showReturnButton: true,
+      finalStats: {
+        winnerName,
+        loserName,
+        finalScore: `${winnerName}: ${winnerPlayer === 1 ? game.gameState.puntuacion.jugador1 : game.gameState.puntuacion.jugador2} - ${loserName}: ${winnerPlayer === 1 ? game.gameState.puntuacion.jugador2 : game.gameState.puntuacion.jugador1}`,
+        gameDuration: Date.now() - game.createdAt
+      }
     }
   });
 
@@ -428,7 +606,7 @@ function handlePlayerMove(clientId: string, gameId: string, data: any): void {
   }
 
   const paddle = player.numero === 1 ? game.gameState.palas.jugador1 : game.gameState.palas.jugador2;
-  const speed = 8;
+  const speed = 12; // Aumentado para mejor responsividad
   console.log(`[handlePlayerMove] Moving paddle for player ${player.numero} (${player.nombre}), direction=${data.direction}, originalY=${paddle.y}`);
 
   if (data.direction === 'up' && paddle.y > 0) {
