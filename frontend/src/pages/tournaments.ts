@@ -1,7 +1,6 @@
 import { renderNavbar } from '../components/navbar';
 import { getTranslation } from '../i18n';
 import { getCurrentUser } from '../auth';
-import { getTranslation } from '../i18n';
 
 export function renderTournamentsPage() {
     // Render navbar at the top
