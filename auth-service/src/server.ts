@@ -1,3 +1,7 @@
+// ...existing code...
+// Endpoint para eliminar usuario de Redis al hacer logout/cerrar web
+// ...existing code...
+import process from 'process';
 import Fastify from 'fastify';
 import fs from 'fs';
 import path from 'path';
@@ -5,7 +9,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
-import { openDb, initializeDb } from './database';
+import { openDb } from './database';
 import multipart from '@fastify/multipart';
 import { pipeline } from 'stream';
 import util from 'util';
@@ -29,6 +33,19 @@ process.on('SIGHUP', () => {
 });
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
 const fastify = Fastify({ logger: true });
+// Endpoint para eliminar usuario de Redis al hacer logout/cerrar web
+fastify.post('/api/auth/logout-redis', async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const { user_id } = (request.body as any) || {};
+    if (!user_id) {
+      return reply.status(400).send({ error: 'user_id requerido' });
+    }
+    await redisClient.del(`user:${user_id}`);
+    return { success: true };
+  } catch (err) {
+    reply.status(500).send({ error: 'Error eliminando usuario de Redis', details: err });
+  }
+});
 
 fastify.register(multipart);
 
@@ -200,7 +217,7 @@ export async function generateRankingWithStats(db: any) {
 }
 
 // Endpoint para registrar un nuevo usuario
-fastify.post('/auth/register', async (request, reply) => {
+fastify.post('/auth/register', async (request: FastifyRequest, reply: FastifyReply) => {
   const { username, email, password } = request.body as any;
   
   if (!username || !email || !password) {
@@ -243,7 +260,7 @@ fastify.post('/auth/register', async (request, reply) => {
 });
 
 // Endpoint para iniciar sesión (login) y generar token JWT
-fastify.post('/auth/login', async (request, reply) => {
+fastify.post('/auth/login', async (request: FastifyRequest, reply: FastifyReply) => {
   const { email, password } = request.body as any;
   
   if (!email || !password) {
@@ -330,7 +347,7 @@ type GooglePayload = {
   picture?: string;
   [key: string]: any;
 };
-fastify.post('/auth/google', async (request, reply) => {
+fastify.post('/auth/google', async (request: FastifyRequest, reply: FastifyReply) => {
   const { token } = request.body as any;
   
   if (!token) {
@@ -417,7 +434,7 @@ fastify.post('/auth/google', async (request, reply) => {
 });
 
 // Endpoint para validar temp_token y código TOTP
-fastify.post('/auth/verify-2fa', async (request, reply) => {
+fastify.post('/auth/verify-2fa', async (request: FastifyRequest, reply: FastifyReply) => {
   const { temp_token, code } = request.body as any;
   if (!temp_token || !code) {
     return reply.code(400).send({ message: 'Token temporal y código requeridos' });
@@ -509,7 +526,7 @@ fastify.post('/auth/verify-2fa', async (request, reply) => {
 });
 
 // Endpoint: GET /auth/2fa/setup -> Devuelve un QR y un secreto temporal para configurar 2FA
-fastify.get('/auth/2fa/setup', { preHandler: verifyToken }, async (request, reply) => {
+fastify.get('/auth/2fa/setup', { preHandler: verifyToken }, async (request: FastifyRequest, reply: FastifyReply) => {
   const userId = (request as any).user.user_id;
 
   try {
@@ -552,7 +569,7 @@ fastify.get('/auth/2fa/setup', { preHandler: verifyToken }, async (request, repl
 });
 
 // Endpoint: POST /auth/2fa/confirm -> Confirma el código del autenticador y activa 2FA
-fastify.post('/auth/2fa/confirm', { preHandler: verifyToken }, async (request, reply) => {
+fastify.post('/auth/2fa/confirm', { preHandler: verifyToken }, async (request: FastifyRequest, reply: FastifyReply) => {
   const userId = (request as any).user.user_id;
   const { code } = request.body as any;
 
@@ -606,7 +623,7 @@ fastify.post('/auth/2fa/confirm', { preHandler: verifyToken }, async (request, r
 });
 
 // Endpoint: POST /auth/2fa/disable -> Desactiva 2FA tras verificar contraseña y código
-fastify.post('/auth/2fa/disable', { preHandler: verifyToken }, async (request, reply) => {
+fastify.post('/auth/2fa/disable', { preHandler: verifyToken }, async (request: FastifyRequest, reply: FastifyReply) => {
   const userId = (request as any).user.user_id;
   const { password, code } = request.body as any;
 
@@ -659,7 +676,7 @@ fastify.post('/auth/2fa/disable', { preHandler: verifyToken }, async (request, r
 });
 
 // Endpoint para cerrar sesión
-fastify.post('/auth/logout', { preHandler: verifyToken }, async (request, reply) => {
+fastify.post('/auth/logout', { preHandler: verifyToken }, async (request: FastifyRequest, reply: FastifyReply) => {
   const token = (request as any).token;
   const userId = (request as any).user.user_id;
 
@@ -680,7 +697,7 @@ fastify.post('/auth/logout', { preHandler: verifyToken }, async (request, reply)
 });
 
 // Endpoint heartbeat para mantener sesión activa
-fastify.get('/auth/heartbeat', { preHandler: verifyToken }, async (request, reply) => {
+fastify.get('/auth/heartbeat', { preHandler: verifyToken }, async (request: FastifyRequest, reply: FastifyReply) => {
   const userId = (request as any).user.user_id;
   
   try {
@@ -694,10 +711,10 @@ fastify.get('/auth/heartbeat', { preHandler: verifyToken }, async (request, repl
 });
 
 // Endpoint para obtener usuarios conectados
-fastify.get('/auth/online-users', async (request, reply) => {
+fastify.get('/auth/online-users', async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const onlineUsers = await redisClient.sMembers('online_users');
-    return reply.send(onlineUsers.map(id => parseInt(id)));
+  return reply.send(onlineUsers.map((id: string) => parseInt(id)));
   } catch (err) {
     console.error('Error obteniendo usuarios online:', err);
     return reply.code(500).send({ message: 'Error interno' });
@@ -733,7 +750,7 @@ async function cleanInactiveSessions() {
 setInterval(cleanInactiveSessions, 600000);
 
 // Endpoint para subir y optimizar el avatar
-fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request, reply) => {
+fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request: FastifyRequest, reply: FastifyReply) => {
   const userId = (request as any).user.user_id;
   
   const mpRequest = request as FastifyRequest & {
@@ -822,7 +839,7 @@ fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request
 });
  
 // Endpoint para obtener estadísticas del usuario
-fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, reply) => {
+fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request: FastifyRequest, reply: FastifyReply) => {
   let db;
   try {
     db = await openDb();
@@ -874,7 +891,7 @@ fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, 
 });
 
 // Descarga de historial
-fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, async (request, reply) => {
+fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, async (request: FastifyRequest, reply: FastifyReply) => {
   const userId = (request as any).user.user_id;
 
   try {
@@ -923,7 +940,7 @@ fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, asy
 });
 
 // Endpoint para obtener el ranking global completo (top 100)
-fastify.get('/auth/ranking', async (request, reply) => {
+fastify.get('/auth/ranking', async (request: FastifyRequest, reply: FastifyReply) => {
   let db: any;
   try {
     db = await openDb();
@@ -958,7 +975,7 @@ fastify.get('/auth/ranking', async (request, reply) => {
 });
 
 // Endpoint de home para partidos en juego ('in_progress')
-fastify.get('/auth/games/live', async (request, reply) => {
+fastify.get('/auth/games/live', async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const db = await openDb();
 
@@ -979,24 +996,24 @@ fastify.get('/auth/games/live', async (request, reply) => {
       SELECT p.game_id, p.team_name, u.username
       FROM participants p
       LEFT JOIN users u ON u.id = p.user_id
-      WHERE p.game_id IN (${games.map(g => g.game_id).join(',')})
+  WHERE p.game_id IN (${games.map((g: { game_id: number }) => g.game_id).join(',')})
     `);
 
     // Obtener puntuaciones por game_id + team
     const scores = await db.all(`
       SELECT game_id, team_name, MAX(point_number) AS score
       FROM scores
-      WHERE game_id IN (${games.map(g => g.game_id).join(',')})
+  WHERE game_id IN (${games.map((g: { game_id: number }) => g.game_id).join(',')})
       GROUP BY game_id, team_name
     `);
 
     // Mapear resultados por partida
-    const liveMatches = games.map(game => {
-      const gameParticipants = participants.filter(p => p.game_id === game.game_id);
+    const liveMatches = games.map((game: any) => {
+      const gameParticipants = participants.filter((p: any) => p.game_id === game.game_id);
       const scoreMap = new Map();
       scores
-        .filter(s => s.game_id === game.game_id)
-        .forEach(s => scoreMap.set(s.team_name, s.score));
+        .filter((s: any) => s.game_id === game.game_id)
+        .forEach((s: any) => scoreMap.set(s.team_name, s.score));
       const [p1, p2] = gameParticipants;
       return {
         id: game.game_id,
@@ -1166,9 +1183,9 @@ fastify.get('/auth/settings/config', { preHandler: verifyToken }, async (request
 });
 
 // Inicializar base de datos y Redis
-Promise.all([initializeDb(), connectRedis()])
+connectRedis()
   .then(() => {
-    fastify.listen({ port: 8000, host: '0.0.0.0' }, (err, address) => {
+  fastify.listen({ port: 8000, host: '0.0.0.0' }, (err: Error | null, address: string) => {
       if (err) {
         fastify.log.error(err);
         process.exit(1);

@@ -21,8 +21,10 @@ import { renderGameLobby } from './pages/gameLobby';
 // Spectator page
 import { renderGameSpectator, startSpectatorAutoRefresh, stopSpectatorAutoRefresh, cleanupSpectator } from './pages/gameSpectator';
 
-//tournaments page under construction
+//tournaments
 import { renderTournamentsPage } from './pages/tournaments';
+import { renderTournamentsFinishedPage } from './pages/tournamentsFinished';
+import { renderTournamentsOngoingPage } from './pages/tournamentsOngoing';
 // Define las rutas que realmente usamos
 const routes: { [key: string]: () => void } = {
   '/home': renderHomePage,
@@ -49,8 +51,10 @@ const routes: { [key: string]: () => void } = {
   '/unified-game-online': renderUnifiedGameOnline,
   '/game-lobby': renderGameLobby,
 
-  // Tournaments route
+  // Tournaments routes
   '/tournaments': renderTournamentsPage,
+  '/tournamentsFinished': renderTournamentsFinishedPage,
+  '/tournamentsOngoing': renderTournamentsOngoingPage,
 
   // Spectator route
   '/spectator': () => {

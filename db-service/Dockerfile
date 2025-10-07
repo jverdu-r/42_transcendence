@@ -15,6 +15,8 @@ RUN wget -q https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_
 
 COPY package*.json ./
 RUN npm install
+# Instala fastify-cors para permitir CORS en el backend
+RUN npm install @fastify/cors
 
 # Copia el resto del código y compila TypeScript
 COPY . .

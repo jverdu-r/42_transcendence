@@ -164,9 +164,15 @@ export async function loginUser(token: string): Promise<void> {
 }
 
 export function logout(): void {
+  const user = getCurrentUser();
+  if (user && user.id) {
+    fetch('/api/auth/logout-redis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.id })
+    }).catch(() => {});
+  }
   localStorage.removeItem('jwt');
-  
-  // Limpiar configuraciones
   localStorage.removeItem('language');
   localStorage.removeItem('notifications');
   localStorage.removeItem('doubleFactor');
@@ -174,7 +180,13 @@ export function logout(): void {
   localStorage.removeItem('user_id');
   localStorage.removeItem('username');
   localStorage.removeItem('email');
-  
   console.log(':candado: Sesión cerrada');
   window.location.href = '/login';
+// Eliminar usuario de Redis al cerrar la web
+window.addEventListener('beforeunload', () => {
+  const user = getCurrentUser();
+  if (user && user.id) {
+    navigator.sendBeacon('/api/auth/logout-redis', JSON.stringify({ user_id: user.id }));
+  }
+});
 }

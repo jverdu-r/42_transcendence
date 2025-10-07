@@ -25,8 +25,16 @@ const fastify = Fastify({ logger: true });
 const pump = promisify(pipeline);
 
 (async () => {
+
   // Tournament Endpoints (proxy to db-service)
   const DB_SERVICE_URL = process.env.DB_SERVICE_URL || 'http://db-service:8000';
+  // Proxy global para /api/tournaments -> db-service
+  fastify.register(httpProxy, {
+    upstream: DB_SERVICE_URL,
+    prefix: '/api/tournaments',
+    rewritePrefix: '/tournaments',
+    httpMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  });
 
   // Register this before your other routes
   fastify.get('/avatars/:filename', async (request, reply) => {
@@ -52,54 +60,6 @@ const pump = promisify(pipeline);
     return reply.send(nodeStream);
   });
 
-  fastify.get('/api/tournaments', async (request, reply) => {
-    try {
-      const res = await fetch(`${DB_SERVICE_URL}/tournaments`);
-      if (!res.ok) {
-        return reply.code(res.status).send(await res.text());
-      }
-      const data = await res.json();
-      return reply.send(data);
-    } catch (err) {
-      return reply.code(500).send({ error: 'Failed to fetch tournaments' });
-    }
-  });
-
-  // Create tournament
-  fastify.post('/api/tournaments', async (request, reply) => {
-    try {
-      const res = await fetch(`${DB_SERVICE_URL}/tournaments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request.body)
-      });
-      if (!res.ok) {
-        return reply.code(res.status).send(await res.text());
-      }
-      const data = await res.json();
-      return reply.send(data);
-    } catch (err) {
-      return reply.code(500).send({ error: 'Failed to create tournament' });
-    }
-  });
-
-  fastify.post('/api/tournaments/:id/join', async (request, reply) => {
-    try {
-      const { id } = request.params as { id: string };
-      const res = await fetch(`${DB_SERVICE_URL}/tournaments/${id}/join`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request.body)
-      });
-      if (!res.ok) {
-        return reply.code(res.status).send(await res.text());
-      }
-      const data = await res.json();
-      return reply.send(data);
-    } catch (err) {
-      return reply.code(500).send({ error: 'Failed to join tournament' });
-    }
-  });
 
   // Register CORS before proxies
   await fastify.register(fastifyCors, {
