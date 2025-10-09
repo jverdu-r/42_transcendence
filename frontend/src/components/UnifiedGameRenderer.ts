@@ -8,7 +8,6 @@ import { getCurrentUser } from '../auth';
 import { getTranslation } from '../i18n';
 import { PlayerDisplay, PlayerInfo } from './playerDisplay';
 import { showNotification, checkRankingChange } from '../utils/utils';
-import { AIKeyboardSimulator } from './AIKeyboardSimulator';
 
 export interface UnifiedGameState {
     ball: {
@@ -71,7 +70,6 @@ export class UnifiedGameRenderer {
     // AI properties
     private aiDifficulty: 'easy' | 'medium' | 'hard' = 'medium';
     private aiSpeed: number = 3;
-    private aiKeyboardSimulator: AIKeyboardSimulator | null = null;
     
     // Movement intervals para movimiento continuo
     private movementIntervals: { [key: string]: any } = {};
@@ -108,12 +106,6 @@ export class UnifiedGameRenderer {
         this.canvas.height = 600;
         
         this.initializeGameState();
-        
-        // Inicializar simulador AI si es modo AI
-        if (this.gameMode === 'ai') {
-            this.aiKeyboardSimulator = new AIKeyboardSimulator(this.aiDifficulty);
-        }
-        
         this.setupEventListeners();
         this.drawInitialState();
         
@@ -533,11 +525,6 @@ export class UnifiedGameRenderer {
     public setAIDifficulty(difficulty: 'easy' | 'medium' | 'hard'): void {
         this.aiDifficulty = difficulty;
         this.aiSpeed = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 3 : 4;
-        
-        // Actualizar simulador AI si existe
-        if (this.aiKeyboardSimulator) {
-            this.aiKeyboardSimulator.setDifficulty(difficulty);
-        }
     }
     
     /**
@@ -663,12 +650,6 @@ export class UnifiedGameRenderer {
         
         this.gameState.gameRunning = true;
         this.callbacks.onStatusUpdate?.('🎮 ¡Juego iniciado!');
-        
-        // NUEVO: Reiniciar estadísticas de IA para nuevo juego
-        if (this.gameMode === 'ai' && this.aiKeyboardSimulator) {
-            this.aiKeyboardSimulator.resetGameStats();
-            console.log('[AI] Iniciando nuevo juego - estadísticas reiniciadas');
-        }
         
         // Draw the initial game state
         this.draw();
@@ -947,17 +928,8 @@ export class UnifiedGameRenderer {
                 this.gameState.paddles.right.y += speed;
             }
         } else if (this.gameMode === 'ai') {
-            // AI control: primero ejecutar la IA, luego procesar las teclas simuladas
+            // AI control
             this.updateAI();
-            
-            // Procesar las teclas que la IA simula (o/l para paleta derecha)
-            if ((this.keys['o'] || this.keys['O']) && this.gameState.paddles.right.y > 0) {
-                this.gameState.paddles.right.y -= speed;
-            }
-            if ((this.keys['l'] || this.keys['L']) && 
-                this.gameState.paddles.right.y < this.canvas.height - this.gameState.paddles.right.height) {
-                this.gameState.paddles.right.y += speed;
-            }
         }
     }
     
@@ -975,38 +947,6 @@ export class UnifiedGameRenderer {
     }
     
     private updateAI(): void {
-        // NUEVO SISTEMA: AI con simulación de teclado y limitación de vista
-        if (!this.aiKeyboardSimulator) {
-            // Fallback al sistema anterior si hay error
-            console.warn('AI Keyboard Simulator not initialized, falling back to old system');
-            this.updateAIOld();
-            return;
-        }
-        
-        // Crear estado del juego para el simulador AI
-        const gameState = {
-            ball: this.gameState.ball,
-            aiPaddle: this.gameState.paddles.right,
-            canvasWidth: this.canvas.width,
-            canvasHeight: this.canvas.height
-        };
-        
-        // Actualizar AI - SOLO UNA VEZ POR SEGUNDO
-        this.aiKeyboardSimulator.update(gameState);
-        
-        // Debug: mostrar estado de las teclas cuando la IA las presiona
-        if (this.keys['o'] || this.keys['O']) {
-            console.log('[AI Debug] IA presionando tecla O (arriba)');
-        }
-        if (this.keys['l'] || this.keys['L']) {
-            console.log('[AI Debug] IA presionando tecla L (abajo)');
-        }
-    }
-    
-    /**
-     * Sistema AI anterior (solo como fallback)
-     */
-    private updateAIOld(): void {
         const aiPaddle = this.gameState.paddles.right;
         const ball = this.gameState.ball;
         const paddleCenter = aiPaddle.y + aiPaddle.height / 2;
@@ -1065,25 +1005,11 @@ export class UnifiedGameRenderer {
         // Scoring
         if (this.gameState.ball.x < 0) {
             this.gameState.score.right++;
-            
-            // FEEDBACK PARA IA: El jugador humano falló
-            if (this.gameMode === 'ai' && this.aiKeyboardSimulator) {
-                // Esto cuenta como una victoria para la IA
-                console.log('[AI Feedback] ¡IA anotó un punto!');
-            }
-            
             this.resetBall();
             this.callbacks.onScoreUpdate?.(this.gameState.score);
             this.checkGameEnd();
         } else if (this.gameState.ball.x > this.canvas.width) {
             this.gameState.score.left++;
-            
-            // FEEDBACK PARA IA: La IA falló al defender
-            if (this.gameMode === 'ai' && this.aiKeyboardSimulator) {
-                this.aiKeyboardSimulator.recordPlayResult(false);
-                console.log('[AI Feedback] IA falló - el jugador anotó');
-            }
-            
             this.resetBall();
             this.callbacks.onScoreUpdate?.(this.gameState.score);
             this.checkGameEnd();
@@ -1167,11 +1093,6 @@ export class UnifiedGameRenderer {
         
         // Draw player names and scores
         this.drawScoresAndPlayerNames();
-        
-        // NUEVO: Mostrar debug de IA si está habilitado (comentado por defecto)
-        // if (this.gameMode === 'ai' && this.aiKeyboardSimulator) {
-        //     this.drawAIDebugInfo();
-        // }
     }
     
     private drawInitialState(): void {
@@ -1209,12 +1130,6 @@ export class UnifiedGameRenderer {
         // Calcular el punto de contacto relativo en la pala (0 = arriba, 1 = abajo)
         const contactPoint = (this.gameState.ball.y - paddle.y) / paddle.height;
         const normalizedContact = Math.max(0, Math.min(1, contactPoint)); // Clamp entre 0 y 1
-        
-        // FEEDBACK PARA IA: Registrar hit exitoso
-        if (this.gameMode === 'ai' && side === 'right' && this.aiKeyboardSimulator) {
-            this.aiKeyboardSimulator.recordPlayResult(true);
-            console.log('[AI Feedback] ¡IA golpeó la pelota exitosamente!');
-        }
         
         // Calcular el ángulo de rebote basado en el punto de contacto
         // En el centro (0.5) = ángulo 0, en los extremos = ángulo máximo
@@ -1358,12 +1273,6 @@ export class UnifiedGameRenderer {
         // Limpiar todos los intervals de movimiento usando la función centralizada
         this.clearAllMovementIntervals();
         
-        // Limpiar simulador AI
-        if (this.aiKeyboardSimulator) {
-            this.aiKeyboardSimulator.stop();
-            this.aiKeyboardSimulator = null;
-        }
-        
         if (this.websocket) {
             this.websocket.close();
         }
@@ -1376,31 +1285,5 @@ export class UnifiedGameRenderer {
         window.removeEventListener('blur', this.handleWindowBlur.bind(this));
         window.removeEventListener('focus', this.handleWindowFocus.bind(this));
         document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
-    }
-    
-    /**
-     * Dibuja información de debug de la IA (opcional)
-     */
-    private drawAIDebugInfo(): void {
-        if (!this.aiKeyboardSimulator) return;
-        
-        const debugInfo = this.aiKeyboardSimulator.getDebugInfo();
-        
-        this.ctx.fillStyle = '#FFFF00'; // Amarillo para debug
-        this.ctx.font = '12px Arial';
-        
-        let y = this.canvas.height - 120;
-        const lines = [
-            `AI Strategy: ${debugInfo.adaptiveStrategy}`,
-            `Difficulty: ${debugInfo.difficulty}`,
-            `Performance: ${debugInfo.gamePerformance.hits}/${debugInfo.gamePerformance.hits + debugInfo.gamePerformance.misses}`,
-            `Decision: ${debugInfo.lastDecision}`,
-            `Next Update: ${Math.ceil(debugInfo.nextUpdateIn / 1000)}s`
-        ];
-        
-        lines.forEach(line => {
-            this.ctx.fillText(line, 10, y);
-            y += 15;
-        });
     }
 }

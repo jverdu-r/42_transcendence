@@ -3,7 +3,6 @@
  */
 import type { IBall, IPaddle, IGameDimensions, IScore, IGameConfig, IPlayer, GameStatus, PlayerNumber } from '../interfaces/index.js';
 import { GAME_STATUS } from '../constants/index.js';
-import { AIKeyboardSimulatorBackend } from './AIKeyboardSimulatorBackend.js';
 
 export interface UnifiedGameState {
     ball: {
@@ -34,7 +33,6 @@ export class UnifiedGame {
     private gameLoop?: any;
     private mode: 'pvp' | 'pve' = 'pvp';
     private aiDifficulty: 'easy' | 'medium' | 'hard' = 'medium';
-    private aiKeyboardSimulator?: AIKeyboardSimulatorBackend;
 
     constructor(name: string, dimensions: IGameDimensions, config: IGameConfig) {
         this.id = ''; // ID will be set externally by GameManager
@@ -98,17 +96,6 @@ export class UnifiedGame {
     public setMode(mode: 'pvp' | 'pve', aiDifficulty: 'easy' | 'medium' | 'hard' = 'medium'): void {
         this.mode = mode;
         this.aiDifficulty = aiDifficulty;
-        
-        // Inicializar simulador AI si es modo PvE
-        if (mode === 'pve') {
-            this.aiKeyboardSimulator = new AIKeyboardSimulatorBackend(aiDifficulty);
-        } else {
-            // Limpiar simulador si cambia a modo PvP
-            if (this.aiKeyboardSimulator) {
-                this.aiKeyboardSimulator.stop();
-                this.aiKeyboardSimulator = undefined;
-            }
-        }
     }
 
     public addPlayer(player: IPlayer): boolean {
@@ -276,57 +263,7 @@ export class UnifiedGame {
     }
 
     private updateAI(): void {
-        // NUEVO SISTEMA: AI con simulación de teclado y limitación de vista
-        if (!this.aiKeyboardSimulator) {
-            // Fallback al sistema anterior si hay error
-            console.warn('AI Keyboard Simulator not initialized, falling back to old system');
-            this.updateAIOld();
-            return;
-        }
-        
-        // Crear estado del juego para el simulador AI
-        const gameState = {
-            ball: this.gameState.ball,
-            aiPaddle: this.gameState.paddles.right,
-            canvasWidth: this.gameState.canvas.width,
-            canvasHeight: this.gameState.canvas.height
-        };
-        
-        // Actualizar AI - SOLO UNA VEZ POR SEGUNDO
-        const movement = this.aiKeyboardSimulator.update(gameState);
-        
-        // Ejecutar movimiento simulando input de teclado
-        this.simulateAIMovement(movement);
-    }
-    
-    /**
-     * Simula movimiento de teclado para AI
-     */
-    private simulateAIMovement(movement: 'up' | 'down' | 'stop'): void {
-        const aiPaddle = this.gameState.paddles.right;
-        const speed = 5; // Velocidad de movimiento basada en keyboard input
-        
-        switch (movement) {
-            case 'up':
-                if (aiPaddle.y > 0) {
-                    aiPaddle.y = Math.max(0, aiPaddle.y - speed);
-                }
-                break;
-            case 'down':
-                if (aiPaddle.y < this.gameState.canvas.height - aiPaddle.height) {
-                    aiPaddle.y = Math.min(this.gameState.canvas.height - aiPaddle.height, aiPaddle.y + speed);
-                }
-                break;
-            case 'stop':
-                // No hacer nada
-                break;
-        }
-    }
-    
-    /**
-     * Sistema AI anterior (solo como fallback)
-     */
-    private updateAIOld(): void {
+        // ALGORITMO DE IA IDÉNTICO AL FRONTEND
         const aiPaddle = this.gameState.paddles.right;
         const ball = this.gameState.ball;
         const paddleCenter = aiPaddle.y + aiPaddle.height / 2;
