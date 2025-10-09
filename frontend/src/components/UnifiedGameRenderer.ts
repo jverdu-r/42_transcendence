@@ -8,6 +8,7 @@ import { getCurrentUser } from '../auth';
 import { getTranslation } from '../i18n';
 import { PlayerDisplay, PlayerInfo } from './playerDisplay';
 import { showNotification, checkRankingChange } from '../utils/utils';
+import { AIKeyboardSimulator } from './AIKeyboardSimulator';
 
 export interface UnifiedGameState {
     ball: {
@@ -70,6 +71,7 @@ export class UnifiedGameRenderer {
     // AI properties
     private aiDifficulty: 'easy' | 'medium' | 'hard' = 'medium';
     private aiSpeed: number = 3;
+    private aiKeyboardSimulator: AIKeyboardSimulator | null = null;
     
     // Movement intervals para movimiento continuo
     private movementIntervals: { [key: string]: any } = {};
@@ -106,6 +108,12 @@ export class UnifiedGameRenderer {
         this.canvas.height = 600;
         
         this.initializeGameState();
+        
+        // Inicializar simulador AI si es modo AI
+        if (this.gameMode === 'ai') {
+            this.aiKeyboardSimulator = new AIKeyboardSimulator(this.aiDifficulty);
+        }
+        
         this.setupEventListeners();
         this.drawInitialState();
         
@@ -525,6 +533,11 @@ export class UnifiedGameRenderer {
     public setAIDifficulty(difficulty: 'easy' | 'medium' | 'hard'): void {
         this.aiDifficulty = difficulty;
         this.aiSpeed = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 3 : 4;
+        
+        // Actualizar simulador AI si existe
+        if (this.aiKeyboardSimulator) {
+            this.aiKeyboardSimulator.setDifficulty(difficulty);
+        }
     }
     
     /**
@@ -947,6 +960,30 @@ export class UnifiedGameRenderer {
     }
     
     private updateAI(): void {
+        // NUEVO SISTEMA: AI con simulación de teclado y limitación de vista
+        if (!this.aiKeyboardSimulator) {
+            // Fallback al sistema anterior si hay error
+            console.warn('AI Keyboard Simulator not initialized, falling back to old system');
+            this.updateAIOld();
+            return;
+        }
+        
+        // Crear estado del juego para el simulador AI
+        const gameState = {
+            ball: this.gameState.ball,
+            aiPaddle: this.gameState.paddles.right,
+            canvasWidth: this.canvas.width,
+            canvasHeight: this.canvas.height
+        };
+        
+        // Actualizar AI - SOLO UNA VEZ POR SEGUNDO
+        this.aiKeyboardSimulator.update(gameState);
+    }
+    
+    /**
+     * Sistema AI anterior (solo como fallback)
+     */
+    private updateAIOld(): void {
         const aiPaddle = this.gameState.paddles.right;
         const ball = this.gameState.ball;
         const paddleCenter = aiPaddle.y + aiPaddle.height / 2;
@@ -1272,6 +1309,12 @@ export class UnifiedGameRenderer {
         
         // Limpiar todos los intervals de movimiento usando la función centralizada
         this.clearAllMovementIntervals();
+        
+        // Limpiar simulador AI
+        if (this.aiKeyboardSimulator) {
+            this.aiKeyboardSimulator.stop();
+            this.aiKeyboardSimulator = null;
+        }
         
         if (this.websocket) {
             this.websocket.close();
