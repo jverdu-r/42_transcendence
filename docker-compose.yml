@@ -467,18 +467,6 @@ volumes:
       type: none
       o: bind
       device: ${DATA_PATH}/grafana
-  prometheus_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${DATA_PATH}/prometheus
-  grafana_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${DATA_PATH}/grafana
   alertmanager_data:
     driver: local
     driver_opts:
