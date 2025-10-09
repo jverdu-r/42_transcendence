@@ -170,11 +170,16 @@ export class AIKeyboardSimulator {
         const threshold = this.difficulty === 'easy' ? 30 : 
                          this.difficulty === 'medium' ? 20 : 10;
         
+        console.log(`[AI Decision] Target: ${targetY.toFixed(1)}, Paddle: ${paddleCenter.toFixed(1)}, Diff: ${difference.toFixed(1)}, Threshold: ${threshold}`);
+        
         if (Math.abs(difference) < threshold) {
+            console.log('[AI Decision] STOP - dentro del umbral');
             return 'stop';
         }
         
-        return difference > 0 ? 'down' : 'up';
+        const decision = difference > 0 ? 'down' : 'up';
+        console.log(`[AI Decision] ${decision.toUpperCase()} - diferencia: ${difference.toFixed(1)}`);
+        return decision;
     }
     
     /**
@@ -212,6 +217,8 @@ export class AIKeyboardSimulator {
      * Simula presionar una tecla del teclado
      */
     private simulateKeyPress(key: string): void {
+        console.log(`[AI] Simulando presionar tecla: ${key}`);
+        
         const keydownEvent = new KeyboardEvent('keydown', {
             key: key,
             code: key,
@@ -228,6 +235,8 @@ export class AIKeyboardSimulator {
      * Simula soltar una tecla del teclado
      */
     private simulateKeyRelease(key: string): void {
+        console.log(`[AI] Simulando soltar tecla: ${key}`);
+        
         const keyupEvent = new KeyboardEvent('keyup', {
             key: key,
             code: key,

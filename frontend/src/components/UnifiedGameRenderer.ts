@@ -941,8 +941,17 @@ export class UnifiedGameRenderer {
                 this.gameState.paddles.right.y += speed;
             }
         } else if (this.gameMode === 'ai') {
-            // AI control
+            // AI control: primero ejecutar la IA, luego procesar las teclas simuladas
             this.updateAI();
+            
+            // Procesar las teclas que la IA simula (o/l para paleta derecha)
+            if ((this.keys['o'] || this.keys['O']) && this.gameState.paddles.right.y > 0) {
+                this.gameState.paddles.right.y -= speed;
+            }
+            if ((this.keys['l'] || this.keys['L']) && 
+                this.gameState.paddles.right.y < this.canvas.height - this.gameState.paddles.right.height) {
+                this.gameState.paddles.right.y += speed;
+            }
         }
     }
     
@@ -978,6 +987,14 @@ export class UnifiedGameRenderer {
         
         // Actualizar AI - SOLO UNA VEZ POR SEGUNDO
         this.aiKeyboardSimulator.update(gameState);
+        
+        // Debug: mostrar estado de las teclas cuando la IA las presiona
+        if (this.keys['o'] || this.keys['O']) {
+            console.log('[AI Debug] IA presionando tecla O (arriba)');
+        }
+        if (this.keys['l'] || this.keys['L']) {
+            console.log('[AI Debug] IA presionando tecla L (abajo)');
+        }
     }
     
     /**
