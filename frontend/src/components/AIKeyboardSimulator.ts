@@ -30,7 +30,7 @@ export interface GameState {
 }
 
 export type AIDecision = 'up' | 'down' | 'stop';
-export type KeyboardKey = 'ArrowUp' | 'ArrowDown' | null;
+export type KeyboardKey = 'o' | 'l' | null;  // AI usa teclas O/L para paleta derecha
 
 export class AIKeyboardSimulator {
     private difficulty: 'easy' | 'medium' | 'hard';
@@ -192,10 +192,10 @@ export class AIKeyboardSimulator {
         
         switch (this.lastDecision) {
             case 'up':
-                keyToPress = 'ArrowUp';
+                keyToPress = 'o';  // Tecla O mueve paleta derecha hacia arriba
                 break;
             case 'down':
-                keyToPress = 'ArrowDown';
+                keyToPress = 'l';  // Tecla L mueve paleta derecha hacia abajo
                 break;
             case 'stop':
                 // No presionar ninguna tecla
@@ -245,10 +245,12 @@ export class AIKeyboardSimulator {
      */
     private getKeyCode(key: string): number {
         switch (key) {
-            case 'ArrowUp':
-                return 38;
-            case 'ArrowDown':
-                return 40;
+            case 'o':
+            case 'O':
+                return 79;  // Tecla O
+            case 'l':
+            case 'L':
+                return 76;  // Tecla L
             default:
                 return 0;
         }
