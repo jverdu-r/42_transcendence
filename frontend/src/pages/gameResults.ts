@@ -130,9 +130,6 @@ export function renderGameResults(): void {
 
         <!-- Action Buttons -->
         <div class="flex flex-col sm:flex-row gap-4">
-          <button id="play-again-btn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
-            🔄 ${getTranslation('results', 'play_again')}
-          </button>
           <button id="view-stats-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
             📊 ${getTranslation('results', 'view_stats')}
           </button>
@@ -151,13 +148,8 @@ export function renderGameResults(): void {
 }
 
 function setupEventListeners(): void {
-  const playAgainBtn = document.getElementById('play-again-btn');
   const viewStatsBtn = document.getElementById('view-stats-btn');
   const mainMenuBtn = document.getElementById('main-menu-btn');
-
-  playAgainBtn?.addEventListener('click', () => {
-    handlePlayAgain();
-  });
 
   viewStatsBtn?.addEventListener('click', () => {
     navigateTo('/ranking');
@@ -166,25 +158,6 @@ function setupEventListeners(): void {
   mainMenuBtn?.addEventListener('click', () => {
     navigateTo('/home');
   });
-}
-
-function handlePlayAgain(): void {
-  const results = currentResults;
-  if (!results) return;
-  
-  switch (results.gameMode) {
-    case 'local':
-      navigateTo('/unified-game-local');
-      break;
-    case 'ai':
-      navigateTo('/unified-game-ai');
-      break;
-    case 'online':
-      navigateTo('/unified-game-online');
-      break;
-    default:
-      navigateTo('/home');
-  }
 }
 
 function formatDuration(milliseconds: number): string {
