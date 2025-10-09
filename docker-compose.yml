@@ -265,41 +265,11 @@ services:
 
   
 
-  # Alertmanager - Alert management
-  alertmanager:
-    image: prom/alertmanager:latest
-    container_name: alertmanager
-    ports:
-      - "9093:9093"
-    volumes:
-      - ./monitoring_system/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-      - alertmanager_data:/alertmanager
-    command:
-      - '--config.file=/etc/alertmanager/alertmanager.yml'
-      - '--storage.path=/alertmanager'
-      - '--web.external-url=http://${MACHINE_IP}:9093'
-    networks:
-      - transcendence_net
-    restart: unless-stopped
+    
 
-  # Node Exporter - System metrics
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: node-exporter
-    ports:
-      - "9100:9100"
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.rootfs=/rootfs'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    networks:
-      - transcendence_net
-    restart: unless-stopped
+  # ========================================
+  # MONITORING STACK CORE - Minor Module
+  # ========================================
 
   # Redis Exporter - Redis metrics
   redis-exporter:
