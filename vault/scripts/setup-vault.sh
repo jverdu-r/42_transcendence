@@ -265,13 +265,27 @@ if [ -f "./vault/generated/service-tokens.json" ]; then
 fi
 
 # =====================
-# Crear secretos en Vault leyendo del .env
+# Crear secretos en Vault leyendo del .env.secrets
 # =====================
 
-# Cargar variables del secrets.txt
-set -a
-[ -f "$SCRIPT_DIR/../../secrets/secrets.txt" ] && source "$SCRIPT_DIR/../../secrets/secrets.txt"
-set +a
+# Cargar variables del .env.secrets si existe, sino usar valores por defecto
+if [ -f "$SCRIPT_DIR/../../.env.secrets" ]; then
+    echo -e "${BLUE}📄 Loading secrets from .env.secrets...${NC}"
+    set -a
+    source "$SCRIPT_DIR/../../.env.secrets"
+    set +a
+else
+    echo -e "${YELLOW}⚠️ .env.secrets not found, using default values${NC}"
+    echo -e "${YELLOW}⚠️ Create .env.secrets file with your secret values${NC}"
+    # Valores por defecto
+    REDIS_PASSWORD="${REDIS_PASSWORD:-o-meu-contrasinal.42}"
+    JWT_SECRET="${JWT_SECRET:-default-jwt-secret-change-me}"
+    GRAFANA_USER="${GRAFANA_USER:-admin}"
+    GRAFANA_PASSWORD="${GRAFANA_PASSWORD:-admin}"
+    PROMETHEUS_USER="${PROMETHEUS_USER:-admin}"
+    PROMETHEUS_PASSWORD="${PROMETHEUS_PASSWORD:-admin}"
+    EMAIL_PASS="${EMAIL_PASS:-}"
+fi
 
 echo -e "${BLUE}🔐 Creating initial secrets in Vault...${NC}"
 
@@ -279,11 +293,11 @@ docker exec hashicorp_vault sh -c "
     export VAULT_ADDR=https://localhost:8200
     export VAULT_SKIP_VERIFY=true
     export VAULT_TOKEN='$ROOT_TOKEN'
-    vault kv put secret/redis REDIS_PASSWORD='${REDIS_PASSWORD:-}'
-    vault kv put secret/jwt JWT_SECRET='${JWT_SECRET:-}'
-    vault kv put secret/grafana GF_SECURITY_ADMIN_USER='${GRAFANA_USER:-}' GF_SECURITY_ADMIN_PASSWORD='${GRAFANA_PASSWORD:-}'
-    vault kv put secret/prometheus PROMETHEUS_USER='${PROMETHEUS_USER:-}' PROMETHEUS_PASSWORD='${PROMETHEUS_PASSWORD:-}'
-    vault kv put secret/email EMAIL_PASS='${EMAIL_PASS:-}'
+    vault kv put secret/redis REDIS_PASSWORD='${REDIS_PASSWORD}'
+    vault kv put secret/jwt JWT_SECRET='${JWT_SECRET}'
+    vault kv put secret/grafana GF_SECURITY_ADMIN_USER='${GRAFANA_USER}' GF_SECURITY_ADMIN_PASSWORD='${GRAFANA_PASSWORD}'
+    vault kv put secret/prometheus PROMETHEUS_USER='${PROMETHEUS_USER}' PROMETHEUS_PASSWORD='${PROMETHEUS_PASSWORD}'
+    vault kv put secret/email EMAIL_PASS='${EMAIL_PASS}'
 "
 
 if [ $? -eq 0 ]; then
