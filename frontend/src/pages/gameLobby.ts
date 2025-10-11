@@ -1,6 +1,8 @@
 import { UnifiedGameRenderer } from '../components/UnifiedGameRenderer';
 import { navigateTo } from '../router';
 import { getCurrentUser } from '../auth';
+import { setGameResults } from '../router';
+import { getTranslation } from '../i18n';
 import './gameLobby.css';
 
 interface GameLobbyState {
@@ -19,6 +21,13 @@ class GameLobby {
     private state: GameLobbyState;
     private countdownInterval: number | null = null;
     private renderer: UnifiedGameRenderer | null = null;
+    
+    // Game results tracking
+    private gameStartTime: Date | null = null;
+    private finalScore: { left: number; right: number } = { left: 0, right: 0 };
+    private rallieCount: number = 0;
+    private player1Name: string = '';
+    private player2Name: string = '';
 
     constructor(container: HTMLElement) {
         this.container = container;
@@ -188,12 +197,22 @@ class GameLobby {
             };
             this.renderer.setPlayerInfo(player1Info, player2Info);
             
+            // Store player names and start time
+            this.player1Name = player1Info.displayName;
+            this.player2Name = player2Info.displayName;
+            this.gameStartTime = new Date();
+            
             this.renderer.setCallbacks({
                 onScoreUpdate: (score: { left: number; right: number }) => {
                     console.log('Score updated:', score);
+                    this.finalScore = score;
                 },
-                onGameEnd: (winner: string) => {
-                    console.log('Game ended, winner:', winner);
+                onGameStateUpdate: (gameState: any) => {
+                    this.rallieCount = gameState.rallieCount || 0;
+                },
+                onGameEnd: (winner: string, score: { left: number; right: number }) => {
+                    console.log('Game ended, winner:', winner, 'score:', score);
+                    this.finalScore = score;
                     this.handleGameEnd(winner);
                 }
             });
@@ -222,10 +241,22 @@ class GameLobby {
     }
 
     private handleGameEnd(winner: string): void {
-        // Show game end screen or navigate back
-        setTimeout(() => {
-            navigateTo('/unified-game-online');
-        }, 3000);
+        // Prepare results data and redirect to results page
+        const loser = winner === this.player1Name ? this.player2Name : this.player1Name;
+        const gameDuration = this.gameStartTime ? Date.now() - this.gameStartTime.getTime() : undefined;
+        
+        const gameResults = {
+            winner,
+            loser,
+            finalScore: this.finalScore,
+            gameMode: 'online' as const,
+            gameDuration,
+            rallieCount: this.rallieCount,
+            gameId: this.state.gameId
+        };
+
+        setGameResults(gameResults);
+        navigateTo('/results');
     }
 
     private updateUI(): void {
@@ -236,18 +267,18 @@ class GameLobby {
         const lobbyHTML = `
             <div class="game-lobby">
                 <div class="lobby-header">
-                    <h1>Sala de Juego</h1>
-                    ${this.state.gameId ? `<p class="game-id">ID: ${this.state.gameId}</p>` : ''}
+                    <h1>${getTranslation('gameLobby', 'title')}</h1>
+                    ${this.state.gameId ? `<p class="game-id">${getTranslation('gameLobby', 'gameId')}: ${this.state.gameId}</p>` : ''}
                 </div>
 
                 <div class="players-section">
                     <div class="player-slot ${this.state.playerNumber === 1 ? 'current-player' : ''}">
                         <div class="player-info">
-                            <h3>Jugador 1</h3>
-                            <p>${this.state.playerNumber === 1 ? 'Tú' : (this.state.opponentName || 'Waiting for a new challenger')}</p>
+                            <h3>${getTranslation('gameLobby', 'player1')}</h3>
+                            <p>${this.state.playerNumber === 1 ? getTranslation('gameLobby', 'you') : (this.state.opponentName || getTranslation('gameLobby', 'waitingChallenger'))}</p>
                         </div>
                         <div class="player-status ${this.state.playersConnected >= 1 ? 'connected' : 'waiting'}">
-                            ${this.state.playersConnected >= 1 ? '✓ Conectado' : '⏳ Esperando'}
+                            ${this.state.playersConnected >= 1 ? getTranslation('gameLobby', 'connected') : getTranslation('gameLobby', 'waiting')}
                         </div>
                     </div>
 
@@ -255,11 +286,11 @@ class GameLobby {
 
                     <div class="player-slot ${this.state.playerNumber === 2 ? 'current-player' : ''}">
                         <div class="player-info">
-                            <h3>Jugador 2</h3>
-                            <p>${this.state.playerNumber === 2 ? 'Tú' : (this.state.opponentName || 'Waiting for a new challenger')}</p>
+                            <h3>${getTranslation('gameLobby', 'player2')}</h3>
+                            <p>${this.state.playerNumber === 2 ? getTranslation('gameLobby', 'you') : (this.state.opponentName || getTranslation('gameLobby', 'waitingChallenger'))}</p>
                         </div>
                         <div class="player-status ${this.state.playersConnected >= 2 ? 'connected' : 'waiting'}">
-                            ${this.state.playersConnected >= 2 ? '✓ Conectado' : '⏳ Esperando'}
+                            ${this.state.playersConnected >= 2 ? getTranslation('gameLobby', 'connected') : getTranslation('gameLobby', 'waiting')}
                         </div>
                     </div>
                 </div>
@@ -269,20 +300,20 @@ class GameLobby {
                         <div class="countdown-circle">
                             <span class="countdown-number">${this.state.countdownValue}</span>
                         </div>
-                        <p class="countdown-text">¡El juego comenzará pronto!</p>
+                        <p class="countdown-text">${getTranslation('gameLobby', 'gameStartingSoon')}</p>
                     </div>
                 ` : ''}
 
                 ${this.state.playersConnected < 2 ? `
                     <div class="waiting-section">
                         <div class="loading-spinner"></div>
-                        <p>Esperando a que se conecte otro jugador...</p>
+                        <p>${getTranslation('gameLobby', 'waitingForPlayer')}</p>
                     </div>
                 ` : ''}
 
                 <div class="lobby-actions">
                     <button class="btn-secondary" onclick="window.gameLobby.leaveLobby()">
-                        Abandonar Sala
+                        ${getTranslation('gameLobby', 'leaveRoom')}
                     </button>
                 </div>
             </div>
@@ -332,7 +363,7 @@ declare global {
     }
 }
 
-// Función de renderizado para el router
+// Render function for the router
 export function renderGameLobby(): void {
     const container = document.getElementById('page-content');
     if (!container) {
@@ -340,12 +371,12 @@ export function renderGameLobby(): void {
         return;
     }
 
-    // Crear instancia del lobby
+    // Create lobby instance
 const gameLobby = new GameLobby(container);
     
-    // Hacer disponible globalmente para los botones
+    // Make it globally available for buttons
     window.gameLobby = gameLobby;
     
-    // Inicializar el lobby
+    // Initialize the lobby
     gameLobby.init();
 }

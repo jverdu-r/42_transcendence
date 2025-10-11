@@ -17,11 +17,11 @@
     "fastify": "^4.x.x",
     "sqlite3": "^5.x.x",
     "sqlite": "^5.x.x",
-    "redis": "^4.6.7"
+    "redis": "^4.6.7",
+    "@fastify/cors": "^8.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "@types/node": "^20.x.x",
     "ts-node": "^10.x.x",
     "ts-node-dev": "^2.x.x",
     "typescript": "^5.x.x"

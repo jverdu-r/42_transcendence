@@ -5,6 +5,7 @@
 
 import { navigateTo } from '../router';
 import { getCurrentUser } from '../auth';
+import { getTranslation } from '../i18n';
 import { PlayerDisplay, PlayerInfo } from './playerDisplay';
 import { showNotification, checkRankingChange } from '../utils/utils';
 
@@ -69,6 +70,25 @@ export class UnifiedGameRenderer {
     // AI properties
     private aiDifficulty: 'easy' | 'medium' | 'hard' = 'medium';
     private aiSpeed: number = 3;
+    
+    // Movement intervals para movimiento continuo
+    private movementIntervals: { [key: string]: any } = {};
+    
+    // Nuevo sistema de polling continuo para online
+    private paddleMovementState = {
+        up: false,
+        down: false
+    };
+    
+    // Sistema de polling para detectar teclas presionadas
+    private keyPollingInterval?: any;
+    private currentlyPressedKeys = new Set<string>();
+    
+    // Sistema de envío continuo de comandos al servidor
+    private serverCommandInterval?: any;
+    
+    // Sistema de verificación de integridad
+    private systemCheckInterval?: any;
 
     // Allow external (lobby) setup of WebSocket for online mode
     public setWebSocketConnection(ws: WebSocket, gameId: string) {
@@ -133,41 +153,353 @@ export class UnifiedGameRenderer {
     
     private setupEventListeners(): void {
         console.log("[UnifiedGameRenderer] setupEventListeners called, mode:", this.gameMode);
-        if (this.gameMode === 'local' || this.gameMode === 'ai' || this.gameMode === 'online') {
+        if (this.gameMode === 'local' || this.gameMode === 'ai') {
+            // Sistema tradicional para local/AI
             document.addEventListener('keydown', this.handleKeyDown.bind(this));
             document.addEventListener('keyup', this.handleKeyUp.bind(this));
+            
+            // Detectar pérdida de foco para limpiar movimientos
+            window.addEventListener('blur', this.handleWindowBlur.bind(this));
+            window.addEventListener('focus', this.handleWindowFocus.bind(this));
+            document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
+        } else if (this.gameMode === 'online') {
+            // SISTEMA COMPLETAMENTE NUEVO PARA ONLINE: Polling continuo
+            this.setupKeyPolling();
+            
+            // Detectar pérdida de foco
+            window.addEventListener('blur', this.handleWindowBlur.bind(this));
+            document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
         }
     }
     
-    private handleKeyDown(e: KeyboardEvent): void {
-        console.log("[UnifiedGameRenderer] handleKeyDown", e.key, "mode:", this.gameMode);
-        this.keys[e.key] = true;
-        // Send only 'up'/'down' (classic backend protocol)
-        if (this.gameMode === 'online' && this.websocket && this.gameId) {
-            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+    private setupKeyPolling(): void {
+        console.log('[setupKeyPolling] Iniciando sistema de polling para modo online');
+        
+        // Usar keydown/keyup solo para detectar inicio/fin, no para movimiento
+        document.addEventListener('keydown', this.handleKeyDownPolling.bind(this));
+        document.addEventListener('keyup', this.handleKeyUpPolling.bind(this));
+        
+        // Polling continuo para movimiento suave LOCAL
+        this.keyPollingInterval = setInterval(() => {
+            this.pollKeysAndMove();
+        }, 8); // 125 FPS para movimiento ultra-suave
+        
+        // NUEVO: Envío continuo de comandos al servidor
+        this.serverCommandInterval = setInterval(() => {
+            this.sendContinuousCommands();
+        }, 50); // 20 FPS para comandos al servidor (como espera el backend)
+        
+        // NUEVO: Verificación periódica del sistema
+        this.systemCheckInterval = setInterval(() => {
+            this.checkSystemIntegrity();
+        }, 2000); // Verificar cada 2 segundos
+        
+        console.log('[setupKeyPolling] ✅ Sistema de polling configurado correctamente');
+    }
+    
+    private handleKeyDownPolling(e: KeyboardEvent): void {
+        if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+            if (!this.currentlyPressedKeys.has('up')) {
+                this.currentlyPressedKeys.add('up');
+                console.log('[Polling] UP key pressed');
+                // El primer comando se envía inmediatamente para responsividad
                 this.sendPlayerMove('up');
-            } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+            }
+        } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+            if (!this.currentlyPressedKeys.has('down')) {
+                this.currentlyPressedKeys.add('down');
+                console.log('[Polling] DOWN key pressed');
+                // El primer comando se envía inmediatamente para responsividad
                 this.sendPlayerMove('down');
+            }
+        }
+    }
+    
+    private handleKeyUpPolling(e: KeyboardEvent): void {
+        if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+            this.currentlyPressedKeys.delete('up');
+            console.log('[Polling] UP key released');
+        } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+            this.currentlyPressedKeys.delete('down');
+            console.log('[Polling] DOWN key released');
+        }
+    }
+    
+    private pollKeysAndMove(): void {
+        if (!this.playerNumber || !this.gameState.gameRunning) return;
+        
+        const speed = 5; // Velocidad consistente
+        let moved = false;
+        
+        if (this.playerNumber === 1) {
+            // Jugador 1 - paleta izquierda
+            if (this.currentlyPressedKeys.has('up') && this.gameState.paddles.left.y > 0) {
+                this.gameState.paddles.left.y -= speed;
+                if (this.gameState.paddles.left.y < 0) this.gameState.paddles.left.y = 0;
+                moved = true;
+            }
+            if (this.currentlyPressedKeys.has('down') && 
+                this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
+                this.gameState.paddles.left.y += speed;
+                if (this.gameState.paddles.left.y > this.canvas.height - this.gameState.paddles.left.height) {
+                    this.gameState.paddles.left.y = this.canvas.height - this.gameState.paddles.left.height;
+                }
+                moved = true;
+            }
+        } else if (this.playerNumber === 2) {
+            // Jugador 2 - paleta derecha
+            if (this.currentlyPressedKeys.has('up') && this.gameState.paddles.right.y > 0) {
+                this.gameState.paddles.right.y -= speed;
+                if (this.gameState.paddles.right.y < 0) this.gameState.paddles.right.y = 0;
+                moved = true;
+            }
+            if (this.currentlyPressedKeys.has('down') && 
+                this.gameState.paddles.right.y < this.canvas.height - this.gameState.paddles.right.height) {
+                this.gameState.paddles.right.y += speed;
+                if (this.gameState.paddles.right.y > this.canvas.height - this.gameState.paddles.right.height) {
+                    this.gameState.paddles.right.y = this.canvas.height - this.gameState.paddles.right.height;
+                }
+                moved = true;
+            }
+        }
+        
+        // Solo redibujar si hubo movimiento
+        if (moved) {
+            this.draw();
+        }
+    }
+    
+    private sendContinuousCommands(): void {
+        if (!this.websocket || !this.gameId || this.currentlyPressedKeys.size === 0) {
+            return;
+        }
+        
+        // Verificar que la conexión WebSocket sigue activa
+        if (this.websocket.readyState !== WebSocket.OPEN) {
+            console.warn('[sendContinuousCommands] WebSocket connection lost, clearing movements');
+            this.clearAllMovementIntervals();
+            return;
+        }
+        
+        try {
+            // Enviar comando para cada tecla presionada
+            if (this.currentlyPressedKeys.has('up')) {
+                this.sendPlayerMove('up');
+                console.log('[sendContinuousCommands] Sent continuous UP command');
+            }
+            if (this.currentlyPressedKeys.has('down')) {
+                this.sendPlayerMove('down');
+                console.log('[sendContinuousCommands] Sent continuous DOWN command');
+            }
+        } catch (error) {
+            console.error('[sendContinuousCommands] Error sending continuous commands:', error);
+            this.clearAllMovementIntervals();
+        }
+    }
+    
+    private checkSystemIntegrity(): void {
+        // Solo verificar si estamos en modo online y el juego está corriendo
+        if (this.gameMode !== 'online' || !this.gameState.gameRunning) {
+            return;
+        }
+        
+        // Verificar que los intervalos críticos estén activos
+        const missingIntervals = [];
+        if (!this.keyPollingInterval) missingIntervals.push('keyPolling');
+        if (!this.serverCommandInterval) missingIntervals.push('serverCommand');
+        
+        if (missingIntervals.length > 0) {
+            console.warn(`[checkSystemIntegrity] Missing intervals: ${missingIntervals.join(', ')} - Reinitializing`);
+            this.reinitializeOnlineSystem();
+        }
+        
+        // Verificar estado de WebSocket
+        if (this.websocket && this.websocket.readyState !== WebSocket.OPEN) {
+            console.warn('[checkSystemIntegrity] WebSocket connection lost');
+            this.clearAllMovementIntervals();
+        }
+    }
+
+    private handleKeyDown(e: KeyboardEvent): void {
+        // Marcar la tecla como presionada
+        const wasPressed = this.keys[e.key];
+        this.keys[e.key] = true;
+        
+        if (this.gameMode === 'online') {
+            // NUEVO SISTEMA PARA ONLINE: Solo marcar estado de movimiento
+            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+                if (!this.paddleMovementState.up) {
+                    this.paddleMovementState.up = true;
+                    this.sendPlayerMove('up');
+                    console.log('[handleKeyDown] Started UP movement');
+                }
+            } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+                if (!this.paddleMovementState.down) {
+                    this.paddleMovementState.down = true;
+                    this.sendPlayerMove('down');
+                    console.log('[handleKeyDown] Started DOWN movement');
+                }
+            }
+        } else {
+            // SISTEMA ANTERIOR PARA LOCAL/AI
+            if (!wasPressed) {
+                console.log('[handleKeyDown] Key pressed:', e.key);
+                this.startPaddleMovement(e.key);
+            } else {
+                // Si la tecla ya estaba presionada pero no hay intervalo, reiniciarlo
+                const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'];
+                if (movementKeys.includes(e.key) && !this.movementIntervals[e.key]) {
+                    console.log('[handleKeyDown] Restarting lost movement for key:', e.key);
+                    this.startPaddleMovement(e.key);
+                }
             }
         }
     }
 
     private handleKeyUp(e: KeyboardEvent): void {
+        console.log('[handleKeyUp] Key released:', e.key);
         this.keys[e.key] = false;
-        // Do NOT send anything on keyup for classic server
+        
+        if (this.gameMode === 'online') {
+            // NUEVO SISTEMA PARA ONLINE: Solo marcar estado de parada
+            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+                this.paddleMovementState.up = false;
+                console.log('[handleKeyUp] Stopped UP movement');
+            } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+                this.paddleMovementState.down = false;
+                console.log('[handleKeyUp] Stopped DOWN movement');
+            }
+        } else {
+            // SISTEMA ANTERIOR PARA LOCAL/AI
+            const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'];
+            if (movementKeys.includes(e.key)) {
+                this.stopPaddleMovement(e.key);
+                console.log('[handleKeyUp] Stopped movement for key:', e.key);
+            }
+        }
+    }
+
+    private handleWindowBlur(): void {
+        console.log('[handleWindowBlur] Window lost focus, clearing all movements');
+        this.clearAllMovementIntervals();
+    }
+
+    private handleWindowFocus(): void {
+        console.log('[handleWindowFocus] Window gained focus, checking system state');
+        // Al volver el foco a la ventana, reinicializar si es necesario
+        if (this.gameMode === 'online' && this.gameState.gameRunning) {
+            // Pequeño delay para asegurar que todo está estable
+            setTimeout(() => {
+                // Solo reinicializar si no hay intervalos activos
+                if (!this.keyPollingInterval || !this.serverCommandInterval) {
+                    console.log('[handleWindowFocus] Reinitializing due to missing intervals');
+                    this.reinitializeOnlineSystem();
+                }
+                // CRUCIAL: Verificar estado de teclas después de volver del cambio de app
+                this.recheckKeyStates();
+            }, 200);
+        }
+    }
+
+    private handleVisibilityChange(): void {
+        if (document.hidden) {
+            console.log('[handleVisibilityChange] Page became hidden, clearing all movements');
+            this.clearAllMovementIntervals();
+        } else {
+            console.log('[handleVisibilityChange] Page became visible again, reinitializing system');
+            // Al volver a la aplicación, reinicializar el sistema de polling si es online
+            if (this.gameMode === 'online' && this.gameState.gameRunning) {
+                // Pequeño delay para asegurar que la página está completamente visible
+                setTimeout(() => {
+                    this.reinitializeOnlineSystem();
+                    // CRUCIAL: Verificar estado de teclas después de volver del cambio de app
+                    this.recheckKeyStates();
+                }, 100);
+            }
+        }
+    }
+
+    /**
+     * Método para verificar el estado actual de las teclas después de volver del cambio de app
+     * Implementa una verificación inteligente del estado del teclado
+     */
+    private recheckKeyStates(): void {
+        console.log('[recheckKeyStates] Checking current keyboard state after app switch');
+        
+        // Limpiar estado temporal para evitar conflictos
+        this.paddleMovementState = {
+            up: false,
+            down: false
+        };
+        
+        // Crear un verificador de estado de teclas usando focus del documento
+        // Esta técnica ayuda a detectar si las teclas siguen presionadas
+        const keyStateChecker = () => {
+            // Verificar si hay alguna tecla en el estado currentlyPressedKeys que deba persistir
+            if (this.currentlyPressedKeys.has('up')) {
+                console.log('[recheckKeyStates] UP key still pressed after app switch');
+                // Re-activar el estado de movimiento
+                this.paddleMovementState.up = true;
+            }
+            if (this.currentlyPressedKeys.has('down')) {
+                console.log('[recheckKeyStates] DOWN key still pressed after app switch');
+                // Re-activar el estado de movimiento
+                this.paddleMovementState.down = true;
+            }
+        };
+        
+        // Ejecutar la verificación después de un pequeño delay
+        setTimeout(keyStateChecker, 50);
+        
+        console.log('[recheckKeyStates] Key state check completed, movement states restored');
+    }
+    
+    private reinitializeOnlineSystem(): void {
+        console.log('[reinitializeOnlineSystem] Reinitializing online polling system');
+        
+        // Limpiar cualquier sistema previo
+        this.clearAllMovementIntervals();
+        
+        // Reinicializar el sistema de polling para online
+        if (this.gameMode === 'online') {
+            this.setupKeyPolling();
+            console.log('[reinitializeOnlineSystem] ✅ Online system reinitialized');
+        }
     }
 
     /**
      * For classic backend: send only up/down as soon as pressed. Never send 'stop'.
      */
     private sendPlayerMove(direction: 'up' | 'down'): void {
-        if (!this.websocket) return;
+        if (!this.websocket) {
+            console.warn('[sendPlayerMove] No websocket connection');
+            return;
+        }
+        
+        // Verificar que el WebSocket esté en estado OPEN antes de enviar
+        if (this.websocket.readyState !== WebSocket.OPEN) {
+            const stateNames: Record<number, string> = {
+                [WebSocket.CONNECTING]: 'CONNECTING',
+                [WebSocket.OPEN]: 'OPEN', 
+                [WebSocket.CLOSING]: 'CLOSING',
+                [WebSocket.CLOSED]: 'CLOSED'
+            };
+            const stateName = stateNames[this.websocket.readyState] || 'UNKNOWN';
+            console.warn(`[sendPlayerMove] WebSocket is not in OPEN state. Current state: ${stateName} (${this.websocket.readyState})`);
+            return;
+        }
+        
         const msg = {
             type: 'playerMove',
             data: { direction }
         };
-        console.log('[WebSocket] Sending playerMove:', msg);
-        this.websocket.send(JSON.stringify(msg));
+        
+        try {
+            console.log('[WebSocket] Sending playerMove:', msg);
+            this.websocket.send(JSON.stringify(msg));
+        } catch (error) {
+            console.error('[sendPlayerMove] Error sending message:', error);
+        }
     }
     
     public setPlayerInfo(player1: PlayerInfo, player2: PlayerInfo): void {
@@ -213,7 +545,7 @@ export class UnifiedGameRenderer {
             
             // Connect to WebSocket
             const currentUser = getCurrentUser();
-            const username = currentUser?.username || 'Usuario';
+            const username = currentUser?.username || getTranslation('auth', 'defaultUser');
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${serverHost}:8002/pong/${gameId}?username=${encodeURIComponent(username)}`;
             this.websocket = new WebSocket(wsUrl);
@@ -226,12 +558,28 @@ export class UnifiedGameRenderer {
             this.websocket.onmessage = (event) => {
                 try {
                     const message = JSON.parse(event.data);
-                    // On gameJoined/gameCreated, record playerId
+                    console.log('[WebSocket] Message received:', message); // Debug log
+                    
+                    // On gameJoined, update both playerId and playerNumber from server
                     if (message.type === 'gameJoined' && message.data) {
-                        this.playerId = message.data.playerId;
+                        if (message.data.playerId) {
+                            this.playerId = message.data.playerId;
+                            console.log('[WebSocket] PlayerId assigned:', this.playerId);
+                        }
+                        if (message.data.playerNumber) {
+                            this.playerNumber = message.data.playerNumber;
+                            console.log('[WebSocket] PlayerNumber assigned:', this.playerNumber);
+                        }
                     }
                     if (message.type === 'gameCreated' && message.data) {
-                        this.playerId = message.data.playerId;
+                        if (message.data.playerId) {
+                            this.playerId = message.data.playerId;
+                            console.log('[WebSocket] PlayerId assigned (created):', this.playerId);
+                        }
+                        if (message.data.playerNumber) {
+                            this.playerNumber = message.data.playerNumber;
+                            console.log('[WebSocket] PlayerNumber assigned (created):', this.playerNumber);
+                        }
                     }
                     this.handleWebSocketMessage(message);
                 } catch (error) {
@@ -257,6 +605,17 @@ export class UnifiedGameRenderer {
         switch (type) {
             case 'gameState':
                 if (data.gameState) {
+                    // Actualizar nombres de jugadores si vienen del backend
+                    if (data.gameState.playerNames) {
+                        if (data.gameState.playerNames.left && this.player1Info) {
+                            this.player1Info.displayName = data.gameState.playerNames.left;
+                            this.player1Info.username = data.gameState.playerNames.left;
+                        }
+                        if (data.gameState.playerNames.right && this.player2Info) {
+                            this.player2Info.displayName = data.gameState.playerNames.right;
+                            this.player2Info.username = data.gameState.playerNames.right;
+                        }
+                    }
                     this.updateGameState(data.gameState);
                 }
                 break;
@@ -298,8 +657,10 @@ export class UnifiedGameRenderer {
         // Start game loop based on mode
         if (this.gameMode === 'local' || this.gameMode === 'ai') {
             this.gameLoop();
+        } else if (this.gameMode === 'online') {
+            // For online mode, start paddle update loop (server handles ball physics)
+            this.paddleUpdateLoop();
         }
-        // For online mode, the server handles the game loop and sends us state updates
     }
     
     public pauseGame(): void {
@@ -308,11 +669,19 @@ export class UnifiedGameRenderer {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
         }
+        
+        // Limpiar todos los intervalos de movimiento al pausar
+        this.clearAllMovementIntervals();
+        
         this.callbacks.onStatusUpdate?.('⏸️ Juego pausado');
     }
     
     public resetGame(): void {
         this.pauseGame();
+        
+        // Limpiar todos los intervals de movimiento usando la función centralizada
+        this.clearAllMovementIntervals();
+        
         this.initializeGameState();
         this.gameStartTime = null;
         this.draw();
@@ -323,12 +692,30 @@ export class UnifiedGameRenderer {
     public updateGameState(newState: Partial<UnifiedGameState>): void {
         // Update game state (used for online mode)
         if (newState.ball) this.gameState.ball = newState.ball;
-        if (newState.paddles) this.gameState.paddles = newState.paddles;
+        if (newState.paddles) {
+            if (this.gameMode === 'online') {
+                // En modo online, actualizar solo ocasionalmente para sincronización
+                // Permitir control local la mayoría del tiempo
+                if (newState.paddles.left && this.playerNumber !== 1) {
+                    // Solo actualizar paleta izquierda si no la controlo yo
+                    this.gameState.paddles.left = newState.paddles.left;
+                }
+                if (newState.paddles.right && this.playerNumber !== 2) {
+                    // Solo actualizar paleta derecha si no la controlo yo
+                    this.gameState.paddles.right = newState.paddles.right;
+                }
+                console.log('[updateGameState] Selective update - my player:', this.playerNumber);
+            } else {
+                // Para modos local/AI, actualizar todas las paletas normalmente
+                this.gameState.paddles = newState.paddles;
+            }
+        }
         if (newState.score) {
             this.gameState.score = newState.score;
             this.callbacks.onScoreUpdate?.(this.gameState.score);
         }
         if (newState.gameRunning !== undefined) this.gameState.gameRunning = newState.gameRunning;
+        if (newState.rallieCount !== undefined) this.gameState.rallieCount = newState.rallieCount;
         
         this.draw();
         this.callbacks.onGameStateUpdate?.(this.gameState);
@@ -344,14 +731,188 @@ export class UnifiedGameRenderer {
         this.animationId = requestAnimationFrame(() => this.gameLoop());
     }
     
-    private updatePaddles(): void {
-        const speed = 6;
+    private paddleUpdateLoop(): void {
+        if (!this.gameState.gameRunning) {
+            return;
+        }
         
-        // Left paddle (Player 1)
-        if ((this.keys['w'] || this.keys['W']) && this.gameState.paddles.left.y > 0) {
+        // Para modo online con nuevo sistema de polling, solo necesitamos redibujar
+        // El movimiento se maneja en pollKeysAndMove()
+        // Solo redibujamos si no se está moviendo (evitar doble-dibujo)
+        if (!this.currentlyPressedKeys.has('up') && !this.currentlyPressedKeys.has('down')) {
+            this.draw();
+        }
+        
+        this.animationId = requestAnimationFrame(() => this.paddleUpdateLoop());
+    }
+    
+    private startPaddleMovement(key: string): void {
+        // Solo procesar teclas de movimiento
+        const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'];
+        if (!movementKeys.includes(key)) {
+            return;
+        }
+        
+        // Para modo online, no usar intervalos - el movimiento se maneja en paddleUpdateLoop
+        if (this.gameMode === 'online') {
+            console.log('[startPaddleMovement] Online mode - movement handled by paddleUpdateLoop');
+            return;
+        }
+        
+        // Si ya existe un intervalo para esta tecla, no crear otro
+        if (this.movementIntervals[key]) {
+            console.log('[startPaddleMovement] ⚠️ Interval already exists for key:', key);
+            return;
+        }
+        
+        // Movimiento inmediato al presionar
+        this.movePaddle(key);
+        
+        // Para modos local/AI, usar intervalo con mayor frecuencia
+        this.movementIntervals[key] = setInterval(() => {
+            // Verificar que la tecla sigue presionada antes de mover
+            if (this.keys[key]) {
+                this.movePaddle(key);
+                this.draw(); // Redibujar solo si se movió la paleta
+            } else {
+                // Si la tecla ya no está presionada, detener el movimiento
+                console.log('[startPaddleMovement] Key released during interval, stopping:', key);
+                this.stopPaddleMovement(key);
+            }
+        }, 8); // Aumentar frecuencia a ~120 FPS para movimiento más suave
+        
+        console.log('[startPaddleMovement] ✅ Started movement for key:', key);
+        console.log('[startPaddleMovement] Active intervals:', Object.keys(this.movementIntervals));
+    }
+    
+    private stopPaddleMovement(key: string): void {
+        // Detener movimiento continuo
+        if (this.movementIntervals[key]) {
+            clearInterval(this.movementIntervals[key]);
+            delete this.movementIntervals[key];
+            console.log('[stopPaddleMovement] ✅ Stopped movement for key:', key);
+        } else {
+            console.log('[stopPaddleMovement] ⚠️ No interval found for key:', key);
+        }
+        
+        // Debug: mostrar intervals activos
+        console.log('[stopPaddleMovement] Active intervals:', Object.keys(this.movementIntervals));
+    }
+    
+    private clearAllMovementIntervals(): void {
+        console.log('[clearAllMovementIntervals] Clearing all movement intervals and polling');
+        
+        // Limpiar intervalos tradicionales
+        Object.keys(this.movementIntervals).forEach(key => {
+            clearInterval(this.movementIntervals[key]);
+            delete this.movementIntervals[key];
+        });
+        
+        // Limpiar sistema de polling
+        if (this.keyPollingInterval) {
+            clearInterval(this.keyPollingInterval);
+            this.keyPollingInterval = undefined;
+        }
+        
+        // Limpiar sistema de comandos al servidor
+        if (this.serverCommandInterval) {
+            clearInterval(this.serverCommandInterval);
+            this.serverCommandInterval = undefined;
+        }
+        
+        // Limpiar sistema de verificación
+        if (this.systemCheckInterval) {
+            clearInterval(this.systemCheckInterval);
+            this.systemCheckInterval = undefined;
+        }
+        
+        // NO resetear el estado de las teclas para preservar información del estado anterior
+        // this.keys = {};  // <-- COMENTADO para preservar estado
+        
+        // Resetear solo el estado de movimiento de paddles para evitar movimiento residual
+        this.paddleMovementState = {
+            up: false,
+            down: false
+        };
+        
+        // Mantener currentlyPressedKeys para que el sistema pueda recuperar el estado
+        // this.currentlyPressedKeys.clear();  // <-- COMENTADO para preservar estado
+        
+        console.log('[clearAllMovementIntervals] All intervals cleared, key states preserved');
+    }
+    
+    private movePaddle(key: string): void {
+        const speed = 4; // Velocidad ajustada para movimiento más fluido
+        
+        if (this.gameMode === 'online') {
+            // Para modo online, usar playerNumber
+            if (!this.playerNumber) return;
+            
+            if (this.playerNumber === 1) {
+                // Jugador 1 controla paleta izquierda
+                if ((key === 'w' || key === 'W' || key === 'ArrowUp') && this.gameState.paddles.left.y > 0) {
+                    this.gameState.paddles.left.y -= speed;
+                    if (this.gameState.paddles.left.y < 0) this.gameState.paddles.left.y = 0;
+                }
+                if ((key === 's' || key === 'S' || key === 'ArrowDown') && 
+                    this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
+                    this.gameState.paddles.left.y += speed;
+                    if (this.gameState.paddles.left.y > this.canvas.height - this.gameState.paddles.left.height) {
+                        this.gameState.paddles.left.y = this.canvas.height - this.gameState.paddles.left.height;
+                    }
+                }
+            } else if (this.playerNumber === 2) {
+                // Jugador 2 controla paleta derecha
+                if ((key === 'w' || key === 'W' || key === 'ArrowUp') && this.gameState.paddles.right.y > 0) {
+                    this.gameState.paddles.right.y -= speed;
+                    if (this.gameState.paddles.right.y < 0) this.gameState.paddles.right.y = 0;
+                }
+                if ((key === 's' || key === 'S' || key === 'ArrowDown') && 
+                    this.gameState.paddles.right.y < this.canvas.height - this.gameState.paddles.right.height) {
+                    this.gameState.paddles.right.y += speed;
+                    if (this.gameState.paddles.right.y > this.canvas.height - this.gameState.paddles.right.height) {
+                        this.gameState.paddles.right.y = this.canvas.height - this.gameState.paddles.right.height;
+                    }
+                }
+            }
+        } else {
+            // Para modos local/AI
+            // Jugador 1 (izquierda)
+            if ((key === 'w' || key === 'W' || key === 'ArrowUp') && this.gameState.paddles.left.y > 0) {
+                this.gameState.paddles.left.y -= speed;
+            }
+            if ((key === 's' || key === 'S' || key === 'ArrowDown') && 
+                this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
+                this.gameState.paddles.left.y += speed;
+            }
+            
+            // Jugador 2 (derecha) solo en modo local
+            if (this.gameMode === 'local') {
+                if ((key === 'o' || key === 'O') && this.gameState.paddles.right.y > 0) {
+                    this.gameState.paddles.right.y -= speed;
+                }
+                if ((key === 'l' || key === 'L') && 
+                    this.gameState.paddles.right.y < this.canvas.height - this.gameState.paddles.right.height) {
+                    this.gameState.paddles.right.y += speed;
+                }
+            }
+        }
+    }
+    
+    private updateOnlinePaddles(): void {
+        // El movimiento ahora se maneja completamente en pollKeysAndMove()
+        // Esta función ya no es necesaria para el nuevo sistema de polling
+        // Solo se mantiene para compatibilidad
+    }
+    
+    private updatePaddles(): void {
+        const speed = 4; // Velocidad consistente con otras funciones
+        
+        // Left paddle (Player 1) - W/S or Arrow Up/Down
+        if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.left.y > 0) {
             this.gameState.paddles.left.y -= speed;
         }
-        if ((this.keys['s'] || this.keys['S']) && 
+        if ((this.keys['s'] || this.keys['S'] || this.keys['ArrowDown']) && 
             this.gameState.paddles.left.y < this.canvas.height - this.gameState.paddles.left.height) {
             this.gameState.paddles.left.y += speed;
         }
@@ -369,6 +930,19 @@ export class UnifiedGameRenderer {
         } else if (this.gameMode === 'ai') {
             // AI control
             this.updateAI();
+        }
+    }
+    
+    private updatePaddleImmediate(key: string, isKeyDown: boolean): void {
+        // For immediate response, we'll trigger an immediate render after movement
+        // This makes the paddle respond instantly to input while maintaining smooth frame-based movement
+        if (isKeyDown) {
+            if (this.gameMode === 'online') {
+                this.updateOnlinePaddles();
+            } else {
+                this.updatePaddles();
+            }
+            this.draw();
         }
     }
     
@@ -487,8 +1061,9 @@ export class UnifiedGameRenderer {
         this.ctx.stroke();
         this.ctx.setLineDash([]);
         
-        // Draw paddles
-        this.ctx.fillStyle = '#FFFFFF';
+        // Draw paddles with colors
+        // Left paddle (verde para jugador)
+        this.ctx.fillStyle = '#00ff00'; // Verde para jugador 1 siempre
         this.ctx.fillRect(
             this.gameState.paddles.left.x,
             this.gameState.paddles.left.y,
@@ -496,6 +1071,8 @@ export class UnifiedGameRenderer {
             this.gameState.paddles.left.height
         );
         
+        // Right paddle (rojo para oponente/IA/jugador 2)
+        this.ctx.fillStyle = '#ff0000'; // Rojo para oponente/IA/jugador 2 siempre
         this.ctx.fillRect(
             this.gameState.paddles.right.x,
             this.gameState.paddles.right.y,
@@ -533,7 +1110,7 @@ export class UnifiedGameRenderer {
         } else if (this.gameMode === 'ai') {
             this.ctx.fillText('Jugador: W/S - IA controlada automáticamente', this.canvas.width / 2, this.canvas.height / 2 + 40);
         } else if (this.gameMode === 'online') {
-            this.ctx.fillText('Conectando al juego online...', this.canvas.width / 2, this.canvas.height / 2 + 40);
+            this.ctx.fillText(getTranslation('unifiedGameRenderer', 'connectingToOnlineGame'), this.canvas.width / 2, this.canvas.height / 2 + 40);
         }
     }
     
@@ -591,16 +1168,16 @@ export class UnifiedGameRenderer {
     private drawScoresAndPlayerNames(): void {
         this.ctx.save();
 
-        // Player 1 Name and Score (Top Left)
+        // Player 1 Name and Score (Top Left) - Verde como su pala
         const player1Name = this.player1Info?.displayName || 'Jugador 1';
-        this.ctx.fillStyle = '#FFFF00'; // Yellow for Player 1
+        this.ctx.fillStyle = '#00ff00'; // Verde como la pala izquierda
         this.ctx.font = 'bold 24px Arial';
         this.ctx.textAlign = 'left';
         this.ctx.fillText(`${player1Name}: ${this.gameState.score.left}`, 20, 30);
 
-        // Player 2 Name and Score (Top Right)
-        const player2Name = this.player2Info?.displayName || 'Jugador 2';
-        this.ctx.fillStyle = '#00BFFF'; // Light blue for Player 2
+        // Player 2 Name and Score (Top Right) - Rojo como su pala
+        const player2Name = this.player2Info?.displayName || (this.gameMode === 'ai' ? 'IA' : 'Jugador 2');
+        this.ctx.fillStyle = '#ff0000'; // Rojo como la pala derecha
         this.ctx.textAlign = 'right';
         this.ctx.fillText(`${player2Name}: ${this.gameState.score.right}`, this.canvas.width - 20, 30);
 
@@ -693,12 +1270,20 @@ export class UnifiedGameRenderer {
             cancelAnimationFrame(this.animationId);
         }
         
+        // Limpiar todos los intervals de movimiento usando la función centralizada
+        this.clearAllMovementIntervals();
+        
         if (this.websocket) {
             this.websocket.close();
         }
         
-        // Remove event listeners
+        // Remove event listeners para ambos sistemas
         document.removeEventListener('keydown', this.handleKeyDown.bind(this));
         document.removeEventListener('keyup', this.handleKeyUp.bind(this));
+        document.removeEventListener('keydown', this.handleKeyDownPolling.bind(this));
+        document.removeEventListener('keyup', this.handleKeyUpPolling.bind(this));
+        window.removeEventListener('blur', this.handleWindowBlur.bind(this));
+        window.removeEventListener('focus', this.handleWindowFocus.bind(this));
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
     }
 }

@@ -15,52 +15,6 @@
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              'primary-bg': '#000814',
-              'secondary-bg': '#001d3d', 
-              'tertiary-bg': '#003566',
-              'accent': '#ffc300',
-              'accent-light': '#ffd60a',
-              'text-primary': '#ffd60a',
-              'text-secondary': '#003566'
-            },
-            fontFamily: {
-              'inter': ['Inter', 'system-ui', 'sans-serif'],
-              'display': ['Montserrat', 'Inter', 'system-ui', 'sans-serif']
-            },
-            animation: {
-              'spin-slow': 'spin 1s linear infinite',
-              'fade-in': 'fadeIn 0.5s ease-in-out',
-              'slide-up': 'slideUp 0.3s ease-out'
-            },
-            keyframes: {
-              fadeIn: {
-                '0%': { opacity: '0', transform: 'translateY(10px)' },
-                '100%': { opacity: '1', transform: 'translateY(0)' }
-              },
-              slideUp: {
-                '0%': { opacity: '0', transform: 'translateY(20px)' },
-                '100%': { opacity: '1', transform: 'translateY(0)' }
-              }
-            },
-            screens: {
-              'xs': '320px',
-              'sm': '640px', 
-              'md': '768px',
-              'lg': '1024px',
-              'xl': '1280px',
-              '2xl': '1536px'
-            }
-          }
-        }
-      }
-    </script>
-    
     <style>
       /* Essential browser fixes that can't be done with Tailwind */
       html, body {
@@ -126,6 +80,7 @@
         height: -webkit-fill-available;
         /* Safari touch optimization */
         -webkit-user-select: none;
+        user-select: none;
         -webkit-touch-callout: none;
         -webkit-tap-highlight-color: transparent;
       }
@@ -181,6 +136,9 @@
   <body
     class="min-h-screen bg-gradient-to-br from-[#000814] via-[#001d3d] to-[#003566] font-inter text-gray-100 antialiased leading-relaxed"
   >
+    <!-- Navbar Container -->
+    <div id="navbar-container"></div>
+    
     <div id="app-root" class="flex flex-col min-h-screen relative z-10 w-full max-w-full overflow-x-hidden"></div>
     
     <!-- Loading indicator for better UX -->

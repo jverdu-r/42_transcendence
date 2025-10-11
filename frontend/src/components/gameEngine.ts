@@ -1,4 +1,5 @@
 import { PlayerInfo } from './playerDisplay';
+import { getTranslation } from '../i18n';
 
 export interface GameState {
     ball: { x: number, y: number, vx: number, vy: number, radius: number };
@@ -98,7 +99,7 @@ export class GameEngine {
             this.gameState.gameStartTime = new Date();
         }
         this.gameState.gameRunning = true;
-        this.onStatusUpdate?.('🎮 ¡Juego iniciado! Usa las teclas asignadas para mover');
+        this.onStatusUpdate?.(getTranslation('gameEngine', 'gameStarted'));
         this.gameLoop();
     }
 
@@ -108,7 +109,7 @@ export class GameEngine {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
         }
-        this.onStatusUpdate?.('⏸️ Juego pausado');
+        this.onStatusUpdate?.(getTranslation('gameEngine', 'gamePaused'));
     }
 
     public resetGame(): void {
@@ -118,7 +119,7 @@ export class GameEngine {
         this.resetBall();
         this.onScoreUpdate?.(this.gameState.score);
         this.draw();
-        this.onStatusUpdate?.('🔄 Presiona \'Iniciar Juego\' para comenzar');
+        this.onStatusUpdate?.(getTranslation('gameEngine', 'pressStartGame'));
     }
 
     public updateGameState(newState: Partial<GameState>): void {
@@ -223,8 +224,8 @@ export class GameEngine {
             }
             
             const winner = this.gameState.score.left > this.gameState.score.right ? 
-                (this.player1Info?.displayName || 'Jugador 1') : 
-                (this.player2Info?.displayName || 'Jugador 2');
+                (this.player1Info?.displayName || getTranslation('gameEngine', 'player1')) : 
+                (this.player2Info?.displayName || getTranslation('gameEngine', 'player2'));
             
             this.onGameEnd?.(winner, this.gameState.score);
         }

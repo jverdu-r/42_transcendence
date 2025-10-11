@@ -3,7 +3,6 @@
  */
 import type { IBall, IPaddle, IGameDimensions, IScore, IGameConfig, IPlayer, GameStatus, PlayerNumber } from '../interfaces/index.js';
 import { GAME_STATUS } from '../constants/index.js';
-import { v4 as uuidv4 } from 'uuid';
 
 export interface UnifiedGameState {
     ball: {
@@ -31,7 +30,7 @@ export class UnifiedGame {
     private players: IPlayer[] = [];
     private status: GameStatus = GAME_STATUS.WAITING;
     private gameState: UnifiedGameState;
-    private gameLoop?: NodeJS.Timeout;
+    private gameLoop?: any;
     private mode: 'pvp' | 'pve' = 'pvp';
     private aiDifficulty: 'easy' | 'medium' | 'hard' = 'medium';
 
@@ -39,32 +38,36 @@ export class UnifiedGame {
         this.id = ''; // ID will be set externally by GameManager
         this.name = name;
         
+        this.initializeGameState();
+    }
+
+    private initializeGameState(): void {
         this.gameState = {
             ball: {
                 x: 400,
                 y: 300,
-                vx: 4,
-                vy: 2,
-                radius: 8
+                vx: 4, // Velocidad inicial igual al frontend
+                vy: 2, // Velocidad inicial igual al frontend
+                radius: 8 // Radio igual al frontend
             },
             paddles: {
                 left: {
                     x: 30,
                     y: 250,
-                    width: 15,
+                    width: 15, // Palas más delgadas como el frontend
                     height: 100
                 },
                 right: {
-                    x: 755,
+                    x: 755, // Posición exacta del frontend
                     y: 250,
-                    width: 15,
+                    width: 15, // Palas más delgadas como el frontend
                     height: 100
                 }
             },
             score: { left: 0, right: 0 },
             gameRunning: false,
-            canvas: { width: dimensions.width, height: dimensions.height },
-            maxScore: config.maxScore,
+            canvas: { width: 800, height: 600 }, // Dimensiones exactas del frontend
+            maxScore: 5, // Puntos para ganar igual al frontend
             rallieCount: 0,
             lastUpdate: Date.now()
         };
@@ -164,15 +167,14 @@ export class UnifiedGame {
         if (!this.gameState.gameRunning) return;
 
         const now = Date.now();
-        const deltaTime = now - this.gameState.lastUpdate;
         this.gameState.lastUpdate = now;
 
-        // Update AI if in PvE mode
+        // Update AI if in PvE mode - MISMO ALGORITMO DEL FRONTEND
         if (this.mode === 'pve') {
             this.updateAI();
         }
 
-        // Update ball position
+        // Update ball position - FÍSICA IDÉNTICA AL FRONTEND
         this.updateBall();
 
         // Check for game end
@@ -180,39 +182,44 @@ export class UnifiedGame {
     }
 
     private updateBall(): void {
-        // Update ball position
+        // Actualizar posición de la pelota - FÍSICA IDÉNTICA AL FRONTEND
         this.gameState.ball.x += this.gameState.ball.vx;
         this.gameState.ball.y += this.gameState.ball.vy;
-
-        // Bounce off top and bottom walls
-        if (this.gameState.ball.y <= this.gameState.ball.radius || 
-            this.gameState.ball.y >= this.gameState.canvas.height - this.gameState.ball.radius) {
-            this.gameState.ball.vy *= -1;
+        
+        // Rebotes en paredes superior e inferior - EXACTO COMO EL FRONTEND
+        if (this.gameState.ball.y <= this.gameState.ball.radius) {
+            this.gameState.ball.y = this.gameState.ball.radius;
+            this.gameState.ball.vy = Math.abs(this.gameState.ball.vy); // Asegurar rebote hacia abajo
+        } else if (this.gameState.ball.y >= this.gameState.canvas.height - this.gameState.ball.radius) {
+            this.gameState.ball.y = this.gameState.canvas.height - this.gameState.ball.radius;
+            this.gameState.ball.vy = -Math.abs(this.gameState.ball.vy); // Asegurar rebote hacia arriba
         }
 
-        // Paddle collisions
+        // Paddle collisions - ALGORITMO MEJORADO DEL FRONTEND
         const leftPaddle = this.gameState.paddles.left;
         const rightPaddle = this.gameState.paddles.right;
 
-        // Left paddle collision
-        if (this.gameState.ball.x - this.gameState.ball.radius <= leftPaddle.x + leftPaddle.width &&
-            this.gameState.ball.y >= leftPaddle.y &&
-            this.gameState.ball.y <= leftPaddle.y + leftPaddle.height &&
-            this.gameState.ball.vx < 0) {
-            this.gameState.ball.vx *= -1;
-            this.gameState.rallieCount++;
+        // Colisión con pala izquierda (mejorada)
+        if (this.gameState.ball.vx < 0 && // Solo si se mueve hacia la izquierda
+            this.gameState.ball.x - this.gameState.ball.radius <= leftPaddle.x + leftPaddle.width &&
+            this.gameState.ball.x - this.gameState.ball.radius >= leftPaddle.x &&
+            this.gameState.ball.y >= leftPaddle.y - this.gameState.ball.radius &&
+            this.gameState.ball.y <= leftPaddle.y + leftPaddle.height + this.gameState.ball.radius) {
+            
+            this.handlePaddleCollision(leftPaddle, 'left');
         }
 
-        // Right paddle collision
-        if (this.gameState.ball.x + this.gameState.ball.radius >= rightPaddle.x &&
-            this.gameState.ball.y >= rightPaddle.y &&
-            this.gameState.ball.y <= rightPaddle.y + rightPaddle.height &&
-            this.gameState.ball.vx > 0) {
-            this.gameState.ball.vx *= -1;
-            this.gameState.rallieCount++;
+        // Colisión con pala derecha (mejorada)
+        if (this.gameState.ball.vx > 0 && // Solo si se mueve hacia la derecha
+            this.gameState.ball.x + this.gameState.ball.radius >= rightPaddle.x &&
+            this.gameState.ball.x + this.gameState.ball.radius <= rightPaddle.x + rightPaddle.width &&
+            this.gameState.ball.y >= rightPaddle.y - this.gameState.ball.radius &&
+            this.gameState.ball.y <= rightPaddle.y + rightPaddle.height + this.gameState.ball.radius) {
+            
+            this.handlePaddleCollision(rightPaddle, 'right');
         }
 
-        // Scoring
+        // Scoring - MISMO SISTEMA DEL FRONTEND
         if (this.gameState.ball.x < 0) {
             this.gameState.score.right++;
             this.resetBall();
@@ -222,33 +229,67 @@ export class UnifiedGame {
         }
     }
 
+    private handlePaddleCollision(paddle: any, side: 'left' | 'right'): void {
+        // ALGORITMO DE COLISIÓN IDÉNTICO AL FRONTEND
+        // 1. PUNTO DE CONTACTO RELATIVO (0-1)
+        const contactPoint = (this.gameState.ball.y - paddle.y) / paddle.height;
+        const normalizedContact = Math.max(0, Math.min(1, contactPoint));
+        
+        // 2. ÁNGULO DE REBOTE DINÁMICO
+        const maxAngle = Math.PI / 3; // 60° máximo
+        const angle = (normalizedContact - 0.5) * maxAngle;
+        
+        // 3. ACELERACIÓN PROGRESIVA
+        const currentSpeed = Math.sqrt(this.gameState.ball.vx * this.gameState.ball.vx + 
+                                     this.gameState.ball.vy * this.gameState.ball.vy);
+        const newSpeed = Math.min(currentSpeed * 1.05, 12); // Velocidad máxima 12
+        
+        // 4. DIRECCIÓN BASADA EN QUÉ PALA GOLPEÓ
+        const direction = side === 'left' ? 1 : -1;
+        
+        // 5. NUEVAS VELOCIDADES VECTORIALES
+        this.gameState.ball.vx = newSpeed * Math.cos(angle) * direction;
+        this.gameState.ball.vy = newSpeed * Math.sin(angle);
+        
+        // 6. POSICIONAMIENTO ANTI-CLIPPING
+        if (side === 'left') {
+            this.gameState.ball.x = paddle.x + paddle.width + this.gameState.ball.radius;
+        } else {
+            this.gameState.ball.x = paddle.x - this.gameState.ball.radius;
+        }
+        
+        // 7. INCREMENTAR CONTADOR DE RALLIES
+        this.gameState.rallieCount++;
+    }
+
     private updateAI(): void {
+        // ALGORITMO DE IA IDÉNTICO AL FRONTEND
         const aiPaddle = this.gameState.paddles.right;
         const ball = this.gameState.ball;
         const paddleCenter = aiPaddle.y + aiPaddle.height / 2;
         const ballCenter = ball.y;
         
-        // AI movement based on difficulty
-        let aiSpeed = 2;
-        let threshold = 50;
+        // AI movement based on difficulty - EXACTO COMO EL FRONTEND
+        let aiSpeed, threshold;
         
         switch (this.aiDifficulty) {
             case 'easy':
                 aiSpeed = 2;
-                threshold = 60;
+                threshold = 50; // Zona muerta amplia
                 break;
             case 'medium':
                 aiSpeed = 3;
-                threshold = 40;
+                threshold = 30; // Zona muerta media
                 break;
             case 'hard':
                 aiSpeed = 4;
-                threshold = 20;
+                threshold = 10; // Zona muerta pequeña
                 break;
         }
         
         const difference = ballCenter - paddleCenter;
         
+        // Solo mover si la diferencia es mayor al threshold
         if (Math.abs(difference) > threshold) {
             if (difference > 0 && aiPaddle.y < this.gameState.canvas.height - aiPaddle.height) {
                 aiPaddle.y += aiSpeed;
@@ -259,11 +300,12 @@ export class UnifiedGame {
     }
 
     private resetBall(): void {
-        this.gameState.ball.x = 400;
-        this.gameState.ball.y = 300;
-        this.gameState.ball.vx = Math.random() > 0.5 ? 4 : -4;
-        this.gameState.ball.vy = (Math.random() - 0.5) * 4;
-        this.gameState.rallieCount = 0;
+        // RESET IDÉNTICO AL FRONTEND
+        this.gameState.ball.x = this.gameState.canvas.width / 2;  // Centro X (400)
+        this.gameState.ball.y = this.gameState.canvas.height / 2; // Centro Y (300)
+        this.gameState.ball.vx = Math.random() > 0.5 ? 5 : -5;    // Velocidad inicial aleatoria
+        this.gameState.ball.vy = (Math.random() - 0.5) * 6;      // Ángulo vertical aleatorio
+        this.gameState.rallieCount = 0;                          // Reset contador de rallies
     }
 
     private checkGameEnd(): void {
@@ -274,28 +316,51 @@ export class UnifiedGame {
     }
 
     public handlePlayerInput(playerId: string, input: any): void {
-        if (!this.gameState.gameRunning) return;
+        if (!this.gameState.gameRunning) {
+            console.log(`⚠️ Game not running, ignoring input from ${playerId}`);
+            return;
+        }
 
         const player = this.players.find(p => p.id === playerId);
-        if (!player) return;
+        if (!player) {
+            console.log(`❌ Player not found: ${playerId}`);
+            return;
+        }
 
-        const { direction, type } = input;
-        const speed = 6;
+        const { direction, type, playerNumber } = input;
+        // Velocidad ajustada para comandos a 20 FPS (cada 50ms)
+        const speed = 5; // Aumentado de 3 a 5 para compensar menor frecuencia
 
-        if (type === 'move') {
-            const paddle = player.number === 1 ? this.gameState.paddles.left : this.gameState.paddles.right;
+        console.log(`🎮 handlePlayerInput: player ${player.name} (${player.number}) direction: ${direction}, playerNumber: ${playerNumber}`);
+
+        if (type === 'move' || !type) { // Compatibilidad con ambos protocolos
+            // Usar playerNumber si está disponible, sino usar player.number
+            const paddleNumber = playerNumber || player.number;
+            const paddle = paddleNumber === 1 ? this.gameState.paddles.left : this.gameState.paddles.right;
+            
+            console.log(`🏓 Moving paddle ${paddleNumber} (${paddleNumber === 1 ? 'left' : 'right'}) ${direction}`);
             
             switch (direction) {
                 case 'up':
                     if (paddle.y > 0) {
+                        const oldY = paddle.y;
                         paddle.y = Math.max(0, paddle.y - speed);
+                        console.log(`⬆️ Paddle ${paddleNumber} moved from ${oldY} to ${paddle.y}`);
+                    } else {
+                        console.log(`⬆️ Paddle ${paddleNumber} already at top`);
                     }
                     break;
                 case 'down':
                     if (paddle.y < this.gameState.canvas.height - paddle.height) {
+                        const oldY = paddle.y;
                         paddle.y = Math.min(this.gameState.canvas.height - paddle.height, paddle.y + speed);
+                        console.log(`⬇️ Paddle ${paddleNumber} moved from ${oldY} to ${paddle.y}`);
+                    } else {
+                        console.log(`⬇️ Paddle ${paddleNumber} already at bottom`);
                     }
                     break;
+                default:
+                    console.log(`❓ Unknown direction: ${direction}`);
             }
         }
     }

@@ -1,5 +1,8 @@
 // src/main.ts
 
+// Importar estilos de Tailwind CSS
+import './input.css';
+
 import { navigateTo } from './router';
 import { renderNavbar } from './components/navbar';
 import { getCurrentLanguage, setLanguage } from './i18n';

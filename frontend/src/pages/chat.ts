@@ -52,6 +52,6 @@ export function renderChatPage(): void {
     if (pageContent) {
         pageContent.innerHTML = chatHtml;
     } else {
-        console.error('Elemento con id "page-content" no encontrado para renderizar la página de chat.');
+        console.error(getTranslation('chat', 'chatPageError'));
     }
 }

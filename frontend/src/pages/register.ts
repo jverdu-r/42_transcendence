@@ -3,6 +3,12 @@
 import { navigateTo } from '../router';
 import { getTranslation, setLanguage, getCurrentLanguage } from '../i18n';
 
+// Email validation function
+function isValidEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
+
 export function renderRegister(): void {
     const registerHtml = `
         <div
@@ -50,8 +56,12 @@ export function renderRegister(): void {
                             type="text"
                             id="username"
                             name="username"
+                            autocomplete="username"
                             class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
                             placeholder=" "
+                            minlength="3"
+                            maxlength="20"
+                            title="El nombre de usuario debe tener entre 3 y 20 caracteres"
                             required
                         />
                         <label
@@ -66,8 +76,11 @@ export function renderRegister(): void {
                             type="email"
                             id="email"
                             name="email"
+                            autocomplete="email"
                             class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
                             placeholder=" "
+                            pattern="[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"
+                            title="Introduce un correo electrónico válido (ejemplo: usuario@dominio.com)"
                             required
                         />
                         <label
@@ -82,8 +95,11 @@ export function renderRegister(): void {
                             type="password"
                             id="password"
                             name="password"
+                            autocomplete="new-password"
                             class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
                             placeholder=" "
+                            minlength="6"
+                            title="La contraseña debe tener al menos 6 caracteres"
                             required
                         />
                         <label
@@ -98,8 +114,11 @@ export function renderRegister(): void {
                             type="password"
                             id="confirm-password"
                             name="confirm-password"
+                            autocomplete="new-password"
                             class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
                             placeholder=" "
+                            minlength="6"
+                            title="La contraseña debe tener al menos 6 caracteres"
                             required
                         />
                         <label
@@ -163,16 +182,36 @@ export function renderRegister(): void {
                 const passwordInput = document.getElementById('password') as HTMLInputElement;
                 const confirmPasswordInput = document.getElementById('confirm-password') as HTMLInputElement;
                 
-                const username = usernameInput?.value || '';
-                const email = emailInput?.value || '';
+                const username = usernameInput?.value?.trim() || '';
+                const email = emailInput?.value?.trim() || '';
                 const password = passwordInput?.value || '';
                 const confirmPassword = confirmPasswordInput?.value || '';
                 
+                // Validate empty fields
                 if (!username || !email || !password || !confirmPassword) {
                     alert(getTranslation('alerts', 'emptyFields'));
                     return;
                 }
                 
+                // Validate username length
+                if (username.length < 3) {
+                    alert(getTranslation('alerts', 'usernameTooShort'));
+                    return;
+                }
+                
+                // Validate email format
+                if (!isValidEmail(email)) {
+                    alert(getTranslation('alerts', 'invalidEmail'));
+                    return;
+                }
+                
+                // Validate password length
+                if (password.length < 6) {
+                    alert(getTranslation('alerts', 'passwordTooShort'));
+                    return;
+                }
+                
+                // Validate passwords match
                 if (password !== confirmPassword) {
                     alert(getTranslation('alerts', 'passError'));
                     return;
@@ -240,7 +279,7 @@ export function renderRegister(): void {
                 window.google.accounts.id.renderButton(googleDiv, {
                     theme: 'outline',
                     size: 'large',
-                    width: '100%'
+                    width: 400
                 });
             } else {
                 setTimeout(renderGoogleButton, 100);

@@ -2,19 +2,27 @@ import { UnifiedGameRenderer, GameMode } from '../components/UnifiedGameRenderer
 import { getCurrentUser, getSetting } from '../auth';
 import { navigateTo } from '../router';
 import { getTranslation } from '../i18n';
+import { setGameResults } from '../router';
+
+// AI game state
+let game: UnifiedGameRenderer | null = null;
+let startedAt: string | null = null;
+let player1Name = '';
+let player2Name = '';
+let rallieCount = 0;
 
 export function renderUnifiedGameAI(): void {
   const pageContent = document.getElementById('page-content');
 
   if (!pageContent) {
-    console.error('No se encontró el contenedor de contenido de la página para "/unified-game-ai".');
+    console.error(getTranslation('unifiedGameAI', 'containerNotFound'));
     return;
   }
 
-  // Obtener dificultad preferida del usuario
+  // Get user's preferred difficulty
   const defaultDifficulty = getSetting('game_difficulty') || 'normal'; // fallback
 
-  // Interfaz inicial para seleccionar la dificultad de la IA
+  // Initial interface to select AI difficulty
   pageContent.innerHTML = `
     <div class="w-full max-w-4xl mx-auto text-center">
       <div class="mb-8">
@@ -50,7 +58,7 @@ export function renderUnifiedGameAI(): void {
     </div>
   `;
 
-  // Event listeners para las tarjetas de dificultad
+  // Event listeners for difficulty cards
   document.getElementById('easy-card')?.addEventListener('click', () => startGameWithDifficulty('easy'));
   document.getElementById('medium-card')?.addEventListener('click', () => startGameWithDifficulty('medium'));
   document.getElementById('hard-card')?.addEventListener('click', () => startGameWithDifficulty('hard'));
@@ -65,16 +73,16 @@ function startGameWithDifficulty(difficulty: 'easy' | 'medium' | 'hard'): void {
   const pageContent = document.getElementById('page-content');
 
   if (!pageContent) {
-    console.error('No se encontró el contenedor de contenido de la página para iniciar el juego.');
+    console.error(getTranslation('unifiedGameAI', 'containerNotFoundGame'));
     return;
   }
 
-  // Configurar la interfaz de juego
+  // Set up the game interface
   pageContent.innerHTML = `
     <div class="w-full max-w-6xl mx-auto">
       <!-- Header del juego -->
       <div class="text-center mb-6">
-        <h1 class="text-3xl font-bold text-white mb-2">🤖 vs IA - ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}</h1>
+        <h1 class="text-3xl font-bold text-white mb-2">🤖 ${getTranslation('unifiedGameAI', 'vsAI')} - ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}</h1>
         <p class="text-gray-300">${getTranslation('game_AI', 'vs_ai')}</p>
       </div>
 
@@ -155,12 +163,12 @@ function setupAIGame(difficulty: 'easy' | 'medium' | 'hard'): void {
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
   const currentUser = getCurrentUser();
   if (!canvas || !currentUser) {
-    console.error('Canvas o usuario no disponibles');
+    console.error(getTranslation('unifiedGameAI', 'canvasOrUserNotAvailable'));
     return;
   }
   
   if (!canvas) {
-    console.error('No se encontró el canvas del juego');
+    console.error(getTranslation('unifiedGameAI', 'canvasNotFound'));
     return;
   }
 
@@ -176,24 +184,29 @@ function setupAIGame(difficulty: 'easy' | 'medium' | 'hard'): void {
       difficulty,
       startedAt
     })
-  }).catch(err => console.error('Error creando partida contra IA en DB:', err));
+  }).catch(err => console.error(getTranslation('unifiedGameAI', 'errorCreatingAIGame'), err));
 
   // Crear instancia del juego
-  const game = new UnifiedGameRenderer(canvas, 'ai');
+  game = new UnifiedGameRenderer(canvas, 'ai');
   
   // Configurar dificultad de la IA
   game.setAIDifficulty(difficulty);
   
+  // Store player names
+  player1Name = currentUser.username;
+  player2Name = `${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Bot`;
+  rallieCount = 0;
+  
   const player1Info = {
     numero: 1,
-    displayName: currentUser.username,
+    displayName: player1Name,
     username: currentUser.username,
     controls: 'W/S'
   };
 
   const player2Info = {
     numero: 2,
-    displayName: `${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Bot`,
+    displayName: player2Name,
     username: 'AI',
     controls: 'Automático'
   };
@@ -209,8 +222,7 @@ function setupAIGame(difficulty: 'easy' | 'medium' | 'hard'): void {
       if (rightScore) rightScore.textContent = score.right.toString();
     },
     onGameEnd: async (winner, finalScore) => {
-      console.log('Final score:', finalScore);
-      // Recuperar gameId
+      // ✅ 1. Upload scores to database first
       let dbGameId: number | null = null;
       try {
         const response = await fetch('/api/auth/games/id-by-started-at', {
@@ -221,9 +233,10 @@ function setupAIGame(difficulty: 'easy' | 'medium' | 'hard'): void {
         const data = await response.json();
         dbGameId = data.gameId;
       } catch (err) {
-        console.error('Error obteniendo gameId:', err);
+        console.error(getTranslation('unifiedGameAI', 'errorGettingGameId'), err);
       }
-      // Actualizar DB
+      
+      // ✅ 2. Update the game in the database
       if (dbGameId) {
         try {
           await fetch('/api/auth/games/finish/ai', {
@@ -237,32 +250,33 @@ function setupAIGame(difficulty: 'easy' | 'medium' | 'hard'): void {
             })
           });
         } catch (err) {
-          console.error('Error al finalizar partida contra IA en DB:', err);
+          console.error(getTranslation('unifiedGameAI', 'errorFinishingAIGame'), err);
         }
       }
-      // Mostrar mensaje
-      const statusMsg = document.getElementById('status-message');
-      if (statusMsg) {
-        const isPlayerWinner = winner === currentUser.username;
-        statusMsg.innerHTML = `
-          <div class="${isPlayerWinner ? 'text-green-400' : 'text-red-400'} font-bold">
-            ${isPlayerWinner ? '🎉' : '😢'} ${winner} ${getTranslation('game_AI', 'has_won')}!
-          </div>
-          <div class="text-sm text-gray-400 mt-1">${getTranslation('game_AI', 'final_score')}: ${finalScore.left} - ${finalScore.right}</div>
-          <button onclick="location.reload()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mt-2 text-sm">
-            🔄 ${getTranslation('game_AI', 'play_again')}
-          </button>
-        `;
-      }
+      
+      // ✅ 3. Prepare results data and redirect to results page
+      const gameResults = {
+        winner,
+        loser: finalScore.left > finalScore.right ? player2Name : player1Name,
+        finalScore,
+        gameMode: 'ai' as const,
+        gameDuration: game?.getGameStartTime() ? Date.now() - game.getGameStartTime()!.getTime() : undefined,
+        rallieCount: rallieCount,
+        gameId: dbGameId
+      };
+
+      setGameResults(gameResults);
+      navigateTo('/results');
     },
     onStatusUpdate: (status) => {
       const statusMsg = document.getElementById('status-message');
       if (statusMsg) statusMsg.textContent = status;
     },
     onGameStateUpdate: (gameState) => {
+      rallieCount = gameState.rallieCount || 0;
       const rallyCounter = document.getElementById('rally-counter');
       if (rallyCounter) {
-        rallyCounter.textContent = `Rebotes: ${gameState.rallieCount || 0}`;
+        rallyCounter.textContent = `Rebotes: ${rallieCount}`;
       }
     }
   });
@@ -273,13 +287,13 @@ function setupAIGame(difficulty: 'easy' | 'medium' | 'hard'): void {
   // Setup back button
   const backButton = document.getElementById('back-button');
   backButton?.addEventListener('click', () => {
-    game.cleanup();
+    game?.cleanup();
     renderUnifiedGameAI(); // Volver al selector de dificultad
   });
   
   // Cleanup al salir de la página
   window.addEventListener('beforeunload', () => {
-    game.cleanup();
+    game?.cleanup();
   });
 }
 

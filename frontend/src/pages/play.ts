@@ -1,11 +1,12 @@
 import { navigateTo } from '../router';
 import { getCurrentUser } from '../auth';
+import { getTranslation } from '../i18n';
 
 export function renderPlay(): void {
   const content = document.getElementById('page-content');
 
   if (!content) {
-    console.error('No se encontró el contenedor para mostrar la página de juego.');
+    console.error(getTranslation('playPage', 'containerNotFound'));
     return;
   }
 
@@ -13,32 +14,31 @@ export function renderPlay(): void {
     <div class="w-full max-w-6xl mx-auto text-center">
       <div class="mb-8">
         <h1 class="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
-          🎮 Selecciona tu modo de juego
+          🎮 ${getTranslation('playPage', 'selectGameMode')}
         </h1>
         <p class="text-lg text-gray-300">
-          Elige cómo quieres jugar al clásico Pong con físicas mejoradas
+          ${getTranslation('playPage', 'chooseHowToPlay')}
         </p>
       </div>
 
-      <!-- Grid ajustado a 4 columnas para mejor distribución -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <!-- Grid adjusted to 4 columns for better distribution -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <!-- Juego Local -->
         <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-yellow-400" 
              id="local-game-card">
           <div class="text-6xl mb-4">🏠</div>
-          <h2 class="text-xl font-bold text-yellow-400 mb-2">Juego Local</h2>
+          <h2 class="text-xl font-bold text-yellow-400 mb-2">${getTranslation('playPage', 'localGame')}</h2>
           <p class="text-gray-300 mb-4 text-sm">
-            Juega contra un amigo en el mismo dispositivo. 
-            Perfecto para partidas rápidas cara a cara.
+            ${getTranslation('playPage', 'localGameDescription')}
           </p>
           <div class="text-xs text-gray-400 mb-4 space-y-1">
-            <div>👥 2 Jugadores</div>
-            <div>🎮 Mismo dispositivo</div>
-            <div>⚡ Partida instantánea</div>
-            <div>🕹️ W/S vs ↑/↓</div>
+            <div>👥 ${getTranslation('playPage', 'twoPlayers')}</div>
+            <div>🎮 ${getTranslation('playPage', 'sameDevice')}</div>
+            <div>⚡ ${getTranslation('playPage', 'instantMatch')}</div>
+            <div>🕹️ ${getTranslation('playPage', 'localControls')}</div>
           </div>
           <button class="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded transition-colors w-full">
-            Jugar Local
+            ${getTranslation('playPage', 'playLocal')}
           </button>
         </div>
 
@@ -46,19 +46,18 @@ export function renderPlay(): void {
         <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-green-400" 
              id="ai-game-card">
           <div class="text-6xl mb-4">🤖</div>
-          <h2 class="text-xl font-bold text-green-400 mb-2">vs IA</h2>
+          <h2 class="text-xl font-bold text-green-400 mb-2">${getTranslation('playPage', 'vsAI')}</h2>
           <p class="text-gray-300 mb-4 text-sm">
-            Enfréntate a la IA con físicas realistas del Pong original. 
-            Elige tu nivel de desafío.
+            ${getTranslation('playPage', 'aiGameDescription')}
           </p>
           <div class="text-xs text-gray-400 mb-4 space-y-1">
-            <div>🎯 3 Dificultades</div>
-            <div>🧠 IA adaptativa</div>
-            <div>⚡ Físicas mejoradas</div>
-            <div>📊 Entrena habilidades</div>
+            <div>🎯 ${getTranslation('playPage', 'threeDifficulties')}</div>
+            <div>🧠 ${getTranslation('playPage', 'adaptiveAI')}</div>
+            <div>⚡ ${getTranslation('playPage', 'improvedPhysics')}</div>
+            <div>📊 ${getTranslation('playPage', 'trainSkills')}</div>
           </div>
           <button class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-colors w-full">
-            Jugar vs IA
+            ${getTranslation('playPage', 'playVsAI')}
           </button>
         </div>
 
@@ -66,93 +65,41 @@ export function renderPlay(): void {
         <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-blue-400" 
              id="online-game-card">
           <div class="text-6xl mb-4">🌐</div>
-          <h2 class="text-xl font-bold text-blue-400 mb-2">Juego Online</h2>
+          <h2 class="text-xl font-bold text-blue-400 mb-2">${getTranslation('playPage', 'onlineGame')}</h2>
           <p class="text-gray-300 mb-4 text-sm">
-            Conéctate con jugadores de todo el mundo.
-            Crea o únete a partidas online multijugador.
+            ${getTranslation('playPage', 'onlineGameDescription')}
           </p>
           <div class="text-xs text-gray-400 mb-4 space-y-1">
-            <div>🌍 Multijugador global</div>
-            <div>🏆 Partidas competitivas</div>
-            <div>💬 Chat en tiempo real</div>
-            <div>⚡ Físicas sincronizadas</div>
+            <div>🌍 ${getTranslation('playPage', 'globalMultiplayer')}</div>
+            <div>🏆 ${getTranslation('playPage', 'competitiveMatches')}</div>
+            <div>💬 ${getTranslation('playPage', 'realTimeChat')}</div>
+            <div>⚡ ${getTranslation('playPage', 'synchronizedPhysics')}</div>
           </div>
           <button class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors w-full">
-            Jugar Online
-          </button>
-        </div>
-
-        <!-- Visor de Partidas -->
-        <div class="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-purple-400" 
-             id="observer-game-card">
-          <div class="text-6xl mb-4">👁️</div>
-          <h2 class="text-xl font-bold text-purple-400 mb-2">Modo Espectador</h2>
-          <p class="text-gray-300 mb-4 text-sm">
-            Partidas en vivo de otros jugadores.
-            Aprende estrategias de otros jugadores.
-          </p>
-          <div class="text-xs text-gray-400 mb-4 space-y-1">
-            <div>📺 Visualización en tiempo real</div>
-            <div>🍿 Modo espectador</div>
-            <div>📊 Estadísticas de partida</div>
-            <div>🎯 Aprende de otros</div>
-          </div>
-          <button class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition-colors w-full">
-            Ver Partidas
+            ${getTranslation('playPage', 'playOnline')}
           </button>
         </div>
       </div>
 
-      <!-- Sección de estadísticas rápidas -->
+      <!-- Quick statistics section -->
       <div class="bg-gray-800 rounded-lg p-6 mb-8">
-        <h3 class="text-2xl font-bold mb-4 text-purple-400">📊 Tus Estadísticas</h3>
+        <h3 class="text-2xl font-bold mb-4 text-purple-400">📊 ${getTranslation('playPage', 'yourStatistics')}</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="stats-container">
           <div class="text-center">
             <div class="text-2xl font-bold text-yellow-400" id="total-games">-</div>
-            <div class="text-sm text-gray-400">Partidas Totales</div>
+            <div class="text-sm text-gray-400">${getTranslation('playPage', 'totalMatches')}</div>
           </div>
           <div class="text-center">
             <div class="text-2xl font-bold text-green-400" id="total-wins">-</div>
-            <div class="text-sm text-gray-400">Victorias</div>
+            <div class="text-sm text-gray-400">${getTranslation('playPage', 'victories')}</div>
           </div>
           <div class="text-center">
             <div class="text-2xl font-bold text-blue-400" id="win-rate">-</div>
-            <div class="text-sm text-gray-400">% Victorias</div>
+            <div class="text-sm text-gray-400">${getTranslation('playPage', 'winPercentage')}</div>
           </div>
           <div class="text-center">
             <div class="text-2xl font-bold text-purple-400" id="best-streak">-</div>
-            <div class="text-sm text-gray-400">Mejor Racha</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Información sobre las mejoras -->
-      <div class="bg-gradient-to-r from-blue-900 to-purple-900 rounded-lg p-6">
-        <h3 class="text-xl font-bold mb-4 text-yellow-400">⚡ Físicas Mejoradas del Pong Original</h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
-          <div>
-            <h4 class="font-semibold text-green-400 mb-2">🎯 Rebotes Realistas</h4>
-            <ul class="text-sm text-gray-300 space-y-1">
-              <li>• Ángulo basado en punto de contacto</li>
-              <li>• Velocidad variable según posición</li>
-              <li>• Incremento progresivo de velocidad</li>
-            </ul>
-          </div>
-          <div>
-            <h4 class="font-semibold text-blue-400 mb-2">🚀 Mecánicas Clásicas</h4>
-            <ul class="text-sm text-gray-300 space-y-1">
-              <li>• Física de pelota fiel al original</li>
-              <li>• Rebotes en paredes superior/inferior</li>
-              <li>• Sistema de puntuación clásico</li>
-            </ul>
-          </div>
-          <div>
-            <h4 class="font-semibold text-yellow-400 mb-2">⏰ Nuevas Características</h4>
-            <ul class="text-sm text-gray-300 space-y-1">
-              <li>• Cuenta atrás antes de iniciar</li>
-              <li>• Partidas inmediatas sin botones</li>
-              <li>• Selector de dificultad para IA</li>
-            </ul>
+            <div class="text-sm text-gray-400">${getTranslation('playPage', 'bestStreak')}</div>
           </div>
         </div>
       </div>
@@ -174,69 +121,132 @@ export function renderPlay(): void {
   document.getElementById('online-game-card')?.addEventListener('click', () => {
     navigateTo('/unified-game-online');
   });
-
-  document.getElementById('observer-game-card')?.addEventListener('click', () => {
-    navigateTo('/spectator');
-  });
 }
 
 function loadGameStats(): void {
-  try {
-    // Load stats from localStorage
-    const savedStats = localStorage.getItem('pongGameStats');
-    if (!savedStats) {
-      // Show default values
+  // Show loading state
+  showStatsLoading();
+
+  // Get stats from database via API (same method as profile page)
+  getUserStats()
+    .then(stats => {
+      if (stats) {
+        updateStatsDisplay({
+          totalGames: stats.totalGames || 0,
+          totalWins: stats.wins || 0,
+          winRate: Math.round(stats.winRate || 0),
+          bestStreak: calculateBestStreak(stats.matchHistory || [])
+        });
+      } else {
+        // If no stats from API, show default values
+        updateStatsDisplay({
+          totalGames: 0,
+          totalWins: 0,
+          winRate: 0,
+          bestStreak: 0
+        });
+      }
+    })
+    .catch(error => {
+      console.error('Error loading game stats from database:', error);
+      // Show default values on error
       updateStatsDisplay({
         totalGames: 0,
         totalWins: 0,
         winRate: 0,
         bestStreak: 0
       });
-      return;
-    }
-
-    const allStats = JSON.parse(savedStats);
-    
-    // Calculate aggregated stats
-    const totalGames = allStats.length;
-    const totalWins = allStats.filter((game: any) => 
-      (game.player1Name === getCurrentUserName() && game.player1Score > game.player2Score) ||
-      (game.player2Name === getCurrentUserName() && game.player2Score > game.player1Score)
-    ).length;
-    
-    const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
-    
-    // Calculate best streak (simplified)
-    let bestStreak = 0;
-    let currentStreak = 0;
-    
-    for (const game of allStats) {
-      const userWon = (game.player1Name === getCurrentUserName() && game.player1Score > game.player2Score) ||
-                      (game.player2Name === getCurrentUserName() && game.player2Score > game.player1Score);
-      
-      if (userWon) {
-        currentStreak++;
-        bestStreak = Math.max(bestStreak, currentStreak);
-      } else {
-        currentStreak = 0;
-      }
-    }
-
-    updateStatsDisplay({
-      totalGames,
-      totalWins,
-      winRate,
-      bestStreak
     });
+}
+
+async function getUserStats(): Promise<{
+  totalGames: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  elo: number;
+  ranking: number;
+  matchHistory: Array<{
+    id: number;
+    result: 'win' | 'loss';
+    opponent: string;
+    score: string;
+    date: string;
+  }>;
+} | null> {
+  const token = localStorage.getItem('jwt');
+  if (!token) return null;
+
+  try {
+    const response = await fetch('/api/auth/profile/stats', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+function calculateBestStreak(matchHistory: Array<{ result: 'win' | 'loss' }>): number {
+  let bestStreak = 0;
+  let currentStreak = 0;
+  
+  // Calculate streaks from match history
+  for (const match of matchHistory) {
+    if (match.result === 'win') {
+      currentStreak++;
+      bestStreak = Math.max(bestStreak, currentStreak);
+    } else {
+      currentStreak = 0;
+    }
+  }
+  
+  return bestStreak;
+}
+
+async function fetchUserStats(): Promise<{
+  totalGames: number;
+  totalWins: number;
+  winRate: number;
+  bestStreak: number;
+}> {
+  try {
+    const currentUser = getCurrentUser();
+    if (!currentUser?.username) {
+      throw new Error('No authenticated user found');
+    }
+
+    // Make API call to get user statistics
+    const response = await fetch(`/api/users/${currentUser.username}/stats`, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Transform API response to expected format
+    return {
+      totalGames: data.totalGames || 0,
+      totalWins: data.totalWins || 0,
+      winRate: data.winRate || 0,
+      bestStreak: data.bestStreak || 0
+    };
 
   } catch (error) {
-    console.error('Error loading game stats:', error);
-    updateStatsDisplay({
-      totalGames: 0,
-      totalWins: 0,
-      winRate: 0,
-      bestStreak: 0
-    });
+    console.error('Error fetching user stats from API:', error);
+    throw error;
   }
 }
 
@@ -257,12 +267,24 @@ function updateStatsDisplay(stats: {
   if (bestStreakEl) bestStreakEl.textContent = stats.bestStreak.toString();
 }
 
+function showStatsLoading(): void {
+  const totalGamesEl = document.getElementById('total-games');
+  const totalWinsEl = document.getElementById('total-wins');
+  const winRateEl = document.getElementById('win-rate');
+  const bestStreakEl = document.getElementById('best-streak');
+
+  if (totalGamesEl) totalGamesEl.textContent = '...';
+  if (totalWinsEl) totalWinsEl.textContent = '...';
+  if (winRateEl) winRateEl.textContent = '...';
+  if (bestStreakEl) bestStreakEl.textContent = '...';
+}
+
 function getCurrentUserName(): string {
   // Use the getCurrentUser function from auth.ts
   try {
     const user = getCurrentUser();
-    return user?.username || 'Jugador';
+    return user?.username || getTranslation('playPage', 'player');
   } catch {
-    return 'Jugador';
+    return getTranslation('playPage', 'player');
   }
 }

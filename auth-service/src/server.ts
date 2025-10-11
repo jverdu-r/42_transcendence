@@ -1,3 +1,7 @@
+// ...existing code...
+// Endpoint para eliminar usuario de Redis al hacer logout/cerrar web
+// ...existing code...
+import process from 'process';
 import Fastify from 'fastify';
 import fs from 'fs';
 import path from 'path';
@@ -5,7 +9,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
-import { openDb, initializeDb } from './database';
+import { openDb } from './database';
 import multipart from '@fastify/multipart';
 import { pipeline } from 'stream';
 import util from 'util';
@@ -29,6 +33,19 @@ process.on('SIGHUP', () => {
 });
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
 const fastify = Fastify({ logger: true });
+// Endpoint para eliminar usuario de Redis al hacer logout/cerrar web
+fastify.post('/api/auth/logout-redis', async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const { user_id } = (request.body as any) || {};
+    if (!user_id) {
+      return reply.status(400).send({ error: 'user_id requerido' });
+    }
+    await redisClient.del(`user:${user_id}`);
+    return { success: true };
+  } catch (err) {
+    reply.status(500).send({ error: 'Error eliminando usuario de Redis', details: err });
+  }
+});
 
 fastify.register(multipart);
 
@@ -199,19 +216,40 @@ export async function generateRankingWithStats(db: any) {
   return userGameDetails;
 }
 
+// Email validation function
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
 // Endpoint para registrar un nuevo usuario
-fastify.post('/auth/register', async (request, reply) => {
+fastify.post('/auth/register', async (request: FastifyRequest, reply: FastifyReply) => {
   const { username, email, password } = request.body as any;
   
   if (!username || !email || !password) {
     return reply.code(400).send({ message: 'Faltan campos requeridos' });
   }
 
+  // Validate username length
+  if (username.trim().length < 3 || username.trim().length > 20) {
+    return reply.code(400).send({ message: 'El nombre de usuario debe tener entre 3 y 20 caracteres' });
+  }
+
+  // Validate email format
+  if (!isValidEmail(email.trim())) {
+    return reply.code(400).send({ message: 'Formato de correo electrónico inválido' });
+  }
+
+  // Validate password length
+  if (password.length < 6) {
+    return reply.code(400).send({ message: 'La contraseña debe tener al menos 6 caracteres' });
+  }
+
   try {
     const db = await openDb();
     
     // Verificar si el usuario ya existe
-    const existingUser = await db.get('SELECT * FROM users WHERE email = ? OR username = ?', [email, username]);
+    const existingUser = await db.get('SELECT * FROM users WHERE email = ? OR username = ?', [email.trim(), username.trim()]);
     if (existingUser) {
       await db.close();
       return reply.code(409).send({ message: 'Usuario o email ya existe' });
@@ -222,12 +260,12 @@ fastify.post('/auth/register', async (request, reply) => {
     // Insertar directamente en la base de datos
     await redisClient.rPush('sqlite_write_queue', JSON.stringify({
       sql: 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
-      params: [username, email, hash]
+      params: [username.trim(), email.trim(), hash]
     }));
     await redisClient.rPush('sqlite_write_queue', JSON.stringify({
       sql: `INSERT INTO user_profiles (user_id, avatar_url, language, notifications, doubleFactor, doubleFactorSecret, difficulty) 
             VALUES ((SELECT id FROM users WHERE username = ? AND email = ?), ?, ?, ?, ?, ?, ?)`,
-      params: [username, email, '', 'gl', 'true', 0, null, 'normal']
+      params: [username.trim(), email.trim(), '', 'gl', 'true', 0, null, 'normal']
     }));
     
     await db.close();
@@ -243,7 +281,7 @@ fastify.post('/auth/register', async (request, reply) => {
 });
 
 // Endpoint para iniciar sesión (login) y generar token JWT
-fastify.post('/auth/login', async (request, reply) => {
+fastify.post('/auth/login', async (request: FastifyRequest, reply: FastifyReply) => {
   const { email, password } = request.body as any;
   
   if (!email || !password) {
@@ -330,7 +368,7 @@ type GooglePayload = {
   picture?: string;
   [key: string]: any;
 };
-fastify.post('/auth/google', async (request, reply) => {
+fastify.post('/auth/google', async (request: FastifyRequest, reply: FastifyReply) => {
   const { token } = request.body as any;
   
   if (!token) {
@@ -417,7 +455,7 @@ fastify.post('/auth/google', async (request, reply) => {
 });
 
 // Endpoint para validar temp_token y código TOTP
-fastify.post('/auth/verify-2fa', async (request, reply) => {
+fastify.post('/auth/verify-2fa', async (request: FastifyRequest, reply: FastifyReply) => {
   const { temp_token, code } = request.body as any;
   if (!temp_token || !code) {
     return reply.code(400).send({ message: 'Token temporal y código requeridos' });
@@ -509,7 +547,7 @@ fastify.post('/auth/verify-2fa', async (request, reply) => {
 });
 
 // Endpoint: GET /auth/2fa/setup -> Devuelve un QR y un secreto temporal para configurar 2FA
-fastify.get('/auth/2fa/setup', { preHandler: verifyToken }, async (request, reply) => {
+fastify.get('/auth/2fa/setup', { preHandler: verifyToken }, async (request: FastifyRequest, reply: FastifyReply) => {
   const userId = (request as any).user.user_id;
 
   try {
@@ -552,7 +590,7 @@ fastify.get('/auth/2fa/setup', { preHandler: verifyToken }, async (request, repl
 });
 
 // Endpoint: POST /auth/2fa/confirm -> Confirma el código del autenticador y activa 2FA
-fastify.post('/auth/2fa/confirm', { preHandler: verifyToken }, async (request, reply) => {
+fastify.post('/auth/2fa/confirm', { preHandler: verifyToken }, async (request: FastifyRequest, reply: FastifyReply) => {
   const userId = (request as any).user.user_id;
   const { code } = request.body as any;
 
@@ -606,7 +644,7 @@ fastify.post('/auth/2fa/confirm', { preHandler: verifyToken }, async (request, r
 });
 
 // Endpoint: POST /auth/2fa/disable -> Desactiva 2FA tras verificar contraseña y código
-fastify.post('/auth/2fa/disable', { preHandler: verifyToken }, async (request, reply) => {
+fastify.post('/auth/2fa/disable', { preHandler: verifyToken }, async (request: FastifyRequest, reply: FastifyReply) => {
   const userId = (request as any).user.user_id;
   const { password, code } = request.body as any;
 
@@ -659,7 +697,7 @@ fastify.post('/auth/2fa/disable', { preHandler: verifyToken }, async (request, r
 });
 
 // Endpoint para cerrar sesión
-fastify.post('/auth/logout', { preHandler: verifyToken }, async (request, reply) => {
+fastify.post('/auth/logout', { preHandler: verifyToken }, async (request: FastifyRequest, reply: FastifyReply) => {
   const token = (request as any).token;
   const userId = (request as any).user.user_id;
 
@@ -679,8 +717,44 @@ fastify.post('/auth/logout', { preHandler: verifyToken }, async (request, reply)
   }
 });
 
+// Endpoint para verificar token (usado por otros servicios)
+fastify.post('/api/verify-token', async (request, reply) => {
+  const authHeader = request.headers['authorization'];
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  if (!token) {
+    return reply.code(401).send({ message: 'Token requerido' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      user_id: number;
+      username: string;
+      email: string;
+    };
+
+    const sessionId = `jwt:${token}`;
+    const isValid = await redisClient.get(sessionId);
+    if (!isValid) {
+      return reply.code(401).send({ message: 'Sesión cerrada o inválida' });
+    }
+
+    return reply.send({
+      user_id: decoded.user_id,
+      username: decoded.username,
+      email: decoded.email
+    });
+  } catch (err: any) {
+    if (err.name === 'TokenExpiredError') {
+      return reply.code(401).send({ message: 'Token expirado' });
+    } else {
+      return reply.code(403).send({ message: 'Token inválido' });
+    }
+  }
+});
+
 // Endpoint heartbeat para mantener sesión activa
-fastify.get('/auth/heartbeat', { preHandler: verifyToken }, async (request, reply) => {
+fastify.get('/auth/heartbeat', { preHandler: verifyToken }, async (request: FastifyRequest, reply: FastifyReply) => {
   const userId = (request as any).user.user_id;
   
   try {
@@ -694,10 +768,10 @@ fastify.get('/auth/heartbeat', { preHandler: verifyToken }, async (request, repl
 });
 
 // Endpoint para obtener usuarios conectados
-fastify.get('/auth/online-users', async (request, reply) => {
+fastify.get('/auth/online-users', async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const onlineUsers = await redisClient.sMembers('online_users');
-    return reply.send(onlineUsers.map(id => parseInt(id)));
+  return reply.send(onlineUsers.map((id: string) => parseInt(id)));
   } catch (err) {
     console.error('Error obteniendo usuarios online:', err);
     return reply.code(500).send({ message: 'Error interno' });
@@ -733,7 +807,7 @@ async function cleanInactiveSessions() {
 setInterval(cleanInactiveSessions, 600000);
 
 // Endpoint para subir y optimizar el avatar
-fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request, reply) => {
+fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request: FastifyRequest, reply: FastifyReply) => {
   const userId = (request as any).user.user_id;
   
   const mpRequest = request as FastifyRequest & {
@@ -822,7 +896,7 @@ fastify.post('/auth/profile/avatar', { preHandler: verifyToken }, async (request
 });
  
 // Endpoint para obtener estadísticas del usuario
-fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, reply) => {
+fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request: FastifyRequest, reply: FastifyReply) => {
   let db;
   try {
     db = await openDb();
@@ -874,7 +948,7 @@ fastify.get('/auth/profile/stats', { preHandler: verifyToken }, async (request, 
 });
 
 // Descarga de historial
-fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, async (request, reply) => {
+fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, async (request: FastifyRequest, reply: FastifyReply) => {
   const userId = (request as any).user.user_id;
 
   try {
@@ -923,7 +997,7 @@ fastify.get('/auth/profile/download-historial', { preHandler: verifyToken }, asy
 });
 
 // Endpoint para obtener el ranking global completo (top 100)
-fastify.get('/auth/ranking', async (request, reply) => {
+fastify.get('/auth/ranking', async (request: FastifyRequest, reply: FastifyReply) => {
   let db: any;
   try {
     db = await openDb();
@@ -958,7 +1032,7 @@ fastify.get('/auth/ranking', async (request, reply) => {
 });
 
 // Endpoint de home para partidos en juego ('in_progress')
-fastify.get('/auth/games/live', async (request, reply) => {
+fastify.get('/auth/games/live', async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const db = await openDb();
 
@@ -979,24 +1053,24 @@ fastify.get('/auth/games/live', async (request, reply) => {
       SELECT p.game_id, p.team_name, u.username
       FROM participants p
       LEFT JOIN users u ON u.id = p.user_id
-      WHERE p.game_id IN (${games.map(g => g.game_id).join(',')})
+  WHERE p.game_id IN (${games.map((g: { game_id: number }) => g.game_id).join(',')})
     `);
 
     // Obtener puntuaciones por game_id + team
     const scores = await db.all(`
       SELECT game_id, team_name, MAX(point_number) AS score
       FROM scores
-      WHERE game_id IN (${games.map(g => g.game_id).join(',')})
+  WHERE game_id IN (${games.map((g: { game_id: number }) => g.game_id).join(',')})
       GROUP BY game_id, team_name
     `);
 
     // Mapear resultados por partida
-    const liveMatches = games.map(game => {
-      const gameParticipants = participants.filter(p => p.game_id === game.game_id);
+    const liveMatches = games.map((game: any) => {
+      const gameParticipants = participants.filter((p: any) => p.game_id === game.game_id);
       const scoreMap = new Map();
       scores
-        .filter(s => s.game_id === game.game_id)
-        .forEach(s => scoreMap.set(s.team_name, s.score));
+        .filter((s: any) => s.game_id === game.game_id)
+        .forEach((s: any) => scoreMap.set(s.team_name, s.score));
       const [p1, p2] = gameParticipants;
       return {
         id: game.game_id,
@@ -1165,10 +1239,131 @@ fastify.get('/auth/settings/config', { preHandler: verifyToken }, async (request
   }
 });
 
+// Endpoint para crear partida online (llamado desde game-service)
+fastify.post('/api/games/create-online', async (request, reply) => {
+  const { player1_id, player2_id, winner_player, score1, score2, start_time, end_time } = request.body as any;
+  
+  if (!player1_id || !player2_id || winner_player === undefined || score1 === undefined || score2 === undefined) {
+    return reply.code(400).send({ message: 'Missing required fields' });
+  }
+
+  try {
+    const db = await openDb();
+    
+    // 1. Create game record
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'INSERT INTO games (status, started_at, finished_at) VALUES (?, ?, ?)',
+      params: ['finished', start_time, end_time]
+    }));
+
+    // Get the game ID (we'll use a timestamp-based approach since we can't get LAST_INSERT_ID easily)
+    const gameTimestamp = start_time;
+    
+    // 2. Create participants
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `INSERT INTO participants (game_id, user_id, is_winner, team_name) 
+            VALUES ((SELECT id FROM games WHERE started_at = ? AND status = 'finished' LIMIT 1), ?, ?, 'Team A')`,
+      params: [gameTimestamp, player1_id, winner_player === 1 ? 1 : 0]
+    }));
+
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `INSERT INTO participants (game_id, user_id, is_winner, team_name) 
+            VALUES ((SELECT id FROM games WHERE started_at = ? AND status = 'finished' LIMIT 1), ?, ?, 'Team B')`,
+      params: [gameTimestamp, player2_id, winner_player === 2 ? 1 : 0]
+    }));
+
+    // 3. Create scores
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `INSERT INTO scores (game_id, scorer_id, team_name, point_number) 
+            VALUES ((SELECT id FROM games WHERE started_at = ? AND status = 'finished' LIMIT 1), ?, 'Team A', ?)`,
+      params: [gameTimestamp, player1_id, score1]
+    }));
+
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: `INSERT INTO scores (game_id, scorer_id, team_name, point_number) 
+            VALUES ((SELECT id FROM games WHERE started_at = ? AND status = 'finished' LIMIT 1), ?, 'Team B', ?)`,
+      params: [gameTimestamp, player2_id, score2]
+    }));
+
+    await db.close();
+    
+    fastify.log.info(`Online game created for players ${player1_id} vs ${player2_id}`);
+    return reply.send({ message: 'Online game saved successfully' });
+    
+  } catch (error: any) {
+    fastify.log.error('Error creating online game:', error);
+    return reply.code(500).send({ message: 'Internal Server Error' });
+  }
+});
+
+// Endpoint para obtener user_id por username (usado por game-service)
+fastify.get('/api/games/user-id', async (request, reply) => {
+  const { username } = request.query as any;
+  
+  if (!username) {
+    return reply.code(400).send({ message: 'Username is required' });
+  }
+
+  try {
+    const db = await openDb();
+    const user = await db.get('SELECT id FROM users WHERE username = ?', [username]);
+    await db.close();
+
+    if (!user) {
+      return reply.code(404).send({ message: 'User not found' });
+    }
+
+    return reply.send({ userId: user.id });
+  } catch (error: any) {
+    fastify.log.error('Error getting user ID:', error);
+    return reply.code(500).send({ message: 'Internal Server Error' });
+  }
+});
+
+// Endpoint para finalizar juegos (llamado desde game-service)
+fastify.post('/api/games/finish', async (request, reply) => {
+  const { gameId, winnerTeam } = request.body as any;
+  
+  if (!gameId || !winnerTeam) {
+    return reply.code(400).send({ message: 'gameId y winnerTeam son requeridos' });
+  }
+
+  try {
+    const db = await openDb();
+    
+    // Actualizar el juego como finalizado
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'UPDATE games SET status = ?, finished_at = CURRENT_TIMESTAMP WHERE id = ?',
+      params: ['finished', gameId]
+    }));
+
+    // Marcar al ganador
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'UPDATE participants SET is_winner = 1 WHERE game_id = ? AND team_name = ?',
+      params: [gameId, winnerTeam]
+    }));
+
+    // Marcar al perdedor
+    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      sql: 'UPDATE participants SET is_winner = 0 WHERE game_id = ? AND team_name != ?',
+      params: [gameId, winnerTeam]
+    }));
+
+    await db.close();
+    
+    fastify.log.info(`Game ${gameId} finished, winner: ${winnerTeam}`);
+    return reply.send({ message: 'Game finished successfully' });
+    
+  } catch (error: any) {
+    fastify.log.error('Error finishing game:', error);
+    return reply.code(500).send({ message: 'Internal Server Error' });
+  }
+});
+
 // Inicializar base de datos y Redis
-Promise.all([initializeDb(), connectRedis()])
+connectRedis()
   .then(() => {
-    fastify.listen({ port: 8000, host: '0.0.0.0' }, (err, address) => {
+  fastify.listen({ port: 8000, host: '0.0.0.0' }, (err: Error | null, address: string) => {
       if (err) {
         fastify.log.error(err);
         process.exit(1);
