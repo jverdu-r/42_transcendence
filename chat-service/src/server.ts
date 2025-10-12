@@ -4,8 +4,7 @@
 import Fastify from 'fastify';
 import fastifyWebsocket from '@fastify/websocket';
 import fastifyCors from '@fastify/cors';
-import Database from 'sqlite3';
-import { open } from 'sqlite';
+import Database from 'better-sqlite3';
 import path from 'path';
 
 const fastify = Fastify({
@@ -34,13 +33,10 @@ async function connectDatabase() {
     try {
         console.log('🔌 Conectando a SQLite en:', DB_PATH);
         
-        db = await open({
-            filename: DB_PATH,
-            driver: Database.Database
-        });
+        db = new Database(DB_PATH);
 
         // Crear tabla si no existe
-        await db.exec(`
+        db.exec(`
             CREATE TABLE IF NOT EXISTS chat_messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 sender_id INTEGER NOT NULL,
@@ -75,6 +71,18 @@ async function saveMessage(senderId: number, message: string): Promise<number> {
     }
 }
 
+// Obtener username de la base de datos
+function getUsername(userId: number): string {
+    try {
+        const stmt = db.prepare(`SELECT username FROM users WHERE id = ?`);
+        const user = stmt.get(userId) as any;
+        return user?.username || `Usuario${userId}`;
+    } catch (error) {
+        console.error('❌ Error obteniendo username:', error);
+        return `Usuario${userId}`;
+    }
+}
+
 // Obtener mensajes recientes
 async function getRecentMessages(limit: number = 50): Promise<any[]> {
     try {
@@ -90,7 +98,7 @@ async function getRecentMessages(limit: number = 50): Promise<any[]> {
         const recentMessages = rows.reverse().map(row => ({
             id: row.id,
             userId: row.sender_id,
-            username: `Usuario${row.sender_id}`,
+            username: getUsername(row.sender_id),
             content: row.message,
             timestamp: row.sent_at
         }));
@@ -125,22 +133,27 @@ fastify.get('/stats', async (request, reply) => {
 
 // WebSocket para chat
 fastify.register(async function (fastify) {
-    fastify.get('/ws', { websocket: true }, (socket, req) => {
-        console.log('🔌 Nueva conexión WebSocket');
+    fastify.get('/ws', { websocket: true }, (connection, req) => {
+        const socket = connection.socket;
+        console.log('🔌 Nueva conexión WebSocket desde:', req.headers['x-real-ip'] || req.socket.remoteAddress);
+        console.log('🔍 Headers:', JSON.stringify(req.headers, null, 2));
         
         let userId: number | null = null;
         let username: string | null = null;
 
         socket.on('message', async (message) => {
+            console.log('📬 Mensaje RAW recibido:', message.toString().substring(0, 100));
             try {
                 const data = JSON.parse(message.toString());
-                console.log('📨 Mensaje WebSocket recibido:', data);
+                console.log('📨 Mensaje WebSocket parseado:', data);
 
                 switch (data.type) {
                     case 'join_global':
-                        // Generar ID de usuario aleatorio
+                        // Obtener userId del mensaje
                         userId = data.data?.userId || Math.floor(Math.random() * 1000) + 1;
-                        username = data.data?.username || `Usuario${userId}`;
+                        
+                        // Obtener username real de la base de datos
+                        username = getUsername(userId);
                         
                         // Guardar conexión
                         connections.set(userId, { socket, username, connectedAt: new Date() });
@@ -149,7 +162,7 @@ fastify.register(async function (fastify) {
                         console.log(`👤 Usuario ${userId} (${username}) conectado`);
                         
                         // Enviar confirmación
-                        (socket as any).send(JSON.stringify({
+                        const joinResponse = {
                             type: 'join_global',
                             data: { 
                                 success: true, 
@@ -157,12 +170,14 @@ fastify.register(async function (fastify) {
                                 username,
                                 message: 'Conectado al chat global' 
                             }
-                        }));
+                        };
+                        console.log('📤 Enviando confirmación join_global:', joinResponse);
+                        socket.send(JSON.stringify(joinResponse));
 
                         // Enviar historial de mensajes
                         const recentMessages = await getRecentMessages(20);
                         if (recentMessages.length > 0) {
-                            (socket as any).send(JSON.stringify({
+                            socket.send(JSON.stringify({
                                 type: 'recent_messages',
                                 data: recentMessages
                             }));
@@ -181,7 +196,7 @@ fastify.register(async function (fastify) {
                             const content = data.data?.content;
                             
                             if (!content?.trim()) {
-                                (socket as any).send(JSON.stringify({
+                                socket.send(JSON.stringify({
                                     type: 'error',
                                     data: { message: 'El mensaje no puede estar vacío' }
                                 }));
@@ -205,7 +220,7 @@ fastify.register(async function (fastify) {
                             
                             console.log(`✅ Mensaje ${messageId} enviado a ${connections.size} usuarios`);
                         } else {
-                            (socket as any).send(JSON.stringify({
+                            socket.send(JSON.stringify({
                                 type: 'error',
                                 data: { message: 'Debes unirte primero al chat' }
                             }));
@@ -217,7 +232,12 @@ fastify.register(async function (fastify) {
             }
         });
 
-        socket.on('close', () => {
+        socket.on('error', (error) => {
+            console.error('❌ Error en WebSocket:', error);
+        });
+
+        socket.on('close', (code, reason) => {
+            console.log(`🔌 WebSocket cerrado. Code: ${code}, Reason: ${reason || 'none'}, UserId: ${userId || 'unknown'}`);
             if (userId) {
                 connections.delete(userId);
                 onlineUsers.delete(userId);

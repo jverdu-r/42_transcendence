@@ -1,5 +1,4 @@
-import Database from 'sqlite3';
-import { open } from 'sqlite';
+import Database from 'better-sqlite3';
 import path from 'path';
 
 // Ruta a la base de datos compartida
@@ -26,13 +25,10 @@ class ChatDatabase {
         try {
             console.log('🔌 Conectando a SQLite en:', DB_PATH);
             
-            this.db = await open({
-                filename: DB_PATH,
-                driver: Database.Database
-            });
+            this.db = new Database(DB_PATH);
 
             // Verificar que la tabla existe
-            await this.createTables();
+            this.createTables();
             console.log('✅ Conectado a la base de datos SQLite');
         } catch (error) {
             console.error('❌ Error conectando a la base de datos:', error);
@@ -40,9 +36,9 @@ class ChatDatabase {
         }
     }
 
-    private async createTables(): Promise<void> {
+    private createTables(): void {
         // Crear tabla de mensajes si no existe
-        await this.db.exec(`
+        this.db.exec(`
             CREATE TABLE IF NOT EXISTS chat_messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 sender_id INTEGER NOT NULL,

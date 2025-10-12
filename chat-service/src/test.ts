@@ -4,8 +4,7 @@
 import Fastify from 'fastify';
 import fastifyWebsocket from '@fastify/websocket';
 import fastifyCors from '@fastify/cors';
-import Database from 'sqlite3';
-import { open } from 'sqlite';
+import Database from 'better-sqlite3';
 import path from 'path';
 
 const fastify = Fastify({
@@ -34,13 +33,10 @@ async function connectDatabase() {
     try {
         console.log('🔌 Conectando a SQLite en:', DB_PATH);
         
-        db = await open({
-            filename: DB_PATH,
-            driver: Database.Database
-        });
+        db = new Database(DB_PATH);
 
         // Crear tabla si no existe
-        await db.exec(`
+        db.exec(`
             CREATE TABLE IF NOT EXISTS chat_messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 sender_id INTEGER NOT NULL,
