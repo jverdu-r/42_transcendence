@@ -220,8 +220,7 @@ export function renderTournamentsPage() {
                                     const tournamentId = btn.getAttribute('data-start-id');
                                     try {
                                         const res = await fetch(`http://localhost:8005/tournaments/${tournamentId}/start`, {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' }
+                                            method: 'POST'
                                         });
                                         if (!res.ok) throw new Error(await res.text());
                                         showTournamentsList();

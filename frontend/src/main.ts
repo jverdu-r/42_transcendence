@@ -20,8 +20,7 @@ function initializeApp(): void {
     
     const currentPath = window.location.pathname;
 
-    renderNavbar(currentPath); // 👈 esto es lo que faltaba
-    navigateTo(currentPath);
+  navigateTo(currentPath);
     
     console.log('✅ Transcendence inicializado correctamente');
 }

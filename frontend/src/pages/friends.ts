@@ -114,21 +114,12 @@ export async function renderFriendsPage(): Promise<void> {
                     ${friends.length > 0 ? friends.map(friend => `
                         <div class="flex items-center justify-between p-3 bg-[#001d3d] rounded-xl border border-[#003566] mb-2">
                             <div class="flex items-center gap-3">
-                                <div class="w-3 h-3 rounded-full ${friend.isOnline ? 'bg-green-400' : 'bg-gray-400'}"></div>
+                                <div class="w-3 h-3 rounded-full ${friend.isOnline ? 'bg-green-400' : 'bg-red-500'}"></div>
                                 <div>
                                     <div class="font-bold text-gray-100">${friend.username}</div>
                                     <div class="text-sm text-gray-300">ELO: ${friend.elo}</div>
                                 </div>
                             </div>
-                            <button class="text-xs font-semibold py-1 px-3 rounded-xl transition-all duration-200 
-                                    ${friend.isOnline 
-                                        ? 'bg-[#ffc300] text-[#000814] hover:opacity-80 cursor-pointer' 
-                                        : 'bg-gray-600 text-gray-300 cursor-not-allowed opacity-60'}"
-                                ${friend.isOnline ? '' : 'disabled'}
-                                onclick="${friend.isOnline ? `handleChallenge(${friend.id}, '${friend.username}')` : ''}"
-                            >
-                                ${getTranslation('friends', 'challengeButton')}
-                            </button>
                             <button 
                                 class="text-xs bg-red-600 text-white font-semibold py-1 px-3 rounded-xl hover:opacity-80"
                                 onclick="handleDeleteFriend(${friend.id}, this.parentElement.parentElement)">

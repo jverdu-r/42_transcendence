@@ -165,14 +165,24 @@ export async function loginUser(token: string): Promise<void> {
   await applyUserSettings();
 }
 
-export function logout(): void {
-  const user = getCurrentUser();
-  if (user && user.id) {
-    fetch('/api/auth/logout-redis', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: user.id })
-    }).catch(() => {});
+export async function logout(): Promise<void> {
+  const token = localStorage.getItem('jwt');
+  if (token) {
+    console.log('[LOGOUT] Enviando petición a /auth/logout con JWT:', token);
+    try {
+      const res = await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const text = await res.text();
+      console.log('[LOGOUT] Respuesta backend:', res.status, text);
+    } catch (err) {
+      console.error('[LOGOUT] Error enviando petición:', err);
+    }
+  } else {
+    console.warn('[LOGOUT] No hay JWT en localStorage');
   }
   localStorage.removeItem('jwt');
   localStorage.removeItem('language');
@@ -185,11 +195,6 @@ export function logout(): void {
   
   console.log(getTranslation('auth', 'sessionClosed'));
   window.location.href = '/login';
-// Eliminar usuario de Redis al cerrar la web
-window.addEventListener('beforeunload', () => {
-  const user = getCurrentUser();
-  if (user && user.id) {
-    navigator.sendBeacon('/api/auth/logout-redis', JSON.stringify({ user_id: user.id }));
-  }
-});
 }
+
+

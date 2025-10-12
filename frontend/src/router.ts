@@ -24,6 +24,8 @@ import { renderGameResults, setResultsData } from './pages/gameResults';
 
 //tournaments
 import { renderTournamentsPage } from './pages/tournaments';
+import { renderTournamentsFinishedPage } from './pages/tournamentsFinished';
+import { renderTournamentsOngoingPage } from './pages/tournamentsOngoing';
 
 // Global variable to store game results for routing
 let pendingGameResults: any = null;
@@ -87,8 +89,10 @@ const routes: { [key: string]: () => void } = {
   // Game results page
   '/results': renderGameResultsWithData,
 
-  // Tournaments route
-  '/tournaments': renderTournamentsPage
+  // Tournaments routes
+  '/tournaments': renderTournamentsPage,
+  '/tournamentsFinished': renderTournamentsFinishedPage,
+  '/tournamentsOngoing': renderTournamentsOngoingPage
 };
 
 /**
@@ -153,45 +157,48 @@ export async function navigateTo(path: string): Promise<void> {
   }
 
   if (isAuthPage) {
-    // Si vamos a una página de autenticación, limpiamos todo el appRoot
-    // y dejamos que renderLoginPage/renderRegister sobrescriba appRoot.innerHTML
-    if (!wasAuthPage) { // Solo si venimos de una página que no era de autenticación
-        appRoot.innerHTML = ''; // Limpia la estructura principal (navbar + main)
+    // Si vamos a una página de autenticación, elimina explícitamente la navbar si existe
+    const navbar = document.getElementById('navbar-container');
+    if (navbar && navbar.parentElement) {
+      navbar.parentElement.removeChild(navbar);
     }
+    appRoot.innerHTML = '';
     const renderFunction = routes[routePath];
     if (renderFunction) {
       renderFunction(); // Llama a la función de renderizado de login/register
     } else {
-        console.warn(`Ruta no encontrada para página de autenticación: ${routePath}`);
+      console.warn(`Ruta no encontrada para página de autenticación: ${routePath}`);
     }
+    return;
+  }
+  // Si vamos a una página de la aplicación principal, nos aseguramos de que la estructura exista
+  if (wasAuthPage) { // Si venimos de una página de autenticación
+    setupMainAppLayout(); // Reestablece la estructura principal (navbar + main)
+  } else if (!document.getElementById('navbar-container') || !document.getElementById('page-content')) {
+    // Si no es una página de autenticación, pero la estructura no está (ej. primera carga de /home)
+    setupMainAppLayout();
+  }
+
+  const pageContentContainer = document.getElementById('page-content');
+  if (!pageContentContainer) {
+    console.error(getTranslation('router', 'pageContentNotFound'));
+    return;
+  }
+
+  // Limpia solo el contenido de la página para las rutas no de autenticación
+  pageContentContainer.innerHTML = '';
+
+  const renderFunction = routes[routePath]; // Usar routePath sin parámetros
+  if (renderFunction) {
+    renderFunction(); // Renderiza el contenido de la página dentro de #page-content
   } else {
-    // Si vamos a una página de la aplicación principal, nos aseguramos de que la estructura exista
-    if (wasAuthPage) { // Si venimos de una página de autenticación
-        setupMainAppLayout(); // Reestablece la estructura principal (navbar + main)
-    } else if (!document.getElementById('navbar-container') || !document.getElementById('page-content')) {
-        // Si no es una página de autenticación, pero la estructura no está (ej. primera carga de /home)
-        setupMainAppLayout();
-    }
+    // Manejar 404 o redirigir a una página predeterminada
+    pageContentContainer.innerHTML = '<h1>404 - Página No Encontrada</h1><p>Lo sentimos, la página que buscas no existe.</p>';
+    console.warn(`Ruta no encontrada para la ruta: ${routePath}`);
+  }
 
-    const pageContentContainer = document.getElementById('page-content');
-    if (!pageContentContainer) {
-      console.error(getTranslation('router', 'pageContentNotFound'));
-      return;
-    }
-
-    // Limpia solo el contenido de la página para las rutas no de autenticación
-    pageContentContainer.innerHTML = '';
-
-    const renderFunction = routes[routePath]; // Usar routePath sin parámetros
-    if (renderFunction) {
-      renderFunction(); // Renderiza el contenido de la página dentro de #page-content
-    } else {
-      // Manejar 404 o redirigir a una página predeterminada
-      pageContentContainer.innerHTML = '<h1>404 - Página No Encontrada</h1><p>Lo sentimos, la página que buscas no existe.</p>';
-      console.warn(`Ruta no encontrada para la ruta: ${routePath}`);
-    }
-
-    // Siempre vuelve a renderizar el navbar para actualizar el enlace activo en las páginas de la aplicación
+  // Solo renderizar el navbar en páginas de la app principal
+  if (routePath !== '/login' && routePath !== '/register') {
     renderNavbar(routePath);
   }
 

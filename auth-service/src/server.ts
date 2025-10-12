@@ -1,6 +1,3 @@
-// ...existing code...
-// Endpoint para eliminar usuario de Redis al hacer logout/cerrar web
-// ...existing code...
 import process from 'process';
 import Fastify from 'fastify';
 import fs from 'fs';
@@ -33,19 +30,6 @@ process.on('SIGHUP', () => {
 });
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
 const fastify = Fastify({ logger: true });
-// Endpoint para eliminar usuario de Redis al hacer logout/cerrar web
-fastify.post('/api/auth/logout-redis', async (request: FastifyRequest, reply: FastifyReply) => {
-  try {
-    const { user_id } = (request.body as any) || {};
-    if (!user_id) {
-      return reply.status(400).send({ error: 'user_id requerido' });
-    }
-    await redisClient.del(`user:${user_id}`);
-    return { success: true };
-  } catch (err) {
-    reply.status(500).send({ error: 'Error eliminando usuario de Redis', details: err });
-  }
-});
 
 fastify.register(multipart);
 
@@ -783,19 +767,23 @@ async function cleanInactiveSessions() {
   try {
     const onlineUsers = await redisClient.sMembers('online_users');
     const now = Date.now();
-    
+    const INACTIVITY_LIMIT = process.env.INACTIVITY_LIMIT_MS ? parseInt(process.env.INACTIVITY_LIMIT_MS) : 600000; // 10 min por defecto
     for (const userId of onlineUsers) {
       const lastSeen = await redisClient.get(`user:${userId}:last_seen`);
       const inactiveTime = now - parseInt(lastSeen || '0');
-      
-      // Eliminar si inactivo por más de 10 minutos
-      if (inactiveTime > 600000) {
+      if (inactiveTime > INACTIVITY_LIMIT) {
+        // Buscar y eliminar todos los JWT asociados a este userId
+        const jwtKeys = await redisClient.keys('jwt:*');
+        for (const key of jwtKeys) {
+          const value = await redisClient.get(key);
+          if (value === userId.toString()) {
+            await redisClient.del(key);
+          }
+        }
         await redisClient.sRem('online_users', userId);
         await redisClient.del(`user:${userId}:online`);
         await redisClient.del(`user:${userId}:last_seen`);
-
-        const db = await openDb();
-        await db.close();
+        console.log(`[LIMPIEZA] Usuario inactivo eliminado: ${userId}`);
       }
     }
   } catch (err) {
