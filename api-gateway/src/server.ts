@@ -72,7 +72,7 @@ const pump = promisify(pipeline);
     { env: 'AUTH_SERVICE_URL', prefix: '/api/auth', rewritePrefix: '/auth', fallback: 'http://auth-service:8000' },
     { env: 'GAME_SERVICE_URL', prefix: '/api/game', rewritePrefix: '/game', fallback: 'http://game-service:8000' },
     { env: 'GAME_SERVICE_URL', prefix: '/api/games', rewritePrefix: '/api/games', fallback: 'http://game-service:8000' },
-    { env: 'CHAT_SERVICE_URL', prefix: '/api/chat', rewritePrefix: '/chat', fallback: 'http://chat-service:8000' },
+    { env: 'CHAT_SERVICE_URL', prefix: '/api/chat', rewritePrefix: '', fallback: 'http://chat-service:8000' },
   ];
 
   for (const svc of serviceConfigs) {

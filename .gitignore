@@ -1,10 +1,250 @@
 # Local secrets (no versionar)
 secrets/secrets.txt
+PREPARACION_COMMIT.md
+.env.secrets
+.env.secrets.example
+#
+Esta guía te permitirá levantar el proyecto completo en una **máquina nueva** en menos de 5 minutos..env.secrets
 
-# Vault: ficheros generados en tiempo de build/run
+
+
+---# Vault: ficheros generados en tiempo de build/run
+
 vault/generated/
 
+## 📋 Pre-requisitos
+
 # Certificados autogenerados (mantenemos vault.conf si existe)
-vault/certs/*.crt
+
+Asegúrate de tener instalado:vault/certs/*.crt
+
 vault/certs/*.key
-vault/certs/vault-combined.crt
+
+- **Docker** (versión 20.10+)vault/certs/vault-combined.crt
+
+- **Docker Compose** (versión 2.0+)
+- **Make**
+- **jq** (para procesamiento de JSON)
+- **curl**
+- **openssl** (normalmente ya instalado)
+
+### Instalación de dependencias en Ubuntu/Debian:
+
+```bash
+sudo apt update
+sudo apt install -y docker.io docker-compose make jq curl openssl
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
+```
+
+⚠️ **Importante**: Después de añadirte al grupo docker, cierra sesión y vuelve a entrar.
+
+---
+
+## 🔧 Instalación Paso a Paso
+
+### 1. Clonar el repositorio
+
+```bash
+git clone <URL_DEL_REPO>
+cd 42_transcendence
+git checkout live_chat  # o la rama que corresponda
+```
+
+### 2. Configurar secretos
+
+**Este es el paso MÁS IMPORTANTE**. El proyecto necesita secretos de configuración:
+
+```bash
+# Copiar el archivo de ejemplo
+cp .env.secrets.example .env.secrets
+
+# Editar con tus valores reales
+nano .env.secrets  # o usa tu editor favorito
+```
+
+**Contenido mínimo requerido en `.env.secrets`:**
+
+```bash
+REDIS_PASSWORD=o-meu-contrasinal.42
+JWT_SECRET=$(openssl rand -base64 32)  # Genera uno aleatorio
+GRAFANA_USER=admin
+GRAFANA_PASSWORD=tu-password-aqui
+PROMETHEUS_USER=admin
+PROMETHEUS_PASSWORD=tu-password-aqui
+EMAIL_PASS=tu-email-password-si-usas-notificaciones
+```
+
+💡 **Tip**: Genera un JWT_SECRET seguro ejecutando:
+```bash
+openssl rand -base64 32
+```
+
+### 3. Construir y levantar todo
+
+```bash
+make all
+```
+
+Este único comando:
+- ✅ Genera certificados SSL automáticamente
+- ✅ Crea todos los directorios necesarios
+- ✅ Construye todas las imágenes Docker
+- ✅ Inicializa y configura Vault
+- ✅ Crea tokens de servicio
+- ✅ Levanta todos los contenedores
+
+⏱️ **Tiempo estimado**: 3-5 minutos la primera vez (dependiendo de tu conexión).
+
+---
+
+## 🔍 Verificación
+
+### Comprobar que todos los servicios están corriendo:
+
+```bash
+docker compose ps
+```
+
+Deberías ver **~20 contenedores** en estado `Up`.
+
+### Probar el login:
+
+```bash
+curl -k -X POST https://localhost/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"ardeiro@outlook.com","password":"Temp.2"}'
+```
+
+Si recibes un JSON con un `token`, ¡todo funciona! 🎉
+
+---
+
+## 🌐 Acceso a la aplicación
+
+- **Frontend**: https://localhost
+- **Vault UI**: https://localhost:8200/ui
+- **Grafana**: https://localhost:3000
+- **Prometheus**: https://localhost:9090
+
+### Usuarios de prueba disponibles:
+
+| Email | Password |
+|-------|----------|
+| ardeiro@outlook.com | Temp.2 |
+| ardeiro@gmail.com | Temp.1 |
+| manuel.ardeiro@gmail.com | Temp.3 |
+| jorge.verdu.ruiz@gmail.com | pass.11 |
+| david.aparicio247@hotmail.com | pass.22 |
+| manufern@student.42madrid.com | pass.33 |
+| diegorubiomorato@gmail.com | pass.44 |
+
+⚠️ **Nota sobre certificados**: Tu navegador mostrará una advertencia de certificado auto-firmado. Es normal en desarrollo. Haz clic en "Avanzado" → "Aceptar el riesgo y continuar".
+
+---
+
+## 🛠️ Comandos útiles
+
+```bash
+# Ver logs de todos los servicios
+docker compose logs -f
+
+# Ver logs de un servicio específico
+docker compose logs -f auth-service
+
+# Reiniciar un servicio
+docker compose restart nginx-proxy
+
+# Parar todo
+make down
+
+# Limpiar todo (incluyendo volúmenes)
+make fclean
+
+# Reconstruir desde cero
+make re
+```
+
+---
+
+## 🐛 Solución de problemas comunes
+
+### Error: "nginx returns 404"
+
+**Solución**: Reinicia nginx-proxy
+```bash
+docker compose restart nginx-proxy
+```
+
+### Error: "Vault sealed"
+
+**Solución**: Ejecuta el script de unseal
+```bash
+bash vault/scripts/unseal-vault.sh
+```
+
+### Error: "Connection refused" en auth-service
+
+**Solución**: Verifica que el password de Redis en Vault coincide con redis.conf
+```bash
+docker exec hashicorp_vault sh -c 'export VAULT_ADDR=https://localhost:8200 VAULT_SKIP_VERIFY=true VAULT_TOKEN=$(cat /vault/generated/root.token) && vault kv get secret/redis'
+```
+
+### Los contenedores no inician
+
+**Solución**: Verifica los logs y reconstruye
+```bash
+docker compose logs --tail=50
+make fclean
+make all
+```
+
+---
+
+## 📁 Archivos importantes
+
+- **`.env`**: Variables de entorno públicas (puede ir a Git)
+- **`.env.secrets`**: Secretos de configuración (NO subir a Git) ⚠️
+- **`vault/generated/`**: Tokens y claves de Vault (NO subir a Git) ⚠️
+- **`Makefile`**: Automatización de construcción y despliegue
+- **`docker-compose.yml`**: Definición de servicios
+
+---
+
+## 🔐 Seguridad
+
+**Archivos que NUNCA deben subirse a Git:**
+
+- `.env.secrets`
+- `vault/generated/*`
+- `secrets/secrets.txt` (usuarios personales)
+- `vault/certs/*.key` (claves privadas)
+
+Estos archivos ya están en `.gitignore` para protegerte.
+
+---
+
+## 📞 Soporte
+
+Si encuentras problemas:
+
+1. Revisa los logs: `docker compose logs -f`
+2. Verifica el estado: `docker compose ps`
+3. Consulta la documentación en `documents/`
+4. Ejecuta: `make fclean && make all` para empezar de cero
+
+---
+
+## ✅ Checklist de instalación
+
+- [ ] Docker y Docker Compose instalados
+- [ ] Usuario añadido al grupo `docker`
+- [ ] Repositorio clonado
+- [ ] `.env.secrets` creado y configurado
+- [ ] `make all` ejecutado sin errores
+- [ ] Todos los contenedores en estado `Up`
+- [ ] Login funciona con curl
+- [ ] Frontend accesible en https://localhost
+
+**¡Listo para desarrollar!** 🚀

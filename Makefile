@@ -95,6 +95,9 @@ up:
 show:
 	@./show_services.sh
 
+show:
+	@./show_services.sh
+
 down:
 	@$(COMPOSE) down
 
