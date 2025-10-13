@@ -2,4 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Importar temas */
+/* Kill-switch de conectores verticales en el modal de eliminatorias */
+#eliminatorias-content .border-l-2,
+#eliminatorias-content [class*="connector"],
+#eliminatorias-content [class*="connector"]::before,
+#eliminatorias-content [class*="connector"]::after {
+  border: 0 !important;
+  content: none !important;
+  display: none !important;
+}

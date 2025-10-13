@@ -246,7 +246,8 @@ const translations: Translations = {
             octavos: 'Octavos de final',
             cuartos: 'Cuartos de final',
             semifinales: 'Semifinales',
-            final: 'Final'
+            final: 'Final',
+            viewBracket: 'Ver'
         },
         settings: {
             title: "Configuración",
@@ -837,7 +838,8 @@ const translations: Translations = {
             octavos: 'Round of 16',
             cuartos: 'Quarterfinals',
             semifinales: 'Semifinals',
-            final: 'Final'
+            final: 'Final',
+            viewBracket: 'Open'
         },
         settings: {
             title: "Settings",
@@ -1396,7 +1398,8 @@ const translations: Translations = {
             octavos: 'Oitavos de final',
             cuartos: 'Cuartos de final',
             semifinales: 'Semifinais',
-            final: 'Final'
+            final: 'Final',
+            viewBracket: 'Ver'
         },
         settings: {
             title: "Configuración",
@@ -1967,8 +1970,34 @@ const translations: Translations = {
         },
         tournaments: {
             underConstruction: "建设中！",
-            comingSoon: "很快你就能在 Transcendence 中聊天了"
-        },
+            comingSoon: "即将可以参加锦标赛！！",
+            mainTitle: '锦标赛',
+            finishedTournamentsTitle: '已结束的锦标赛',
+            ongoingTournamentsTitle: '进行中的锦标赛',
+            createTournamentButton: '创建锦标赛',
+            tournamentNameLabel: '锦标赛名称',
+            numPlayersLabel: '玩家数量',
+            allowBotsLabel: '允许机器人',
+            botDifficultyLabel: '机器人难度',
+            noFinishedTournaments: '没有已结束的锦标赛。',
+            createdBy: '创建者',
+            viewButton: '查看',
+            eliminationBracketTitle: '淘汰赛表',
+            noOngoingTournaments: '没有进行中的锦标赛。',
+            joinButton: '加入锦标赛',
+            manageButton: '管理',
+            playersLabel: '玩家',
+            botsLabel: '机器人',
+            statusPending: '待定',
+            statusStarted: '进行中',
+            statusFinished: '已结束',
+            roundLabel: '回合',
+            octavos: '八强赛',
+            cuartos: '四强赛',
+            semifinales: '半决赛',
+            final: '决赛',
+            viewBracket: '查看'
+        },  
         settings: {
             title: "设置",
             subtitle: "自定义游戏体验并管理你的账户",
