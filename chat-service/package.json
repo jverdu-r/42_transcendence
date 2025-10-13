@@ -1,7 +1,7 @@
 {
   "name": "chat-service",
   "version": "1.0.0",
-  "description": "Microservicio para chat-service",
+  "description": "Microservicio para chat en tiempo real",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
@@ -9,14 +9,21 @@
     "dev": "ts-node-dev src/server.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["chat", "websocket", "realtime"],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "fastify": "^4.x.x"
+    "fastify": "^4.x.x",
+    "@fastify/websocket": "^8.x.x",
+    "@fastify/cors": "^8.x.x",
+    "uuid": "^9.x.x",
+    "ioredis": "^5.x.x",
+    "better-sqlite3": "^9.x.x"
   },
   "devDependencies": {
     "@types/node": "^20.x.x",
+    "@types/uuid": "^9.x.x",
+    "@types/better-sqlite3": "^7.x.x",
     "ts-node": "^10.x.x",
     "ts-node-dev": "^2.x.x",
     "typescript": "^5.x.x"

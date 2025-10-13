@@ -57,6 +57,8 @@ services:
     container_name: chat-service
     ports:
       - "8003:8000" # Mapea el puerto 8000 interno a 8003 en el host
+    volumes:
+      - db_data:/data/sqlite  # Acceso de lectura/escritura a la BD compartida
     environment:
       DB_SERVICE_URL: "http://db-service:8005"
       VAULT_ADDR: "https://vault:8200"
@@ -256,44 +258,95 @@ services:
     networks:
       - transcendence_net
 
-
-
-
-  # ========================================
-  # MONITORING STACK CORE - Minor Module
-  # ========================================
-
-  
-
-    
-
-  # ========================================
-  # MONITORING STACK CORE - Minor Module
-  # ========================================
-
+  # -----     Monitoring Services     ----- 
+  # Prometheus - Metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring_system/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring_system/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - transcendence_net
+    restart: unless-stopped
+  # Grafana - Metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring_system/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring_system/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - transcendence_net
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+  # Alertmanager - Alert management
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring_system/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://${MACHINE_IP}:9093'
+    networks:
+      - transcendence_net
+    restart: unless-stopped
+  # Node Exporter - System metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - transcendence_net
+    restart: unless-stopped
   # Redis Exporter - Redis metrics
   redis-exporter:
-    build:
-      context: ./monitoring_system/redis-exporter
+    image: oliver006/redis_exporter:latest
     container_name: redis-exporter
     ports:
       - "9121:9121"
     environment:
-      VAULT_ADDR: "https://vault:8200"
-      VAULT_SKIP_VERIFY: "true"
-      REDIS_ADDR: redis://redis:6379
-    volumes:
-      - ./monitoring_system/redis-exporter/agent.hcl:/vault/agent.hcl:ro
-      - ./monitoring_system/redis-exporter/secrets.env.tpl:/app/secrets.env.tpl:ro
-      - ./monitoring_system/redis-exporter/:/output
-      - ./vault/generated/redis-exporter.token:/vault/token.txt:ro
+      - REDIS_ADDR=redis://redis:6379
+      - REDIS_PASSWORD=o-meu-contrasinal.42
     networks:
       - transcendence_net
     depends_on:
       - redis
-      - vault
     restart: unless-stopped
-
   # cAdvisor - Container metrics
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
@@ -312,7 +365,6 @@ services:
     networks:
       - transcendence_net
     restart: unless-stopped
-
   # Nginx Exporter - Nginx metrics for WAF and proxy
   nginx-exporter:
     image: nginx/nginx-prometheus-exporter:latest
@@ -326,7 +378,6 @@ services:
     depends_on:
       - nginx-proxy
     restart: unless-stopped
-
   # Blackbox Exporter - HTTP/TCP/ICMP monitoring
   blackbox-exporter:
     image: prom/blackbox-exporter:latest
@@ -339,107 +390,6 @@ services:
       - transcendence_net
     depends_on:
       - nginx-proxy
-    restart: unless-stopped
-
-  # ========================================
-  # MONITORING STACK CORE - Minor Module
-  # ========================================
-
-  # Prometheus - Metrics collection and alerting
-  prometheus:
-    image: prom/prometheus:v2.48.0
-    container_name: prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring_system/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./monitoring_system/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
-      - '--web.enable-admin-api'
-      - '--web.external-url=http://${MACHINE_IP}:9090'
-    networks:
-      - transcendence_net
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Grafana - Metrics visualization
-  grafana:
-    image: grafana/grafana:10.2.0
-    container_name: grafana
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring_system/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./monitoring_system/grafana/dashboards:/var/lib/grafana/dashboards:ro
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=ChangeMePlease!
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://${MACHINE_IP}:3000
-      - GF_SECURITY_COOKIE_SECURE=false
-      - GF_ANALYTICS_REPORTING_ENABLED=false
-    networks:
-      - transcendence_net
-    depends_on:
-      - prometheus
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Alertmanager - Alert management and routing
-  alertmanager:
-    image: prom/alertmanager:v0.26.0
-    container_name: alertmanager
-    ports:
-      - "9093:9093"
-    volumes:
-      - ./monitoring_system/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-      - alertmanager_data:/alertmanager
-    command:
-      - '--config.file=/etc/alertmanager/alertmanager.yml'
-      - '--storage.path=/alertmanager'
-      - '--web.external-url=http://${MACHINE_IP}:9093'
-      - '--cluster.advertise-address=0.0.0.0:9093'
-    networks:
-      - transcendence_net
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9093/-/healthy"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Node Exporter - System metrics
-  node-exporter:
-    image: prom/node-exporter:v1.6.1
-    container_name: node-exporter
-    ports:
-      - "9100:9100"
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    networks:
-      - transcendence_net
     restart: unless-stopped
 
 volumes:
