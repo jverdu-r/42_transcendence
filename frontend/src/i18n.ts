@@ -247,7 +247,8 @@ const translations: Translations = {
             cuartos: 'Cuartos de final',
             semifinales: 'Semifinales',
             final: 'Final',
-            viewBracket: 'Ver'
+            viewBracket: 'Ver',
+            disponibles: 'Torneos disponibles'
         },
         settings: {
             title: "Configuración",

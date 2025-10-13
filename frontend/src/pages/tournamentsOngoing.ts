@@ -24,7 +24,7 @@ export function renderTournamentsOngoingPage() {
 
   pageContent.innerHTML = `
     <section class="bg-[#001d3d] rounded-xl shadow-lg p-8 w-full max-w-xl mx-auto">
-      <h2 class="text-3xl font-extrabold text-[#ffc300] mb-6">
+      <h2 class="text-3xl font-extrabold text-[#ffc300] justify-center mb-6">
         ${getTranslation('tournaments', 'ongoingTournamentsTitle') || 'Torneos en curso'}
       </h2>
       <div class="flex gap-4 justify-center mb-6">
@@ -47,7 +47,7 @@ async function loadStartedTournaments() {
     const tournaments = await res.json();
 
     if (!Array.isArray(tournaments) || tournaments.length === 0) {
-      container.innerHTML = `<p class="text-[#ffc300] opacity-80 text-center">${getTranslation('tournaments', 'noOngoing') || 'No hay torneos en curso'}</p>`;
+      container.innerHTML = `<p class="text-[#ffc300] opacity-80 text-center">${getTranslation('tournaments', 'noOngoingTournaments') || 'No hay torneos en curso'}</p>`;
       return;
     }
 

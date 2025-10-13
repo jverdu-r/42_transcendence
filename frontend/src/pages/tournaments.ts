@@ -132,7 +132,7 @@ export function renderTournamentsPage() {
                                 return null;
                             }).filter(Boolean);
                             content.innerHTML = `
-                                <h3 class="text-xl font-bold text-[#ffc300] mb-4">Torneos disponibles</h3>
+                                <h3 class="text-xl font-bold text-[#ffc300] justify-center mb-4">${getTranslation('tournaments', 'disponibles')}</h3>
                                 <ul class="space-y-4">
                                 ${tournaments.map((t: any, i:number) => {
                                     const participants = Array.isArray(allParticipantsArr[i]) ? allParticipantsArr[i] : [];

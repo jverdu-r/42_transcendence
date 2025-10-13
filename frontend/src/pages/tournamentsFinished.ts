@@ -9,7 +9,7 @@ export function renderTournamentsFinishedPage() {
 
   pageContent.innerHTML = `
     <section class="bg-[#001d3d] rounded-xl shadow-lg p-8 w-full max-w-3xl mx-auto">
-      <h2 class="text-3xl font-extrabold text-[#ffc300] mb-6">
+      <h2 class="text-3xl font-extrabold text-[#ffc300] justify-center mb-6">
         ${getTranslation('tournaments', 'finishedTournamentsTitle') || 'Campeonatos rematados'}
       </h2>
       <div class="flex gap-4 justify-center mb-6">
