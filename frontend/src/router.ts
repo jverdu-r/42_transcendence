@@ -141,18 +141,26 @@ export async function navigateTo(path: string): Promise<void> {
   // Verifica si el usuario está autenticado
   const userIsAuthenticated = isAuthenticated();
 
-  // Protección de rutas
-  if (isAuthPage && userIsAuthenticated) {
-    // Si el usuario está autenticado y trata de acceder a login/register, redirigir a home
-    console.log(getTranslation('router', 'redirectingToHome'));
-    navigateTo('/home');
+  // 🛡️ PROTECCIÓN DE RUTAS MEJORADA
+  // Lista de páginas públicas (solo login y register)
+  const publicPages = ['/login', '/register'];
+  const isPublicPage = publicPages.includes(routePath);
+
+  // Si NO es una página pública y NO está autenticado -> redirigir a login
+  if (!isPublicPage && !userIsAuthenticated) {
+    console.warn('⚠️ Acceso denegado: Usuario no autenticado. Redirigiendo a login...');
+    if (routePath !== '/login') { // Evitar bucle infinito
+      navigateTo('/login');
+    }
     return;
   }
 
-  if (!isAuthPage && !userIsAuthenticated) {
-    // Si el usuario no está autenticado y trata de acceder a páginas protegidas, redirigir a login
-    console.log(getTranslation('router', 'redirectingToLogin'));
-    navigateTo('/login');
+  // Si es una página pública (login/register) y SÍ está autenticado -> redirigir a home
+  if (isPublicPage && userIsAuthenticated) {
+    console.log('✅ Usuario ya autenticado. Redirigiendo a home...');
+    if (routePath !== '/home') { // Evitar bucle infinito
+      navigateTo('/home');
+    }
     return;
   }
 
@@ -212,14 +220,94 @@ function cleanupCurrentPage(): void {
   // Cleanup function - no specific cleanup needed now
 }
 
-// Event listeners for cleanup
-window.addEventListener('beforeunload', cleanupCurrentPage);
-window.addEventListener('popstate', (event) => {
-  cleanupCurrentPage();
-  navigateTo(window.location.pathname + window.location.search);
-});
+// 🛡️ Sistema de verificación continua de autenticación
+// Verifica cada 100ms si el usuario está en una página no autorizada
+let authCheckInterval: number | null = null;
 
-// Handle browser back/forward buttons
-window.addEventListener('popstate', () => {
-  navigateTo(window.location.pathname + window.location.search);
-});
+function startAuthGuard(): void {
+  // Si ya hay un intervalo corriendo, no crear otro
+  if (authCheckInterval !== null) {
+    return;
+  }
+  
+  authCheckInterval = window.setInterval(() => {
+    const currentPath = window.location.pathname;
+    const publicPages = ['/login', '/register'];
+    const isPublicPage = publicPages.includes(currentPath);
+    const userIsAuthenticated = isAuthenticated();
+    
+    // Si no está autenticado y no está en una página pública
+    if (!userIsAuthenticated && !isPublicPage) {
+      console.warn('🚨 GUARD: Usuario no autenticado detectado en página protegida. Redirigiendo...');
+      
+      // Detener el intervalo temporalmente para evitar múltiples redirecciones
+      if (authCheckInterval !== null) {
+        clearInterval(authCheckInterval);
+        authCheckInterval = null;
+      }
+      
+      // Limpiar la página inmediatamente
+      const appRoot = document.getElementById('app-root');
+      if (appRoot) {
+        appRoot.innerHTML = '<div class="flex items-center justify-center h-screen bg-gray-900"><div class="text-center"><div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-yellow-400 mx-auto mb-4"></div><p class="text-white text-xl">Acceso denegado. Redirigiendo...</p></div></div>';
+      }
+      
+      // Reemplazar la URL y navegar a login
+      window.history.replaceState(null, '', '/login');
+      setTimeout(() => {
+        navigateTo('/login');
+        // Reiniciar el guard después de navegar
+        startAuthGuard();
+      }, 100);
+    }
+    
+    // Si está autenticado e intenta acceder a login/register
+    if (userIsAuthenticated && isPublicPage) {
+      console.log('🔄 GUARD: Usuario autenticado en página pública. Redirigiendo a home...');
+      
+      if (authCheckInterval !== null) {
+        clearInterval(authCheckInterval);
+        authCheckInterval = null;
+      }
+      
+      window.history.replaceState(null, '', '/home');
+      setTimeout(() => {
+        navigateTo('/home');
+        startAuthGuard();
+      }, 100);
+    }
+  }, 100); // Verificar cada 100ms
+}
+
+// Iniciar el guard cuando se carga el script
+startAuthGuard();
+
+// 🛡️ Guard para navegación con botones del navegador (atrás/adelante)
+// Esto intercepta cuando el usuario usa los botones de navegación del navegador
+let popstateHandlerAttached = false;
+
+if (!popstateHandlerAttached) {
+  window.addEventListener('popstate', (event) => {
+    console.log('🔙 Navegación del navegador detectada');
+    
+    const targetPath = window.location.pathname + window.location.search;
+    const publicPages = ['/login', '/register'];
+    const isPublicPage = publicPages.includes(window.location.pathname);
+    const userIsAuthenticated = isAuthenticated();
+    
+    console.log(`Destino: ${targetPath}, Autenticado: ${userIsAuthenticated}, Pública: ${isPublicPage}`);
+    
+    // El guard continuo se encargará de redirigir si es necesario
+    // Aquí solo hacemos limpieza y navegación normal
+    cleanupCurrentPage();
+    
+    // Si pasa las verificaciones básicas, navegar
+    // El intervalo se encargará de bloquear si es necesario
+    navigateTo(targetPath);
+  });
+  
+  popstateHandlerAttached = true;
+}
+
+// Cleanup al cerrar la pestaña/ventana
+window.addEventListener('beforeunload', cleanupCurrentPage);

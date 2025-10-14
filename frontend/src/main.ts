@@ -7,6 +7,7 @@ import { navigateTo } from './router';
 import { renderNavbar } from './components/navbar';
 import { getCurrentLanguage, setLanguage } from './i18n';
 import { showNotification, checkRankingChange } from './utils/utils';
+import { isAuthenticated } from './auth';
 
 window.showNotification = showNotification;
 window.checkRankingChange = checkRankingChange;
@@ -16,11 +17,32 @@ function initializeApp(): void {
     console.log('🚀 Inicializando Transcendence...');
 
     const savedLang = localStorage.getItem('lang') || 'es';
-    setLanguage(savedLang)
+    setLanguage(savedLang);
     
     const currentPath = window.location.pathname;
+    
+    // 🛡️ Guard de autenticación global
+    // Lista de páginas públicas
+    const publicPages = ['/login', '/register'];
+    const isPublicPage = publicPages.includes(currentPath);
+    const userIsAuthenticated = isAuthenticated();
 
-  navigateTo(currentPath);
+    // Si no está autenticado y no es una página pública -> forzar login
+    if (!userIsAuthenticated && !isPublicPage) {
+        console.warn('⚠️ Usuario no autenticado detectado. Redirigiendo a login...');
+        navigateTo('/login');
+        return;
+    }
+
+    // Si está autenticado y está en página pública -> ir a home
+    if (userIsAuthenticated && isPublicPage) {
+        console.log('✅ Usuario autenticado en página pública. Redirigiendo a home...');
+        navigateTo('/home');
+        return;
+    }
+
+    // Navegar a la ruta actual (con verificación incluida en navigateTo)
+    navigateTo(currentPath);
     
     console.log('✅ Transcendence inicializado correctamente');
 }

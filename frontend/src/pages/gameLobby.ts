@@ -43,8 +43,43 @@ class GameLobby {
     }
 
     public async init(): Promise<void> {
+        // Check if we're reconnecting to an existing game
+        const savedGameId = sessionStorage.getItem('currentGameId');
+        const savedPlayerNumber = sessionStorage.getItem('playerNumber');
+        const isReconnecting = savedGameId && savedPlayerNumber;
+        
+        if (isReconnecting) {
+            // Try to reconnect
+            console.log(`🔄 Attempting to reconnect to game ${savedGameId} as player ${savedPlayerNumber}`);
+            this.state.gameId = savedGameId;
+            this.state.playerNumber = parseInt(savedPlayerNumber);
+            
+            // Show reconnection message
+            this.showReconnectionMessage();
+        }
+        
         this.render();
         await this.connectToGameService();
+    }
+    
+    private showReconnectionMessage(): void {
+        const notification = document.createElement('div');
+        notification.className = 'fixed top-4 right-4 bg-blue-500 text-white px-6 py-4 rounded-lg shadow-lg z-50 animate-pulse';
+        notification.innerHTML = `
+            <div class="flex items-center gap-3">
+                <div class="text-2xl">🔄</div>
+                <div>
+                    <div class="font-bold">Reconectando...</div>
+                    <div class="text-sm">Volviendo a tu partida</div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
     }
 
     private async connectToGameService(): Promise<void> {
@@ -130,7 +165,29 @@ class GameLobby {
                     this.state.gameId = data.gameId;
                     this.state.playerNumber = data.playerNumber;
                     this.state.playersConnected = data.playersConnected;
-                    this.updateUI();
+                    
+                    // Save to sessionStorage for reconnection
+                    sessionStorage.setItem('currentGameId', data.gameId);
+                    sessionStorage.setItem('playerNumber', data.playerNumber.toString());
+                    sessionStorage.setItem('inGame', 'true');
+                    
+                    // Store opponent name if provided
+                    if (data.opponentName) {
+                        this.state.opponentName = data.opponentName;
+                    }
+                    
+                    // If reconnecting and game already started, start the game immediately
+                    if (data.reconnected && data.gameStarted) {
+                        console.log('🎮 Reconnecting to game in progress...');
+                        this.state.gameStarted = true;
+                        
+                        // Delay to let UI update and then start game
+                        setTimeout(() => {
+                            this.startGame();
+                        }, 500);
+                    } else {
+                        this.updateUI();
+                    }
                     break;
 
                 case 'playerJoined':
@@ -141,6 +198,16 @@ class GameLobby {
                         // Synchronize player information
                         determinePlayerInfo();
                     }
+                    this.updateUI();
+                    break;
+
+                case 'playerReconnected':
+                    // Handle player reconnection
+                    if (data.playerNumber !== this.state.playerNumber) {
+                        this.state.opponentName = data.playerName;
+                        this.showNotification(`🔄 ${data.playerName} se ha reconectado`, 'info');
+                    }
+                    this.state.playersConnected = data.playersConnected;
                     this.updateUI();
                     break;
 
@@ -156,6 +223,32 @@ class GameLobby {
                 case 'gameStarted':
                     determinePlayerInfo(); // Ensure player names are set before starting
                     this.startGame();
+                    break;
+
+                case 'playerLeft':
+                    // Handle player leaving before game starts
+                    if (!this.state.gameStarted) {
+                        // Clean session storage
+                        sessionStorage.removeItem('currentGameId');
+                        sessionStorage.removeItem('playerNumber');
+                        sessionStorage.removeItem('inGame');
+                        
+                        alert(`${data.data?.playerName || 'Un jugador'} ha abandonado la partida`);
+                        navigateTo('/unified-game-online');
+                    }
+                    break;
+
+                case 'gameEnded':
+                    // Handle game end (including disconnections) if not yet transferred to renderer
+                    if (!this.state.gameStarted && data.data?.reason === 'opponent_disconnected') {
+                        // Clean session storage
+                        sessionStorage.removeItem('currentGameId');
+                        sessionStorage.removeItem('playerNumber');
+                        sessionStorage.removeItem('inGame');
+                        
+                        alert(`${data.data.message || 'El oponente ha abandonado'}`);
+                        navigateTo('/unified-game-online');
+                    }
                     break;
 
                 case 'error':
@@ -256,6 +349,11 @@ class GameLobby {
     }
 
     private handleGameEnd(winner: string): void {
+        // Clear session storage as game has ended
+        sessionStorage.removeItem('currentGameId');
+        sessionStorage.removeItem('playerNumber');
+        sessionStorage.removeItem('inGame');
+        
         // Prepare results data and redirect to results page
         const loser = winner === this.player1Name ? this.player2Name : this.player1Name;
         const gameDuration = this.gameStartTime ? Date.now() - this.gameStartTime.getTime() : undefined;
@@ -340,8 +438,32 @@ class GameLobby {
     private render(): void {
         this.updateUI();
     }
+    
+    private showNotification(message: string, type: 'info' | 'success' | 'error' = 'info'): void {
+        const notification = document.createElement('div');
+        const bgColors = {
+            info: 'bg-blue-500',
+            success: 'bg-green-500',
+            error: 'bg-red-500'
+        };
+        
+        notification.className = `fixed top-4 right-4 ${bgColors[type]} text-white px-6 py-3 rounded-lg shadow-lg z-50`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transition = 'opacity 0.3s';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
 
     public leaveLobby(): void {
+        // Clear session storage when intentionally leaving
+        sessionStorage.removeItem('currentGameId');
+        sessionStorage.removeItem('playerNumber');
+        sessionStorage.removeItem('inGame');
+        
         this.cleanup();
         navigateTo('/unified-game-online');
     }
