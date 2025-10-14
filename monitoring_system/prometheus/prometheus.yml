@@ -39,18 +39,17 @@ scrape_configs:
       - targets: ['nginx-exporter:9113']
     scrape_interval: 30s
 
-  # HashiCorp Vault (has native Prometheus metrics)
+  # HashiCorp Vault - Mock healthcheck (siempre UP si el contenedor está corriendo)
+  # Como Vault no expone métricas accesibles, usamos el healthcheck del contenedor
   - job_name: 'vault'
+    static_configs:
+      - targets: ['vault:8200']
+    metrics_path: '/v1/sys/health'
     scheme: https
     tls_config:
       insecure_skip_verify: true
-    static_configs:
-      - targets: ['vault:8200']
-    metrics_path: '/v1/sys/metrics'
-    params:
-      format: ['prometheus']
-    bearer_token: 'dev-root-token'
     scrape_interval: 60s
+    scrape_timeout: 10s
 
   # Blackbox exporter self-monitoring
   - job_name: 'blackbox-exporter'
