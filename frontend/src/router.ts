@@ -227,28 +227,53 @@ let popstateHandlerAttached = false;
 if (!popstateHandlerAttached) {
   window.addEventListener('popstate', (event) => {
     console.log('🔙 Navegación del navegador detectada');
-    cleanupCurrentPage();
     
     const targetPath = window.location.pathname + window.location.search;
-    const isPublicPage = targetPath === '/login' || targetPath === '/register';
+    const publicPages = ['/login', '/register'];
+    const isPublicPage = publicPages.includes(window.location.pathname);
     const userIsAuthenticated = isAuthenticated();
+    
+    console.log(`Destino: ${targetPath}, Autenticado: ${userIsAuthenticated}, Pública: ${isPublicPage}`);
     
     // 🛡️ Verificación de autenticación en navegación del navegador
     if (!userIsAuthenticated && !isPublicPage) {
-      console.warn('⚠️ Intento de acceso no autenticado vía navegación del navegador');
-      event.preventDefault();
-      navigateTo('/login');
+      console.warn('⚠️ Intento de acceso no autenticado vía navegación del navegador - BLOQUEADO');
+      
+      // Prevenir que se vea la página bloqueando con un redirect inmediato
+      // Usar replace para no añadir más entradas al historial
+      window.history.replaceState(null, '', '/login');
+      
+      // Limpiar el contenido inmediatamente
+      cleanupCurrentPage();
+      const appRoot = document.getElementById('app-root');
+      if (appRoot) {
+        appRoot.innerHTML = '<div class="flex items-center justify-center h-screen"><p class="text-white">Redirigiendo a login...</p></div>';
+      }
+      
+      // Navegar a login con un pequeño delay para asegurar que se procese
+      setTimeout(() => {
+        navigateTo('/login');
+      }, 0);
+      
       return;
     }
     
     if (userIsAuthenticated && isPublicPage) {
-      console.log('✅ Usuario autenticado intentando ir a página pública');
-      event.preventDefault();
-      navigateTo('/home');
+      console.log('✅ Usuario autenticado intentando ir a página pública - Redirigiendo a home');
+      
+      // Reemplazar la URL actual sin añadir al historial
+      window.history.replaceState(null, '', '/home');
+      
+      cleanupCurrentPage();
+      setTimeout(() => {
+        navigateTo('/home');
+      }, 0);
+      
       return;
     }
     
     // Si pasa las verificaciones, navegar normalmente
+    cleanupCurrentPage();
     navigateTo(targetPath);
   });
   
