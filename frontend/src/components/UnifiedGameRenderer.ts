@@ -860,7 +860,8 @@ export class UnifiedGameRenderer {
     }
     
     private movePaddle(key: string): void {
-        const speed = 4; // Velocidad ajustada para movimiento más fluido
+        // Velocidad unificada para ambas palas en TODOS los modos
+        const speed = 5; // Velocidad consistente para ambos jugadores
         
         if (this.gameMode === 'online') {
             // Para modo online, usar playerNumber
@@ -924,7 +925,8 @@ export class UnifiedGameRenderer {
     }
     
     private updatePaddles(): void {
-        const speed = 4; // Velocidad consistente con otras funciones
+        // Velocidad unificada para ambas palas en modo local
+        const speed = 5; // Velocidad consistente para ambos jugadores
         
         // Left paddle (Player 1) - W/S or Arrow Up/Down
         if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.left.y > 0) {
