@@ -141,18 +141,26 @@ export async function navigateTo(path: string): Promise<void> {
   // Verifica si el usuario está autenticado
   const userIsAuthenticated = isAuthenticated();
 
-  // Protección de rutas
-  if (isAuthPage && userIsAuthenticated) {
-    // Si el usuario está autenticado y trata de acceder a login/register, redirigir a home
-    console.log(getTranslation('router', 'redirectingToHome'));
-    navigateTo('/home');
+  // 🛡️ PROTECCIÓN DE RUTAS MEJORADA
+  // Lista de páginas públicas (solo login y register)
+  const publicPages = ['/login', '/register'];
+  const isPublicPage = publicPages.includes(routePath);
+
+  // Si NO es una página pública y NO está autenticado -> redirigir a login
+  if (!isPublicPage && !userIsAuthenticated) {
+    console.warn('⚠️ Acceso denegado: Usuario no autenticado. Redirigiendo a login...');
+    if (routePath !== '/login') { // Evitar bucle infinito
+      navigateTo('/login');
+    }
     return;
   }
 
-  if (!isAuthPage && !userIsAuthenticated) {
-    // Si el usuario no está autenticado y trata de acceder a páginas protegidas, redirigir a login
-    console.log(getTranslation('router', 'redirectingToLogin'));
-    navigateTo('/login');
+  // Si es una página pública (login/register) y SÍ está autenticado -> redirigir a home
+  if (isPublicPage && userIsAuthenticated) {
+    console.log('✅ Usuario ya autenticado. Redirigiendo a home...');
+    if (routePath !== '/home') { // Evitar bucle infinito
+      navigateTo('/home');
+    }
     return;
   }
 
