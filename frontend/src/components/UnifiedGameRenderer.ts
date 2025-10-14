@@ -347,7 +347,7 @@ export class UnifiedGameRenderer {
                 this.startPaddleMovement(e.key);
             } else {
                 // Si la tecla ya estaba presionada pero no hay intervalo, reiniciarlo
-                const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'];
+                const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown', 'o', 'O', 'l', 'L'];
                 if (movementKeys.includes(e.key) && !this.movementIntervals[e.key]) {
                     console.log('[handleKeyDown] Restarting lost movement for key:', e.key);
                     this.startPaddleMovement(e.key);
@@ -371,7 +371,7 @@ export class UnifiedGameRenderer {
             }
         } else {
             // SISTEMA ANTERIOR PARA LOCAL/AI
-            const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'];
+            const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown', 'o', 'O', 'l', 'L'];
             if (movementKeys.includes(e.key)) {
                 this.stopPaddleMovement(e.key);
                 console.log('[handleKeyUp] Stopped movement for key:', e.key);
@@ -765,8 +765,8 @@ export class UnifiedGameRenderer {
     }
     
     private startPaddleMovement(key: string): void {
-        // Solo procesar teclas de movimiento
-        const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'];
+        // Solo procesar teclas de movimiento - incluye ambos jugadores en modo local
+        const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown', 'o', 'O', 'l', 'L'];
         if (!movementKeys.includes(key)) {
             return;
         }
