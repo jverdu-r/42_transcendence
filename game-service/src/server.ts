@@ -622,9 +622,95 @@ function handlePlayerMove(clientId: string, gameId: string, data: any): void {
 
 function handleClientDisconnect(clientId: string, gameId: string): void {
   const game = activeGames.get(gameId);
-  if (!game) return;
+  if (!game) {
+    connections.delete(clientId);
+    return;
+  }
   
-  // Remove player from game
+  fastify.log.info(`🔌 Client ${clientId} disconnected from game ${gameId}`);
+  
+  // Find the disconnected player
+  const disconnectedPlayer = game.players.find((p: any) => p.id === clientId);
+  
+  // If the game was in progress (playing or countdown), award victory to remaining player
+  if ((game.status === 'playing' || game.status === 'countdown') && game.players.length === 2 && disconnectedPlayer) {
+    const remainingPlayer = game.players.find((p: any) => p.id !== clientId);
+    
+    if (remainingPlayer) {
+      fastify.log.info(`🏆 Awarding victory to ${remainingPlayer.nombre} due to opponent disconnect`);
+      
+      // Set final scores - winner gets max score
+      if (remainingPlayer.numero === 1) {
+        game.gameState.puntuacion.jugador1 = 5;
+        game.gameState.puntuacion.jugador2 = game.gameState.puntuacion.jugador2 || 0;
+      } else {
+        game.gameState.puntuacion.jugador2 = 5;
+        game.gameState.puntuacion.jugador1 = game.gameState.puntuacion.jugador1 || 0;
+      }
+      
+      game.status = 'finished';
+      
+      // Save game stats
+      saveGameStats(
+        gameId, 
+        game, 
+        remainingPlayer.numero, 
+        remainingPlayer.nombre, 
+        disconnectedPlayer.nombre
+      ).catch(err => {
+        fastify.log.error(`Error saving game stats after disconnect:`, err);
+      });
+      
+      // Notify the remaining player of victory
+      sendToClient(remainingPlayer.id, {
+        type: 'gameEnded',
+        data: {
+          winner: remainingPlayer.nombre,
+          loser: disconnectedPlayer.nombre,
+          reason: 'opponent_disconnected',
+          score: {
+            left: game.gameState.puntuacion.jugador1,
+            right: game.gameState.puntuacion.jugador2,
+            winner: remainingPlayer.numero === 1 ? game.gameState.puntuacion.jugador1 : game.gameState.puntuacion.jugador2,
+            loser: remainingPlayer.numero === 1 ? game.gameState.puntuacion.jugador2 : game.gameState.puntuacion.jugador1
+          },
+          message: `¡Victoria! ${disconnectedPlayer.nombre} ha abandonado la partida`,
+          showReturnButton: true,
+          finalStats: {
+            winnerName: remainingPlayer.nombre,
+            loserName: disconnectedPlayer.nombre,
+            finalScore: `${remainingPlayer.nombre}: 5 (Victoria por abandono)`,
+            gameDuration: Date.now() - game.createdAt,
+            disconnection: true
+          }
+        }
+      });
+      
+      // Clean up game after a delay to ensure message is received
+      setTimeout(() => {
+        activeGames.delete(gameId);
+        if (orphanedGameTimeouts.has(gameId)) {
+          clearTimeout(orphanedGameTimeouts.get(gameId));
+          orphanedGameTimeouts.delete(gameId);
+        }
+        // Remove all player mappings for this game
+        if (game.players) {
+          for (const player of game.players) {
+            playerToClient.delete(player.id);
+            clientToPlayer.delete(player.id);
+            connections.delete(player.id);
+          }
+        }
+        spectators.delete(gameId);
+        fastify.log.info(`🧹 Game ${gameId} cleaned up after disconnect`);
+      }, 1000);
+      
+      connections.delete(clientId);
+      return;
+    }
+  }
+  
+  // If game wasn't in progress or only one player, just remove player
   game.players = game.players.filter((p: any) => p.id !== clientId);
   
   // Clean up mappings
@@ -634,12 +720,18 @@ function handleClientDisconnect(clientId: string, gameId: string): void {
   // If no players left, remove game
   if (game.players.length === 0) {
     activeGames.delete(gameId);
+    if (orphanedGameTimeouts.has(gameId)) {
+      clearTimeout(orphanedGameTimeouts.get(gameId));
+      orphanedGameTimeouts.delete(gameId);
+    }
+    fastify.log.info(`🗑️ Game ${gameId} removed - no players left`);
   } else {
-    // Notify remaining players
+    // Notify remaining players that someone left (but game wasn't in progress)
     broadcastToGame(gameId, {
       type: 'playerLeft',
       data: {
-        message: 'Un jugador se ha desconectado'
+        message: 'Un jugador se ha desconectado',
+        playerName: disconnectedPlayer?.nombre || 'Unknown'
       }
     });
   }

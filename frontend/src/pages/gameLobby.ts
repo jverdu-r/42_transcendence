@@ -143,6 +143,22 @@ class GameLobby {
                     this.startGame();
                     break;
 
+                case 'playerLeft':
+                    // Handle player leaving before game starts
+                    if (!this.state.gameStarted) {
+                        alert(`${data.data?.playerName || 'Un jugador'} ha abandonado la partida`);
+                        navigateTo('/unified-game-online');
+                    }
+                    break;
+
+                case 'gameEnded':
+                    // Handle game end (including disconnections) if not yet transferred to renderer
+                    if (!this.state.gameStarted && data.data?.reason === 'opponent_disconnected') {
+                        alert(`${data.data.message || 'El oponente ha abandonado'}`);
+                        navigateTo('/unified-game-online');
+                    }
+                    break;
+
                 case 'error':
                     console.error('Game service error:', data.message);
                     alert('Error: ' + data.message);

@@ -623,7 +623,12 @@ export class UnifiedGameRenderer {
                 this.startGame();
                 break;
             case 'gameEnded':
-                this.endGame(data.winner, data.score);
+                // Handle game end with optional disconnect reason
+                if (data.reason === 'opponent_disconnected') {
+                    this.endGame(data.winner, data.score, '¡Victoria por abandono del oponente!');
+                } else {
+                    this.endGame(data.winner, data.score);
+                }
                 break;
             case 'playerJoined':
                 this.callbacks.onStatusUpdate?.(`🎮 ${data.playerName} se ha unido al juego`);
@@ -633,7 +638,8 @@ export class UnifiedGameRenderer {
                 }
                 break;
             case 'playerLeft':
-                this.callbacks.onStatusUpdate?.(`👋 Un jugador ha abandonado el juego`);
+                this.callbacks.onStatusUpdate?.(`👋 ${data.playerName || 'Un jugador'} ha abandonado el juego`);
+                // If game was in progress, this will be followed by gameEnded message
                 break;
             case 'error':
                 this.callbacks.onStatusUpdate?.(`❌ Error: ${data.message}`);
@@ -1036,11 +1042,16 @@ export class UnifiedGameRenderer {
         }
     }
     
-    private endGame(winner: string, score: { left: number; right: number }): void {
+    private endGame(winner: string, score: { left: number; right: number }, message?: string): void {
         this.gameState.gameRunning = false;
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
+        }
+        
+        // If there's a custom message (like disconnect), show it
+        if (message) {
+            this.callbacks.onStatusUpdate?.(message);
         }
         
         this.callbacks.onGameEnd?.(winner, score);
