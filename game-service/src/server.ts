@@ -146,6 +146,31 @@ fastify.register(async function (fastify) {
       existingPlayer.id = clientId;
       existingPlayer.isConnected = true;
       fastify.log.info(`🔄 Player ${username} reconnected to game ${gameId}`);
+      
+      // Send welcome back message
+      sendToClient(clientId, {
+        type: 'gameJoined',
+        gameId: gameId,
+        playerNumber: playerNumber,
+        playersConnected: game.players.length,
+        playerName: username,
+        reconnected: true
+      });
+      
+      // Notify all players about reconnection
+      broadcastToGame(gameId, {
+        type: 'playerReconnected',
+        playerName: username,
+        playerNumber: playerNumber,
+        playersConnected: game.players.length
+      });
+      
+      // If game was paused due to disconnect, resume it
+      if (game.status === 'paused') {
+        game.status = 'countdown';
+        setTimeout(() => startCountdown(gameId), 500);
+      }
+      
     } else {
       // New player
       playerNumber = game.players.length + 1;
