@@ -1,6 +1,3 @@
-/**
- * REST API controller for game management
- */
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { GameManager } from '../game/index.js';;
 import type { ApiResponseService } from '../services/index.js';

@@ -53,18 +53,19 @@ function renderMatchBox(match: BracketMatch, opts: { showStatus: boolean }) {
     : `<span class="text-[#ffc300]">-</span>`;
 
   const status = match.status || 'pending';
-  const statusHtml = !showStatus ? '' :
-    status === 'finished'
+  const statusHtml = !showStatus
+    ? ''
+    : status === 'finished'
       ? `<div class="text-xs text-green-400 mt-1">✔ ${getTranslation('tournaments','finished') || 'Finalizado'}</div>`
       : `<div class="text-xs text-[#ffc300]/70 mt-1">${getTranslation('tournaments','inProgress') || 'En juego / pendiente'}</div>`;
 
   return `
     <div class="flex flex-col items-center">
       <!-- min-w ajustada para que quepan dos bots -->
-      <div class="flex flex-row items-center gap-2 border border-[#ffc300] rounded-lg px-3 py-2 bg-[#003566] min-w-[300px] whitespace-nowrap justify-between">
-        <div class="truncate max-w-[12rem]">${p1}</div>
-        ${scoreHtml}
-        <div class="truncate max-w-[12rem] text-right">${p2}</div>
+      <div class="flex flex-row items-center gap-2 border border-[#ffc300] rounded-lg px-3 py-2 bg-[#003566] min-w-[320px] whitespace-nowrap">
+        <div class="flex-1 text-left truncate max-w-[12rem]">${p1}</div>
+        <div class="text-center min-w-[60px]">${scoreHtml}</div>
+        <div class="flex-1 text-right truncate max-w-[12rem]">${p2}</div>
       </div>
       ${statusHtml}
     </div>

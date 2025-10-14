@@ -1,6 +1,3 @@
-/**
- * Unified Game Engine - Enhanced game logic for all modes
- */
 import type { IBall, IPaddle, IGameDimensions, IScore, IGameConfig, IPlayer, GameStatus, PlayerNumber } from '../interfaces/index.js';
 import { GAME_STATUS } from '../constants/index.js';
 

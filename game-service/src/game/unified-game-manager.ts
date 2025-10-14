@@ -1,6 +1,3 @@
-/**
- * Unified Game Manager - Enhanced game session management
- */
 import { UnifiedGame } from './unified-game.js';
 import type { PlayerNumber } from '../interfaces/game-interfaces.js';
 import type { IPlayer, IGameConfig, IGameDimensions, GameMode } from '../interfaces/index.js';

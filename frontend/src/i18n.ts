@@ -840,7 +840,8 @@ const translations: Translations = {
             cuartos: 'Quarterfinals',
             semifinales: 'Semifinals',
             final: 'Final',
-            viewBracket: 'Open'
+            viewBracket: 'Open',
+            disponibles: 'Available Tournaments'
         },
         settings: {
             title: "Settings",
@@ -1400,7 +1401,8 @@ const translations: Translations = {
             cuartos: 'Cuartos de final',
             semifinales: 'Semifinais',
             final: 'Final',
-            viewBracket: 'Ver'
+            viewBracket: 'Ver',
+            disponibles: 'Campionatos dispoñibles'
         },
         settings: {
             title: "Configuración",
@@ -1997,7 +1999,8 @@ const translations: Translations = {
             cuartos: '四强赛',
             semifinales: '半决赛',
             final: '决赛',
-            viewBracket: '查看'
+            viewBracket: '查看',
+            disponibles: '可用锦标赛'
         },  
         settings: {
             title: "设置",

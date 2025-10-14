@@ -116,6 +116,17 @@ export function renderTournamentsPage() {
         function showTournamentsList() {
             if (content) {
                 let currentUser: any = getCurrentUser();
+                        if ((window as any)._tournamentListInterval) {
+                            clearInterval((window as any)._tournamentListInterval);
+                        }
+                        (window as any)._tournamentListInterval = setInterval(() => {
+                            // Solo refresca si la sección sigue visible
+                            if (document.body.contains(content)) {
+                                showTournamentsList();
+                            } else {
+                                clearInterval((window as any)._tournamentListInterval);
+                            }
+                        }, 10000);
                 fetch(`http://localhost:8005/tournaments`)
                     .then(res => res.json())
                     .then((tournaments) => {
@@ -132,7 +143,7 @@ export function renderTournamentsPage() {
                                 return null;
                             }).filter(Boolean);
                             content.innerHTML = `
-                                <h3 class="text-xl font-bold text-[#ffc300] justify-center mb-4">${getTranslation('tournaments', 'disponibles')}</h3>
+                                <h3 class="text-xl font-bold text-[#ffc300] mb-4 text-center">${getTranslation('tournaments', 'disponibles')}</h3>
                                 <ul class="space-y-4">
                                 ${tournaments.map((t: any, i:number) => {
                                     const participants = Array.isArray(allParticipantsArr[i]) ? allParticipantsArr[i] : [];

@@ -49,42 +49,57 @@ class GameLobby {
 
     private async connectToGameService(): Promise<void> {
         try {
-            const gameId = sessionStorage.getItem('currentGameId');
+            // 1. Obtener gameId desde URL o sessionStorage
+            const urlParams = new URLSearchParams(window.location.search);
+            let gameId = urlParams.get('gameId');
+
             if (!gameId) {
-                console.error('No game ID found in session storage');
-                navigateTo('/unified-game-online');
-                return;
+            gameId = sessionStorage.getItem('currentGameId');
             }
-            // Use current host (hostname + port) for correct reverse proxying
+
+            if (!gameId) {
+            console.error('No game ID found in URL or session storage');
+            navigateTo('/unified-game-online');
+            return;
+            }
+
+            // Guardar en sessionStorage (por si acaso)
+            sessionStorage.setItem('currentGameId', gameId);
+
+            // 2. Obtener datos del usuario
             const currentUser = getCurrentUser();
             const username = encodeURIComponent(currentUser?.username || 'Usuario');
+            const userId = currentUser?.id || '';
+
+            // 3. Construir URL del WebSocket con ambos parámetros
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/pong/${gameId}?username=${username}`;
+            const wsUrl = `${protocol}//${window.location.host}/pong/${gameId}?username=${username}&user_id=${userId}`;
+
+            // 4. Conectar
             this.ws = new WebSocket(wsUrl);
 
             this.ws.onopen = () => {
-                console.log('Connected to game service [' + wsUrl + ']');
-                // No need to send a join message, the connection itself handles joining
+            console.log('✅ Connected to game service:', wsUrl);
             };
 
             this.ws.onmessage = (event) => {
-                this.handleWebSocketMessage(event);
+            this.handleWebSocketMessage(event);
             };
 
             this.ws.onclose = () => {
-                console.log('Disconnected from game service');
-                this.cleanup();
+            console.log('🔌 Disconnected from game service');
+            this.cleanup();
             };
 
             this.ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
+            console.error('❌ WebSocket error:', error);
             };
 
         } catch (error) {
-            console.error('Failed to connect to game service:', error);
+            console.error('💥 Failed to connect to game service:', error);
+            navigateTo('/unified-game-online');
         }
     }
-
 
     private handleWebSocketMessage(event: MessageEvent): void {
         const determinePlayerInfo = (): void => {

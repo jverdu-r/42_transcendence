@@ -1,5 +1,6 @@
 import { renderNavbar } from '../components/navbar';
 import { getTranslation } from '../i18n';
+import { getCurrentUser } from '../auth';
 import { renderTournamentBracket, BracketMatch } from '../components/tournamentBracket';
 
 type MatchDto = {
@@ -13,10 +14,10 @@ type MatchDto = {
   score1?: number | null;
   score2?: number | null;
   winner?: any;
+  external_game_id?: string;
 };
 
 export function renderTournamentsOngoingPage() {
-  // Usa la ruta que tengas en el router
   renderNavbar('/tournamentsOnGoing');
 
   const pageContent = document.getElementById('page-content');
@@ -24,7 +25,7 @@ export function renderTournamentsOngoingPage() {
 
   pageContent.innerHTML = `
     <section class="bg-[#001d3d] rounded-xl shadow-lg p-8 w-full max-w-xl mx-auto">
-      <h2 class="text-3xl font-extrabold text-[#ffc300] justify-center mb-6">
+      <h2 class="text-3xl font-extrabold text-[#ffc300] justify-center mb-6 text-center">
         ${getTranslation('tournaments', 'ongoingTournamentsTitle') || 'Torneos en curso'}
       </h2>
       <div class="flex gap-4 justify-center mb-6">
@@ -51,34 +52,90 @@ async function loadStartedTournaments() {
       return;
     }
 
-    container.innerHTML = `
-      <div class="grid gap-4">
-        ${tournaments.map((t: any) => `
-          <div class="border border-[#ffc300] rounded-lg p-4 bg-[#003566] flex items-center justify-between">
-            <div>
-              <div class="text-lg font-semibold text-[#ffc300]">${t.name}</div>
-              <div class="text-sm text-[#ffc300]/70">${getTranslation('tournaments','players') || 'Players'}: ${t.players ?? '-'}</div>
-            </div>
-            <div class="flex gap-2">
-              <button class="px-3 py-2 rounded-lg border border-[#ffc300] text-[#ffc300] hover:bg-[#ffc300] hover:text-[#001d3d]" data-action="open-bracket" data-tid="${t.id}">
-                ${getTranslation('tournaments','viewBracket') || 'Ver cuadro'}
-              </button>
-            </div>
-          </div>
-        `).join('')}
+    container.innerHTML = `<div class="grid gap-4">${tournaments.map((t: any) => `
+      <div class="border border-[#ffc300] rounded-lg p-4 bg-[#003566] flex items-center justify-between">
+        <div>
+          <div class="text-lg font-semibold text-[#ffc300]">${t.name}</div>
+          <div class="text-sm text-[#ffc300]/70">${getTranslation('tournaments','players') || 'Players'}: ${t.players ?? '-'}</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="px-3 py-2 rounded-lg border border-[#ffc300] text-[#ffc300] hover:bg-[#ffc300] hover:text-[#001d3d]" data-action="open-bracket" data-tid="${t.id}">
+            ${getTranslation('tournaments','viewBracket') || 'Ver cuadro'}
+          </button>
+        </div>
       </div>
-    `;
+    `).join('')}</div>`;
 
     container.querySelectorAll<HTMLButtonElement>('button[data-action="open-bracket"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const tid = Number(btn.dataset.tid);
-        await openBracketModal(tid);
+        const bracketContainer = document.createElement('div');
+        bracketContainer.id = 'tournament-bracket-modal';
+        bracketContainer.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50';
+        bracketContainer.innerHTML = `<div class="bg-[#001d3d] rounded-xl shadow-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-auto relative">
+          <button id="close-bracket" class="absolute top-4 right-4 text-white hover:text-[#ffc300] text-2xl">&times;</button>
+          <h3 class="text-2xl font-bold text-[#ffc300] mb-4">${getTranslation('tournaments', 'eliminationBracketTitle') || 'Cuadro de eliminatorias'}</h3>
+          <div id="eliminatorias-content" class="space-y-6"></div>
+        </div>`;
+        document.body.appendChild(bracketContainer);
+
+        document.getElementById('close-bracket')?.addEventListener('click', () => {
+          document.body.removeChild(bracketContainer);
+        });
+
+        try {
+          const matchesRes = await fetch(`/api/tournaments/${tid}/matches`);
+          const rounds = await matchesRes.json(); // ← El backend devuelve directamente las rondas
+
+          // Verificar si el usuario tiene una partida lista
+          const currentUser = getCurrentUser();
+          if (currentUser && currentUser.id) {
+            for (const round of rounds) {
+              for (const match of round) {
+                if (
+                  match.external_game_id &&
+                  (match.status === 'started' || match.status === 'pending') &&
+                  (
+                    (match.player1?.user_id == currentUser.id) ||
+                    (match.player2?.user_id == currentUser.id)
+                  )
+                ) {
+                  sessionStorage.setItem('currentGameId', match.external_game_id);
+
+                  console.log('🔍 Partida detectada en el cuadro:');
+                  console.log('   external_game_id:', match.external_game_id);
+                  console.log('   status:', match.status);
+                  console.log('   jugador 1:', match.player1);
+                  console.log('   jugador 2:', match.player2);
+                  console.log('   redirigiendo a:', `/game-lobby?gameId=${match.external_game_id}`);
+                  
+                  // Redirigir a la partida
+                  window.location.href = `/game-lobby?gameId=${match.external_game_id}`;
+                  return;
+                }
+              }
+            }
+          }
+
+          // Renderizar bracket
+          renderTournamentBracket(rounds, 'eliminatorias-content', {
+            showStatus: true,
+            roundTitles: [] // tu backend no envía títulos, así que déjalo vacío
+          });
+        } catch (e) {
+          const content = document.getElementById('eliminatorias-content');
+          if (content) content.innerHTML = `<p class="text-red-400">Error: ${(e as Error)?.message || e}</p>`;
+        }
       });
     });
-  } catch (e) {
-    container.innerHTML = `<p class="text-red-400">Error cargando torneos: ${(e as Error)?.message || e}</p>`;
+  } catch (error) {
+    console.error('Error loading started tournaments:', error);
+    container.innerHTML = `<p class="text-red-400 text-center">Error al cargar torneos.</p>`;
   }
 }
+
+// Las funciones auxiliares se mantienen igual (no se usan en el flujo principal de loadStartedTournaments)
+// Pero se incluyen por coherencia del archivo
 
 async function openBracketModal(tournamentId: number) {
   const modal = document.createElement('div');
@@ -101,9 +158,7 @@ async function openBracketModal(tournamentId: number) {
   try {
     const res = await fetch(`/api/tournaments/${tournamentId}/matches`);
     const data = await res.json();
-
     const { rounds, titles } = normalizeRoundsAndTitles(data);
-
     renderTournamentBracket(rounds, 'eliminatorias-content', { showStatus: true, roundTitles: titles });
   } catch (e) {
     const content = document.getElementById('eliminatorias-content');
@@ -111,59 +166,43 @@ async function openBracketModal(tournamentId: number) {
   }
 }
 
-/* ========= Helpers: normalización + títulos de ronda EXACTOS ========= */
-
-/** Regla solicitada:
- * - Si la ronda tiene algún match con '1/8' o length == 8  → "Octavos de Final"
- * - Si tiene '1/4' o length == 4                        → "Cuartos de Final"
- * - Si tiene '1/2' o length == 2                        → "Semifinales"
- * - Si tiene 'Final' o length == 1                      → "Final"
- * - Si nada coincide, devuelve "Ronda"
- */
 function titleForRound(round: any[]): string {
   const n = round?.length ?? 0;
-  const labels = (round || []).map(m => String(m?.match ?? ''));
-
+  const labels = (round || []).map(m => {
+    const match = m?.match;
+    return typeof match === 'string' ? match : '';
+  });
   if (labels.some(l => /^1\/8/i.test(l)) || n === 8) return 'Octavos de Final';
   if (labels.some(l => /^1\/4/i.test(l)) || n === 4) return 'Cuartos de Final';
   if (labels.some(l => /^1\/2/i.test(l)) || n === 2) return 'Semifinales';
   if (labels.some(l => /final/i.test(l))  || n === 1) return 'Final';
-
   return 'Ronda';
 }
 
 function normalizeRoundsAndTitles(input: any): { rounds: BracketMatch[][]; titles: string[] } {
-  // Puede venir agrupado por rondas ([[...],[...],...]) o plano (array de partidos).
   if (Array.isArray(input) && Array.isArray((input as any[])[0])) {
     const grouped = input as any[][];
     const rounds: BracketMatch[][] = grouped.map((r) => r.map(toBracketMatch));
     const titles = grouped.map((r) => titleForRound(r));
     return { rounds, titles };
   }
-
-  // Plano: agrupar en buckets por 'match'
   const flat = (input as any[]) || [];
   const buckets: Record<string, any[]> = { '1/8': [], '1/4': [], '1/2': [], 'Final': [] };
   for (const m of flat) {
-    const label = String(m?.match ?? '');
+    const label = String(m?.match || '');
     if (/^1\/8/i.test(label)) buckets['1/8'].push(m);
     else if (/^1\/4/i.test(label)) buckets['1/4'].push(m);
     else if (/^1\/2/i.test(label)) buckets['1/2'].push(m);
     else buckets['Final'].push(m);
   }
-
   const order = ['1/8', '1/4', '1/2', 'Final'] as const;
   const present = order.filter(k => buckets[k].length);
-
-  // Si solo detectamos una ronda (o ninguna etiqueta clara), dedúcela por cantidad:
   if (present.length <= 1) {
     const only = present[0] ? buckets[present[0]] : flat;
     const rounds: BracketMatch[][] = [only.map(toBracketMatch)];
     const titles = [titleForRound(only)];
     return { rounds, titles };
   }
-
-  // Varias rondas detectadas: ordenadas y tituladas
   const rounds: BracketMatch[][] = present.map(k =>
     buckets[k]
       .sort((a, b) => {
@@ -174,7 +213,6 @@ function normalizeRoundsAndTitles(input: any): { rounds: BracketMatch[][]; title
       .map(toBracketMatch)
   );
   const titles = present.map(k => titleForRound(buckets[k]));
-
   return { rounds, titles };
 }
 
@@ -183,7 +221,6 @@ function toBracketMatch(m: MatchDto): BracketMatch {
   const s2 = typeof m.score2 === 'number' ? m.score2 : null;
   let winner: 1 | 2 | null = null;
   if (s1 != null && s2 != null) winner = s1 > s2 ? 1 : (s2 > s1 ? 2 : null);
-
   return {
     player1: m.player1 ?? m.team1 ?? null,
     player2: m.player2 ?? m.team2 ?? null,

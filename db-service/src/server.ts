@@ -120,12 +120,19 @@ fastify.get('/tournaments/:id/matches', async (request: any, reply: any) => {
             if (!rounds[m.match]) rounds[m.match] = [];
             rounds[m.match].push({
                 id: m.id,
-                player1,
-                player2,
+                player1: {
+                    user_id: participants[0]?.user_id,
+                    username: player1
+                },
+                player2: participants.length > 1 ? {
+                    user_id: participants[1]?.user_id,
+                    username: player2
+                } : null,
                 score1,
                 score2,
                 status: m.status,
-                winner
+                winner,
+                external_game_id: m.external_game_id 
             });
         }
         // Orden clásico de rondas para torneos de hasta 16 jugadores
@@ -189,8 +196,25 @@ fastify.post('/tournaments/:id/start', async (request: any, reply: any) => {
             // Esperar a que los bots se inserten en la base de datos
             await new Promise(res => setTimeout(res, 300));
         }
-        // Actualizar lista de participantes tras añadir bots
-        participants = await db.all('SELECT * FROM tournament_participants WHERE tournament_id = ?', id);
+        // Obtener participantes con username (para humanos) o bot_name (para bots)
+        participants = await db.all(`
+        SELECT 
+            tp.*,
+            u.username
+        FROM tournament_participants tp
+        LEFT JOIN users u ON tp.user_id = u.id
+        WHERE tp.tournament_id = ?
+        `, id);
+
+        // 👇 DEFINIR UNA SOLA VEZ, FUERA DEL BUCLE
+        const getPlayerName = (p: any) => {
+            if (p.is_bot) {
+                return p.bot_name || 'Bot';
+            } else {
+                return p.username || 'Jugador';
+            }
+        };
+
         // Mezclar aleatoriamente los participantes
         const shuffled = participants.slice();
         for (let i = shuffled.length - 1; i > 0; i--) {
@@ -241,8 +265,49 @@ fastify.post('/tournaments/:id/start', async (request: any, reply: any) => {
                 sql: 'INSERT INTO scores (game_id, team_name, point_number) VALUES (?, ?, 0)',
                 params: [gameRow.id, teamName2]
             }));
+
+            // 👇 INTEGRACIÓN COMPATIBLE CON TU game-service REAL
+            if (!p1.is_bot || !p2.is_bot) {
+                let gameMode: 'pvp' | 'pve' = 'pvp';
+                let aiDifficulty: 'easy' | 'medium' | 'hard' = 'medium';
+
+                if (p1.is_bot || p2.is_bot) {
+                    gameMode = 'pve';
+                    aiDifficulty = tournament.bots_difficulty === 'easy' ? 'easy' :
+                                   tournament.bots_difficulty === 'hard' ? 'hard' : 'medium';
+                }
+
+                const humanPlayer = p1.is_bot ? p2 : p1;
+                const playerName = humanPlayer.username || humanPlayer.bot_name || 'Jugador';
+
+                try {
+                    const gameRes = await fetch('http://game-service:8000/api/games', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            nombre: `Torneo ${id} - ${getPlayerName(p1)} vs ${getPlayerName(p2)}`,
+                            gameMode,
+                            maxPlayers: 2,
+                            playerName,
+                            aiDifficulty
+                        })
+                    });
+
+                    if (gameRes.ok) {
+                        const gameData = await gameRes.json();
+                        await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+                            sql: 'UPDATE games SET external_game_id = ? WHERE id = ?',
+                            params: [gameData.id, gameRow.id]
+                        }));
+                    } else {
+                        fastify.log.warn(`Failed to create game in game-service for match ${getPlayerName(p1)} vs ${getPlayerName(p2)}`);
+                    }
+                } catch (err) {
+                    fastify.log.error({ err }, 'Error calling game-service');
+                }
+            }
         }
-        // Cambiar estado a "ongoing"
+        // Cambiar estado a "started"
         await redisClient.rPush('sqlite_write_queue', JSON.stringify({
             sql: 'UPDATE tournaments SET status = ? WHERE id = ?',
             params: ['started', id]
@@ -540,7 +605,6 @@ fastify.get('/game/stats/:userId', async (request: any, reply: any) => {
     }
 });
 
-//
 const start = async () => {
     try {
         await fastify.listen({ port: 8000, host: '0.0.0.0' }); // Escucha en el puerto 8000
