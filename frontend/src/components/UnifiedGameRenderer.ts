@@ -641,6 +641,18 @@ export class UnifiedGameRenderer {
                 this.callbacks.onStatusUpdate?.(`👋 ${data.playerName || 'Un jugador'} ha abandonado el juego`);
                 // If game was in progress, this will be followed by gameEnded message
                 break;
+            
+            case 'playerDisconnected':
+                // Show waiting message while player might reconnect
+                if (data.waitingForReconnection) {
+                    this.callbacks.onStatusUpdate?.(`⏳ ${data.playerName} se desconectó. Esperando reconexión...`);
+                }
+                break;
+            
+            case 'playerReconnected':
+                // Player reconnected successfully
+                this.callbacks.onStatusUpdate?.(`✅ ${data.playerName} se ha reconectado`);
+                break;
             case 'error':
                 this.callbacks.onStatusUpdate?.(`❌ Error: ${data.message}`);
                 break;
