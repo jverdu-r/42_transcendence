@@ -220,14 +220,40 @@ function cleanupCurrentPage(): void {
   // Cleanup function - no specific cleanup needed now
 }
 
-// Event listeners for cleanup
-window.addEventListener('beforeunload', cleanupCurrentPage);
-window.addEventListener('popstate', (event) => {
-  cleanupCurrentPage();
-  navigateTo(window.location.pathname + window.location.search);
-});
+// 🛡️ Guard para navegación con botones del navegador (atrás/adelante)
+// Esto intercepta cuando el usuario usa los botones de navegación del navegador
+let popstateHandlerAttached = false;
 
-// Handle browser back/forward buttons
-window.addEventListener('popstate', () => {
-  navigateTo(window.location.pathname + window.location.search);
-});
+if (!popstateHandlerAttached) {
+  window.addEventListener('popstate', (event) => {
+    console.log('🔙 Navegación del navegador detectada');
+    cleanupCurrentPage();
+    
+    const targetPath = window.location.pathname + window.location.search;
+    const isPublicPage = targetPath === '/login' || targetPath === '/register';
+    const userIsAuthenticated = isAuthenticated();
+    
+    // 🛡️ Verificación de autenticación en navegación del navegador
+    if (!userIsAuthenticated && !isPublicPage) {
+      console.warn('⚠️ Intento de acceso no autenticado vía navegación del navegador');
+      event.preventDefault();
+      navigateTo('/login');
+      return;
+    }
+    
+    if (userIsAuthenticated && isPublicPage) {
+      console.log('✅ Usuario autenticado intentando ir a página pública');
+      event.preventDefault();
+      navigateTo('/home');
+      return;
+    }
+    
+    // Si pasa las verificaciones, navegar normalmente
+    navigateTo(targetPath);
+  });
+  
+  popstateHandlerAttached = true;
+}
+
+// Cleanup al cerrar la pestaña/ventana
+window.addEventListener('beforeunload', cleanupCurrentPage);
