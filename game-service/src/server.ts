@@ -160,13 +160,17 @@ fastify.register(async function (fastify) {
       }
       
       // Send welcome back message
+      const otherPlayer = game.players.find((p: any) => p.numero !== playerNumber);
       sendToClient(clientId, {
         type: 'gameJoined',
         gameId: gameId,
         playerNumber: playerNumber,
         playersConnected: game.players.length,
         playerName: username,
-        reconnected: true
+        reconnected: true,
+        gameStatus: game.status, // Send current game status
+        gameStarted: game.status === 'playing' || game.status === 'countdown', // If game already started
+        opponentName: otherPlayer?.nombre || null // Send opponent name for reconnection
       });
       
       // Notify all players about reconnection

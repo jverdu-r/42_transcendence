@@ -156,7 +156,23 @@ class GameLobby {
                     sessionStorage.setItem('playerNumber', data.playerNumber.toString());
                     sessionStorage.setItem('inGame', 'true');
                     
-                    this.updateUI();
+                    // Store opponent name if provided
+                    if (data.opponentName) {
+                        this.state.opponentName = data.opponentName;
+                    }
+                    
+                    // If reconnecting and game already started, start the game immediately
+                    if (data.reconnected && data.gameStarted) {
+                        console.log('🎮 Reconnecting to game in progress...');
+                        this.state.gameStarted = true;
+                        
+                        // Delay to let UI update and then start game
+                        setTimeout(() => {
+                            this.startGame();
+                        }, 500);
+                    } else {
+                        this.updateUI();
+                    }
                     break;
 
                 case 'playerJoined':
