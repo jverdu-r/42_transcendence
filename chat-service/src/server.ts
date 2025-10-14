@@ -131,15 +131,14 @@ fastify.get('/stats', async (request, reply) => {
     };
 });
 
-// WebSocket para chat
-fastify.register(async function (fastify) {
-    fastify.get('/ws', { websocket: true }, (connection, req) => {
-        const socket = connection.socket;
-        console.log('🔌 Nueva conexión WebSocket desde:', req.headers['x-real-ip'] || req.socket.remoteAddress);
-        console.log('🔍 Headers:', JSON.stringify(req.headers, null, 2));
-        
-        let userId: number | null = null;
-        let username: string | null = null;
+// WebSocket para chat - Registrado directamente en fastify (no en plugin anidado)
+fastify.get('/ws', { websocket: true }, (connection, req) => {
+    const socket = connection.socket;
+    console.log('🔌 Nueva conexión WebSocket desde:', req.headers['x-real-ip'] || req.socket.remoteAddress);
+    console.log('🔍 Headers:', JSON.stringify(req.headers, null, 2));
+    
+    let userId: number | null = null;
+    let username: string | null = null;
 
         socket.on('message', async (message) => {
             console.log('📬 Mensaje RAW recibido:', message.toString().substring(0, 100));
@@ -252,7 +251,6 @@ fastify.register(async function (fastify) {
                 });
             }
         });
-    });
 });
 
 // Función para enviar mensaje a todos los usuarios
