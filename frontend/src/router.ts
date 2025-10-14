@@ -220,6 +220,68 @@ function cleanupCurrentPage(): void {
   // Cleanup function - no specific cleanup needed now
 }
 
+// 🛡️ Sistema de verificación continua de autenticación
+// Verifica cada 100ms si el usuario está en una página no autorizada
+let authCheckInterval: number | null = null;
+
+function startAuthGuard(): void {
+  // Si ya hay un intervalo corriendo, no crear otro
+  if (authCheckInterval !== null) {
+    return;
+  }
+  
+  authCheckInterval = window.setInterval(() => {
+    const currentPath = window.location.pathname;
+    const publicPages = ['/login', '/register'];
+    const isPublicPage = publicPages.includes(currentPath);
+    const userIsAuthenticated = isAuthenticated();
+    
+    // Si no está autenticado y no está en una página pública
+    if (!userIsAuthenticated && !isPublicPage) {
+      console.warn('🚨 GUARD: Usuario no autenticado detectado en página protegida. Redirigiendo...');
+      
+      // Detener el intervalo temporalmente para evitar múltiples redirecciones
+      if (authCheckInterval !== null) {
+        clearInterval(authCheckInterval);
+        authCheckInterval = null;
+      }
+      
+      // Limpiar la página inmediatamente
+      const appRoot = document.getElementById('app-root');
+      if (appRoot) {
+        appRoot.innerHTML = '<div class="flex items-center justify-center h-screen bg-gray-900"><div class="text-center"><div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-yellow-400 mx-auto mb-4"></div><p class="text-white text-xl">Acceso denegado. Redirigiendo...</p></div></div>';
+      }
+      
+      // Reemplazar la URL y navegar a login
+      window.history.replaceState(null, '', '/login');
+      setTimeout(() => {
+        navigateTo('/login');
+        // Reiniciar el guard después de navegar
+        startAuthGuard();
+      }, 100);
+    }
+    
+    // Si está autenticado e intenta acceder a login/register
+    if (userIsAuthenticated && isPublicPage) {
+      console.log('🔄 GUARD: Usuario autenticado en página pública. Redirigiendo a home...');
+      
+      if (authCheckInterval !== null) {
+        clearInterval(authCheckInterval);
+        authCheckInterval = null;
+      }
+      
+      window.history.replaceState(null, '', '/home');
+      setTimeout(() => {
+        navigateTo('/home');
+        startAuthGuard();
+      }, 100);
+    }
+  }, 100); // Verificar cada 100ms
+}
+
+// Iniciar el guard cuando se carga el script
+startAuthGuard();
+
 // 🛡️ Guard para navegación con botones del navegador (atrás/adelante)
 // Esto intercepta cuando el usuario usa los botones de navegación del navegador
 let popstateHandlerAttached = false;
@@ -235,45 +297,12 @@ if (!popstateHandlerAttached) {
     
     console.log(`Destino: ${targetPath}, Autenticado: ${userIsAuthenticated}, Pública: ${isPublicPage}`);
     
-    // 🛡️ Verificación de autenticación en navegación del navegador
-    if (!userIsAuthenticated && !isPublicPage) {
-      console.warn('⚠️ Intento de acceso no autenticado vía navegación del navegador - BLOQUEADO');
-      
-      // Prevenir que se vea la página bloqueando con un redirect inmediato
-      // Usar replace para no añadir más entradas al historial
-      window.history.replaceState(null, '', '/login');
-      
-      // Limpiar el contenido inmediatamente
-      cleanupCurrentPage();
-      const appRoot = document.getElementById('app-root');
-      if (appRoot) {
-        appRoot.innerHTML = '<div class="flex items-center justify-center h-screen"><p class="text-white">Redirigiendo a login...</p></div>';
-      }
-      
-      // Navegar a login con un pequeño delay para asegurar que se procese
-      setTimeout(() => {
-        navigateTo('/login');
-      }, 0);
-      
-      return;
-    }
-    
-    if (userIsAuthenticated && isPublicPage) {
-      console.log('✅ Usuario autenticado intentando ir a página pública - Redirigiendo a home');
-      
-      // Reemplazar la URL actual sin añadir al historial
-      window.history.replaceState(null, '', '/home');
-      
-      cleanupCurrentPage();
-      setTimeout(() => {
-        navigateTo('/home');
-      }, 0);
-      
-      return;
-    }
-    
-    // Si pasa las verificaciones, navegar normalmente
+    // El guard continuo se encargará de redirigir si es necesario
+    // Aquí solo hacemos limpieza y navegación normal
     cleanupCurrentPage();
+    
+    // Si pasa las verificaciones básicas, navegar
+    // El intervalo se encargará de bloquear si es necesario
     navigateTo(targetPath);
   });
   
