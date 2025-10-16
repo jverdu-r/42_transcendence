@@ -9,6 +9,8 @@ interface User {
     username: string;
     email?: string;
     avatarUrl?: string;
+    isOnline?: boolean;
+    friendSince?: string;
 }
 
 interface ChatMessage {
@@ -34,11 +36,12 @@ interface GameInvitation {
 let ws: WebSocket | null = null;
 let currentUser: User | null = null;
 let onlineUsers: User[] = [];
+let friendsList: User[] = [];
 let globalMessages: ChatMessage[] = [];
 let directMessages: Map<number, ChatMessage[]> = new Map();
 let blockedUsers: Set<number> = new Set();
 let pendingInvitations: GameInvitation[] = [];
-let currentView: 'global' | 'direct' = 'global';
+let currentView: 'global' | 'direct' | 'friends' = 'global';
 let currentChatUserId: number | null = null;
 
 export function renderEnhancedChatPage(): void {
@@ -55,12 +58,15 @@ export function renderEnhancedChatPage(): void {
                 <!-- Sidebar -->
                 <div class="w-80 border-r border-gray-600 pr-4 flex flex-col">
                     <!-- Tabs -->
-                    <div class="flex gap-2 mb-4">
-                        <button id="tab-global" class="flex-1 px-4 py-2 bg-[#ffc300] text-black font-bold rounded-lg">
+                    <div class="flex gap-1 mb-4">
+                        <button id="tab-global" class="flex-1 px-3 py-2 bg-[#ffc300] text-black font-bold rounded-lg text-sm">
                             💬 Global
                         </button>
-                        <button id="tab-users" class="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg">
-                            👥 Users
+                        <button id="tab-friends" class="flex-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm">
+                            👥 Amigos
+                        </button>
+                        <button id="tab-users" class="flex-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm">
+                            🌐 Todos
                         </button>
                     </div>
 
@@ -331,6 +337,7 @@ function handleWebSocketMessage(message: any): void {
 function setupEventListeners(): void {
     // Tabs
     document.getElementById('tab-global')?.addEventListener('click', () => switchToGlobal());
+    document.getElementById('tab-friends')?.addEventListener('click', () => showFriendsList());
     document.getElementById('tab-users')?.addEventListener('click', () => showUsersList());
 
     // Send message
@@ -352,6 +359,9 @@ function setupEventListeners(): void {
     document.getElementById('close-profile-modal')?.addEventListener('click', () => hideModal('profile-modal'));
     document.getElementById('close-blocked-modal')?.addEventListener('click', () => hideModal('blocked-modal'));
     document.getElementById('close-invitations-modal')?.addEventListener('click', () => hideModal('invitations-modal'));
+    
+    // Cargar amigos al inicio
+    loadFriends();
 }
 
 function switchToGlobal(): void {
@@ -366,6 +376,8 @@ function switchToGlobal(): void {
     // Update tabs
     document.getElementById('tab-global')?.classList.add('bg-[#ffc300]', 'text-black');
     document.getElementById('tab-global')?.classList.remove('bg-gray-700', 'text-white');
+    document.getElementById('tab-friends')?.classList.remove('bg-[#ffc300]', 'text-black');
+    document.getElementById('tab-friends')?.classList.add('bg-gray-700', 'text-white');
     document.getElementById('tab-users')?.classList.remove('bg-[#ffc300]', 'text-black');
     document.getElementById('tab-users')?.classList.add('bg-gray-700', 'text-white');
 
@@ -375,6 +387,8 @@ function switchToGlobal(): void {
 function showUsersList(): void {
     document.getElementById('tab-global')?.classList.remove('bg-[#ffc300]', 'text-black');
     document.getElementById('tab-global')?.classList.add('bg-gray-700', 'text-white');
+    document.getElementById('tab-friends')?.classList.remove('bg-[#ffc300]', 'text-black');
+    document.getElementById('tab-friends')?.classList.add('bg-gray-700', 'text-white');
     document.getElementById('tab-users')?.classList.add('bg-[#ffc300]', 'text-black');
     document.getElementById('tab-users')?.classList.remove('bg-gray-700', 'text-white');
 
@@ -412,6 +426,92 @@ function updateOnlineUsersList(): void {
                             🎮
                         </button>
                         <button onclick="event.stopPropagation(); window.blockUser(${user.id})"
+                                class="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs"
+                                title="Bloquear">
+                            🚫
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+}
+
+// Cargar lista de amigos desde el servidor
+async function loadFriends(): Promise<void> {
+    if (!currentUser) return;
+    
+    try {
+        const protocol = window.location.protocol;
+        const host = window.location.host;
+        const response = await fetch(`${protocol}//${host}/api/chat/friends/${currentUser.id}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            friendsList = data.data;
+            console.log('✅ Amigos cargados:', friendsList.length);
+        } else {
+            console.error('❌ Error cargando amigos:', data.error);
+        }
+    } catch (error) {
+        console.error('❌ Error al cargar amigos:', error);
+    }
+}
+
+// Mostrar lista de amigos en el sidebar
+function showFriendsList(): void {
+    currentView = 'friends';
+    
+    // Update tabs
+    document.getElementById('tab-global')?.classList.remove('bg-[#ffc300]', 'text-black');
+    document.getElementById('tab-global')?.classList.add('bg-gray-700', 'text-white');
+    document.getElementById('tab-friends')?.classList.add('bg-[#ffc300]', 'text-black');
+    document.getElementById('tab-friends')?.classList.remove('bg-gray-700', 'text-white');
+    document.getElementById('tab-users')?.classList.remove('bg-[#ffc300]', 'text-black');
+    document.getElementById('tab-users')?.classList.add('bg-gray-700', 'text-white');
+
+    updateFriendsList();
+}
+
+// Actualizar el contenido del sidebar con la lista de amigos
+function updateFriendsList(): void {
+    const container = document.getElementById('sidebar-content');
+    if (!container) return;
+
+    if (friendsList.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-gray-400 py-4">
+                <p class="mb-2">😔</p>
+                <p>No tienes amigos agregados</p>
+                <p class="text-xs mt-2">Ve a la pestaña "Todos" para encontrar usuarios</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = friendsList
+        .map(friend => `
+            <div class="bg-gray-700 bg-opacity-50 rounded-lg p-3 hover:bg-gray-600 cursor-pointer transition-colors"
+                 onclick="window.openUserChat(${friend.id}, '${friend.username.replace(/'/g, "\\'")}')">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 ${friend.isOnline ? 'bg-green-500' : 'bg-gray-500'} rounded-full"></span>
+                        <div>
+                            <div class="font-medium text-white">${escapeHtml(friend.username)}</div>
+                            <div class="text-xs text-gray-400">${friend.isOnline ? 'Online' : 'Offline'}</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-1">
+                        <button onclick="event.stopPropagation(); window.viewProfile(${friend.id})"
+                                class="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs"
+                                title="Ver perfil">
+                            👤
+                        </button>
+                        <button onclick="event.stopPropagation(); window.inviteToGame(${friend.id})"
+                                class="px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-xs"
+                                title="Invitar a jugar">
+                            🎮
+                        </button>
+                        <button onclick="event.stopPropagation(); window.blockUser(${friend.id})"
                                 class="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs"
                                 title="Bloquear">
                             🚫

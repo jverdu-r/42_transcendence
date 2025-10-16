@@ -325,6 +325,46 @@ function getOnlineUsersList(): any[] {
     return users;
 }
 
+// Obtener lista de amigos aceptados
+function getFriends(userId: number): any[] {
+    try {
+        const stmt = db.prepare(`
+            SELECT 
+                u.id,
+                u.username,
+                u.email,
+                up.avatar_url,
+                f.created_at
+            FROM friendships f
+            INNER JOIN users u ON (
+                CASE 
+                    WHEN f.requester_id = ? THEN f.approver_id = u.id
+                    WHEN f.approver_id = ? THEN f.requester_id = u.id
+                END
+            )
+            LEFT JOIN user_profiles up ON u.id = up.user_id
+            WHERE (f.requester_id = ? OR f.approver_id = ?)
+            AND f.status = 'accepted'
+            ORDER BY u.username ASC
+        `);
+        
+        const friends = stmt.all(userId, userId, userId, userId) as any[];
+        
+        // Marcar si están online
+        return friends.map((friend: any) => ({
+            id: friend.id,
+            username: friend.username,
+            email: friend.email,
+            avatarUrl: friend.avatar_url,
+            isOnline: onlineUsers.has(friend.id),
+            friendSince: friend.created_at
+        }));
+    } catch (error) {
+        console.error('Error obteniendo amigos:', error);
+        return [];
+    }
+}
+
 // ============================================
 // FUNCIONES DE BROADCAST
 // ============================================
@@ -390,6 +430,23 @@ fastify.get('/invitations/:userId', async (request, reply) => {
         success: true,
         data: getPendingInvitations(parseInt(userId))
     };
+});
+
+fastify.get('/friends/:userId', async (request, reply) => {
+    const { userId } = request.params as any;
+    try {
+        const friends = getFriends(parseInt(userId));
+        return {
+            success: true,
+            data: friends
+        };
+    } catch (error) {
+        console.error('Error obteniendo amigos:', error);
+        return {
+            success: false,
+            error: 'Error al obtener la lista de amigos'
+        };
+    }
 });
 
 // ============================================
