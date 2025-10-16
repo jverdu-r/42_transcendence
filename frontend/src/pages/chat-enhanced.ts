@@ -167,10 +167,12 @@ export function renderEnhancedChatPage(): void {
         </main>
     `;
 
-    const appContainer = document.getElementById('app');
-    if (appContainer) {
-        appContainer.innerHTML = chatHtml;
+    const pageContent = document.getElementById('page-content') as HTMLElement;
+    if (pageContent) {
+        pageContent.innerHTML = chatHtml;
         initializeChat();
+    } else {
+        console.error('Error: page-content element not found');
     }
 }
 
