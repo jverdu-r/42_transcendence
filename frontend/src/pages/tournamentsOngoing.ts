@@ -17,6 +17,105 @@ type MatchDto = {
   external_game_id?: string;
 };
 
+async function ensurePveLobby(tournamentId: number | string, rounds: any[][]): Promise<boolean> {
+  // Obtén el usuario actual de tu helper si existe; si no, intenta localStorage.
+  const currentUser =
+    (typeof (globalThis as any).getCurrentUser === 'function'
+      ? (globalThis as any).getCurrentUser()
+      : null) ||
+    (() => {
+      try {
+        return JSON.parse(localStorage.getItem('user') || 'null');
+      } catch {
+        return null;
+      }
+    })();
+
+  // Si no hay sesión, no hacemos nada.
+  if (!currentUser || !currentUser.id) return false;
+
+  // Recorremos rondas y partidos con nombres locales que NO colisionen.
+  for (const r of rounds || []) {
+    for (const m of r || []) {
+      const userIsInMatch =
+        (m?.player1?.user_id == currentUser.id) || (m?.player2?.user_id == currentUser.id);
+
+      // Detecta bot por flag o por nombre
+      const involvesBot =
+        m?.player1?.is_bot === true ||
+        m?.player2?.is_bot === true ||
+        (typeof m?.team1 === 'string' && /bot/i.test(m.team1)) ||
+        (typeof m?.team2 === 'string' && /bot/i.test(m.team2));
+
+      if (!userIsInMatch || !involvesBot) continue;
+
+      // 1) Si hay external_game_id, valida que la sala exista en el game-service
+      let validExternalId: string | null = null;
+      if (m?.external_game_id) {
+        try {
+          const check = await fetch(`/api/games/${encodeURIComponent(String(m.external_game_id))}`);
+          if (check.ok) validExternalId = String(m.external_game_id);
+        } catch {
+          // ignoramos errores de red, seguiremos creando la sala si hace falta
+        }
+      }
+
+      if (validExternalId) {
+        // Sala viva → ve directo al lobby
+        sessionStorage.setItem('currentGameId', validExternalId);
+        window.location.href = `/game-lobby?gameId=${encodeURIComponent(validExternalId)}`;
+        return true;
+      }
+
+      // 2) No hay sala válida → crea la PvE con la dificultad del torneo
+      let aiDifficulty = 'medium';
+      try {
+        const tRes = await fetch(`/api/tournaments/${encodeURIComponent(String(tournamentId))}`);
+        if (tRes.ok) {
+          const t = await tRes.json();
+          if (t?.bots_difficulty) aiDifficulty = String(t.bots_difficulty).toLowerCase();
+        }
+      } catch {
+        // fallback medium
+      }
+
+      // Crea la sala PvE en tu game-service
+      let playerName = currentUser?.username || currentUser?.name || 'Jugador';
+      try {
+        const createRes = await fetch('/api/games', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            playerName,
+            gameMode: 'pve',
+            aiDifficulty,
+          }),
+        });
+
+        if (!createRes.ok) {
+          console.error('No se pudo crear la partida PvE');
+          continue; // intenta con otros m si los hubiera
+        }
+
+        const game = await createRes.json();
+        const newId = game?.id || game?.gameId || game?.game_id;
+        if (newId) {
+          // Opcional: aquí deberíamos persistir el external_game_id en el match (UPDATE en backend)
+          // Cuando me pases el endpoint de torneos, te doy ese patch exacto.
+          sessionStorage.setItem('currentGameId', String(newId));
+          window.location.href = `/game-lobby?gameId=${encodeURIComponent(String(newId))}`;
+          return true;
+        }
+      } catch (e) {
+        console.error('Error creando PvE:', e);
+      }
+    }
+  }
+
+  // No se redirigió
+  return false;
+}
+
 export function renderTournamentsOngoingPage() {
   renderNavbar('/tournamentsOnGoing');
 
@@ -87,7 +186,12 @@ async function loadStartedTournaments() {
           const matchesRes = await fetch(`/api/tournaments/${tid}/matches`);
           const rounds = await matchesRes.json(); // ← El backend devuelve directamente las rondas
 
-          // Verificar si el usuario tiene una partida lista
+          // Intentar auto-crear/validar PvE si el cruce es humano vs bot.
+          // Si devuelve true, ya se ha redirigido al lobby y debemos salir de la función/handler.
+          if (await ensurePveLobby(tid, rounds)) {
+            return;
+          }
+
           const currentUser = getCurrentUser();
           if (currentUser && currentUser.id) {
             for (const round of rounds) {
@@ -216,22 +320,30 @@ function normalizeRoundsAndTitles(input: any): { rounds: BracketMatch[][]; title
   return { rounds, titles };
 }
 
-function toBracketMatch(m: MatchDto): BracketMatch {
+function toBracketMatch(m: any): BracketMatch {
   const s1 = typeof m.score1 === 'number' ? m.score1 : null;
   const s2 = typeof m.score2 === 'number' ? m.score2 : null;
   let winner: 1 | 2 | null = null;
   if (s1 != null && s2 != null) winner = s1 > s2 ? 1 : (s2 > s1 ? 2 : null);
+
+  const pickName = (p: any) => {
+    if (p == null) return null;
+    if (typeof p === 'string') return p;
+    if (typeof p === 'object') return p.username ?? p.name ?? p.nick ?? null;
+    return String(p);
+  };
+
+  const player1Name = pickName(m.player1) ?? m.team1 ?? null;
+  const player2Name = pickName(m.player2) ?? m.team2 ?? null;
+
   return {
-    player1: m.player1 ?? m.team1 ?? null,
-    player2: m.player2 ?? m.team2 ?? null,
+    player1: player1Name,
+    player2: player2Name,
     team1: m.team1 ?? null,
     team2: m.team2 ?? null,
     score1: s1,
     score2: s2,
-    status:
-      (m.status === 'pending' || m.status === 'scheduled' || m.status === 'started' || m.status === 'finished')
-        ? m.status
-        : 'pending',
+    status: m.status ?? 'finished',
     winner
   };
 }

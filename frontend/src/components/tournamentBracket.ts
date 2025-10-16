@@ -80,8 +80,8 @@ function inferRoundTitles(total: number): string[] {
   return Array.from({ length: total }, (_, i) => `Ronda ${i + 1}`);
 }
 
-function escapeHtml(s: string) {
-  return s.replace(/[&<>"']/g, (c) =>
+function escapeHtml(s: unknown) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c] as string)
   );
 }

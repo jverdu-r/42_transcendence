@@ -159,9 +159,19 @@ function toBracketMatch(m: any): BracketMatch {
   let winner: 1 | 2 | null = null;
   if (s1 != null && s2 != null) winner = s1 > s2 ? 1 : (s2 > s1 ? 2 : null);
 
+  const pickName = (p: any) => {
+    if (p == null) return null;
+    if (typeof p === 'string') return p;
+    if (typeof p === 'object') return p.username ?? p.name ?? p.nick ?? null;
+    return String(p);
+  };
+
+  const player1Name = pickName(m.player1) ?? m.team1 ?? null;
+  const player2Name = pickName(m.player2) ?? m.team2 ?? null;
+
   return {
-    player1: m.player1 ?? m.team1 ?? null,
-    player2: m.player2 ?? m.team2 ?? null,
+    player1: player1Name,
+    player2: player2Name,
     team1: m.team1 ?? null,
     team2: m.team2 ?? null,
     score1: s1,

@@ -106,6 +106,22 @@ fastify.register(async function (fastify) {
       fastify.log.info(`👥 ${username} se unió al juego ${gameId}`);
     }
 
+    // ⬇️ Detectar cierre del socket y comunicarlo al GameManager
+    connection.socket.on('close', () => {
+      try {
+        connections.delete(connectionId);
+      } catch {}
+
+      // Importante: si la partida aún NO ha empezado, esto otorgará 5-0 al rival
+      try {
+        (gameManager as any).handlePlayerDisconnected?.(gameId, { username });
+      } catch (e) {
+        fastify.log.error(`handlePlayerDisconnected error: ${e}`);
+      }
+
+      fastify.log.info(`🔌 Conexión cerrada: ${connectionId} (juego ${gameId}, user ${username})`);
+    });
+
     // Asociar conexión con jugador
     if (game) {
       const players = game.getPlayers();
@@ -260,12 +276,12 @@ const start = async (): Promise<void> => {
     await fastify.listen({ port, host });
     
     console.log(`
-🚀 Servidor Unified Game iniciado correctamente
-📍 Puerto: ${port}
-🌐 Host: ${host}
-🎮 Motor: UnifiedGame con físicas idénticas al frontend
-⚡ Framerate: 60 FPS
-🔗 WebSocket: /pong/:gameId
+  🚀 Servidor Unified Game iniciado correctamente
+  📍 Puerto: ${port}
+  🌐 Host: ${host}
+  🎮 Motor: UnifiedGame con físicas idénticas al frontend
+  ⚡ Framerate: 60 FPS
+  🔗 WebSocket: /pong/:gameId
     `);
   } catch (err) {
     fastify.log.error('❌ Error iniciando servidor:', err);

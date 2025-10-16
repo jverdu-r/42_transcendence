@@ -22,48 +22,67 @@ export class UnifiedGameManager {
         this.broadcastCallback = callback;
     }
 
-    public createGame(playerName: string, mode: GameMode = 'pvp', aiDifficulty: 'easy' | 'medium' | 'hard' = 'medium'): string {
-        const gameId = uuidv4();
-        const gameName = `Game ${gameId.substring(0, 8)}`;
-        
-        const game = new UnifiedGame(
-            gameName,
-            this.defaultDimensions,
-            this.defaultConfig
-        );
+    public createGame(
+    playerName: string,
+    mode: GameMode = 'pvp',
+    aiDifficulty: 'easy' | 'medium' | 'hard' = 'medium'
+    ): string {
+    const gameId = uuidv4();
+    const gameName = `Game ${gameId.substring(0, 8)}`;
 
-        const player: IPlayer = {
-            id: uuidv4(),
-            number: 1,
-            isAI: false,
-            isConnected: true,
-            name: playerName,
+    const game = new UnifiedGame(
+        gameName,
+        this.defaultDimensions,
+        this.defaultConfig
+    );
+
+    // Jugador humano
+    const player: IPlayer = {
+        id: uuidv4(),
+        number: 1,
+        isAI: false,
+        isConnected: true,
+        name: playerName,
+    };
+
+    game.setId(gameId);
+    game.setMode(mode === 'pve' ? 'pve' : 'pvp', aiDifficulty);
+    game.addPlayer(player);
+
+    // PvE: añadir IA
+    if (mode === 'pve') {
+        const aiPlayer: IPlayer = {
+        id: uuidv4(),
+        number: 2,
+        isAI: true,
+        isConnected: true,
+        name: `AI (${aiDifficulty})`,
         };
-
-        game.setId(gameId);
-        game.setMode(mode === 'pve' ? 'pve' : 'pvp', aiDifficulty);
-        game.addPlayer(player);
-
-        // If PvE mode, add AI player
-        if (mode === 'pve') {
-            const aiPlayer: IPlayer = {
-                id: uuidv4(),
-                number: 2,
-                isAI: true,
-                isConnected: true,
-                name: `AI (${aiDifficulty})`,
-            };
-            game.addPlayer(aiPlayer);
-        }
-
-        this.games.set(gameId, game);
-
-        // Set up game state broadcast
-        this.setupGameBroadcast(gameId);
-
-        console.log(`✅ Game created: ${gameId} by ${playerName} (${mode} mode)`);
-        return gameId;
+        game.addPlayer(aiPlayer);
     }
+
+    // Registrar juego y broadcasting periódico de estado
+    this.games.set(gameId, game);
+    this.setupGameBroadcast(gameId);
+
+    // 🔧 PvE debe arrancar y avisar al lobby
+    if (mode === 'pve') {
+        const started = game.start(); // o this.startGame(gameId) si prefieres reutilizar
+        if (started) {
+        // Emite el evento que espera el frontend para salir del "esperando..."
+        this.broadcastCallback?.(gameId, {
+            type: 'gameStarted',
+            data: { gameId }
+        });
+        } else {
+        console.log(`⚠️ No se pudo auto-iniciar PvE ${gameId}`);
+        }
+    }
+
+    console.log(`✅ Game created: ${gameId} by ${playerName} (${mode}${mode === 'pve' ? `, AI: ${aiDifficulty}` : ''})`);
+    return gameId;
+    }
+
 
     private setupGameBroadcast(gameId: string): void {
         const game = this.games.get(gameId);

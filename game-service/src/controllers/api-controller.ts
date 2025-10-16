@@ -96,12 +96,16 @@ export class ApiController {
       }
 
       const sanitizedPlayerName = GameValidators.sanitizePlayerName(finalPlayerName);
-      const gameId = this.gameManager.createGame(sanitizedPlayerName, gameMode);
+      const gameId = this.gameManager.createGame(
+        sanitizedPlayerName,
+        gameMode as any,
+        aiDifficulty as any
+      );
       const game = this.gameManager.getGame(gameId);
       
       if (game) {
         const formattedGame = this.apiResponseService.formatGameForApi(game);
-        const gameWithMode = { ...formattedGame, gameMode, capacidadMaxima: maxPlayers };
+        const gameWithMode = { ...formattedGame, gameMode, aiDifficulty, capacidadMaxima: maxPlayers };
         
         reply.send(gameWithMode);
       } else {
@@ -197,20 +201,44 @@ export class ApiController {
 
   public async createApiGame(request: FastifyRequest<CreateGameRequest>, reply: FastifyReply): Promise<void> {
     try {
-      const { nombre, gameMode = GAME_MODES.PVP, maxPlayers = 2 } = request.body || {};
-      
-      // Use provided name or generate a default
-      const playerName = 'Jugador1';
-      
+      const { 
+        nombre, 
+        gameMode = GAME_MODES.PVP, 
+        maxPlayers = 2,
+        playerName = 'Jugador1',
+        aiDifficulty: rawAIDifficulty = 'medium'  // 👈 Renombramos aquí
+      } = request.body || {};
+
       if (!GameValidators.validateGameMode(gameMode)) {
         const errorResponse = this.apiResponseService.createErrorResponse('Invalid game mode');
         reply.status(400).send(errorResponse);
         return;
       }
 
-      const gameId = this.gameManager.createGame(playerName, gameMode);
+      // 👇 Validar y tipar correctamente aiDifficulty
+      let aiDifficulty: 'easy' | 'medium' | 'hard' = 'medium';
+      if (typeof rawAIDifficulty === 'string') {
+        const validValues = ['easy', 'medium', 'hard', 'normal'];
+        if (validValues.includes(rawAIDifficulty)) {
+          aiDifficulty = rawAIDifficulty === 'normal' ? 'medium' : (rawAIDifficulty as 'easy' | 'medium' | 'hard');
+        }
+      }
+
+      const finalPlayerName = playerName || nombre || 'Jugador1';
+      if (!GameValidators.validatePlayerName(finalPlayerName)) {
+        const errorResponse = this.apiResponseService.createErrorResponse('Invalid player name');
+        reply.status(400).send(errorResponse);
+        return;
+      }
+      const sanitizedPlayerName = GameValidators.sanitizePlayerName(finalPlayerName);
+
+      const gameId = this.gameManager.createGame(sanitizedPlayerName, gameMode, aiDifficulty);
       const game = this.gameManager.getGame(gameId);
-      
+
+      if (gameMode === 'pve' && game) {
+        game.start();
+      }
+
       if (game) {
         const formattedGame = this.apiResponseService.formatGameForApi(game);
         const gameWithMode = { 
@@ -218,7 +246,6 @@ export class ApiController {
           gameMode, 
           capacidadMaxima: maxPlayers 
         };
-        
         reply.send(gameWithMode);
       } else {
         const errorResponse = this.apiResponseService.createErrorResponse('Failed to create game');
