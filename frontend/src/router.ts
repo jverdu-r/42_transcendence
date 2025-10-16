@@ -6,7 +6,8 @@ import { renderPlay } from './pages/play';
 import { renderProfilePage } from './pages/profile';
 import { renderRankingPage } from './pages/ranking';
 import { renderFriendsPage } from './pages/friends';
-import { renderEnhancedChatPage } from './pages/chat-enhanced';
+import { renderChatPage } from './pages/chat';
+// import { renderEnhancedChatPage } from './pages/chat-enhanced';
 import { renderSettingsPage } from './pages/settings';
 import { renderLoginPage } from './pages/login';
 import { renderRegister } from './pages/register';
@@ -75,7 +76,8 @@ const routes: { [key: string]: () => void } = {
   '/play': renderPlay,
   '/ranking': renderRankingPage,
   '/friends': renderFriendsPage,
-  '/chat': renderEnhancedChatPage,
+  '/chat': renderChatPage,
+  // '/chat': renderEnhancedChatPage,  // TODO: Activar cuando se compile
   '/settings': renderSettingsPage,
   '/login': renderLoginPage,
   '/register': renderRegister,
