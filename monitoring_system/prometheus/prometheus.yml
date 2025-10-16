@@ -18,54 +18,81 @@ scrape_configs:
   # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:
-      - targets: ['localhost:9090']
+<<<<<<< HEAD
+      - targets: ['10.0.2.15:9090']
+=======
+      - targets: ['10.11.200.131:9090']
+>>>>>>> main
 
   # Dedicated exporters (these have native Prometheus metrics)
   - job_name: 'node-exporter'
     static_configs:
-      - targets: ['node-exporter:9100']
+<<<<<<< HEAD
+      - targets: ['10.0.2.15:9100']
 
   - job_name: 'redis-exporter'
     static_configs:
-      - targets: ['redis-exporter:9121']
+      - targets: ['10.0.2.15:9121']
 
   - job_name: 'cadvisor'
     static_configs:
-      - targets: ['cadvisor:8080']
+      - targets: ['10.0.2.15:8084']
+=======
+      - targets: ['10.11.200.131:9100']
+
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['10.11.200.131:9121']
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['10.11.200.131:8084']
+>>>>>>> main
     scrape_interval: 30s
 
   - job_name: 'nginx-exporter'
     static_configs:
-      - targets: ['nginx-exporter:9113']
+<<<<<<< HEAD
+      - targets: ['10.0.2.15:9113']
+=======
+      - targets: ['10.11.200.131:9113']
+>>>>>>> main
     scrape_interval: 30s
 
-  # HashiCorp Vault - Mock healthcheck (siempre UP si el contenedor está corriendo)
-  # Como Vault no expone métricas accesibles, usamos el healthcheck del contenedor
+  # HashiCorp Vault (has native Prometheus metrics)
   - job_name: 'vault'
     static_configs:
-      - targets: ['vault:8200']
-    metrics_path: '/v1/sys/health'
-    scheme: https
-    tls_config:
-      insecure_skip_verify: true
+<<<<<<< HEAD
+      - targets: ['10.0.2.15:8200']
+=======
+      - targets: ['10.11.200.131:8200']
+>>>>>>> main
+    metrics_path: '/v1/sys/metrics'
+    params:
+      format: ['prometheus']
+    bearer_token: 'dev-root-token'
     scrape_interval: 60s
-    scrape_timeout: 10s
 
   # Blackbox exporter self-monitoring
   - job_name: 'blackbox-exporter'
     static_configs:
-      - targets: ['blackbox-exporter:9115']
+<<<<<<< HEAD
+      - targets: ['10.0.2.15:9115']
+=======
+      - targets: ['10.11.200.131:9115']
+>>>>>>> main
 
-  # Blackbox exporter probes for HTTP health checks
-  - job_name: 'blackbox-http'
+  # Blackbox exporter probes for HTTPS health checks
+  - job_name: 'blackbox-https'
     metrics_path: /probe
     params:
       module: [http_2xx]
     static_configs:
       - targets:
-          - http://waf:8080         # WAF (frontend through WAF)
-          - http://redis-commander:8081  # redis-commander
-          - http://nginx-proxy:80   # nginx-proxy
+          - https://10.0.2.15:9443      # frontend via HTTPS
+          - https://10.0.2.15:443       # nginx-proxy HTTPS
+          - https://10.11.200.131:9443  # frontend via HTTPS (alternate IP)
+          - https://10.11.200.131:443   # nginx-proxy HTTPS (alternate IP)
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
@@ -73,6 +100,9 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: blackbox-exporter:9115
+    # TLS config para certificados autofirmados
+    tls_config:
+      insecure_skip_verify: true
 
   # Blackbox exporter probes for TCP connectivity checks
   - job_name: 'blackbox-tcp'
@@ -81,12 +111,21 @@ scrape_configs:
       module: [tcp_connect]
     static_configs:
       - targets:
-          - game-service:8000  # game-service
-          - api-gateway:8000   # api-gateway
-          - auth-service:8000  # auth-service
-          - chat-service:8000  # chat-service
-          - db-service:8000    # db-service
-          - redis:6379         # redis
+<<<<<<< HEAD
+          - 10.0.2.15:8002 # game-service
+          - 10.0.2.15:9000 # api-gateway
+          - 10.0.2.15:8001 # auth-service
+          - 10.0.2.15:8003 # chat-service
+          - 10.0.2.15:8005 # db-service
+          - 10.0.2.15:6379 # redis
+=======
+          - 10.11.200.131:8002 # game-service
+          - 10.11.200.131:9000 # api-gateway
+          - 10.11.200.131:8001 # auth-service
+          - 10.11.200.131:8003 # chat-service
+          - 10.11.200.131:8005 # db-service
+          - 10.11.200.131:6379 # redis
+>>>>>>> main
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

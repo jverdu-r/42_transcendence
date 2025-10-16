@@ -3,6 +3,7 @@
 import { navigateTo } from '../router';
 import { getTranslation } from '../i18n';
 import { getCurrentUser, getSetting, setSetting, applyUserSettings, fetchUserProfile } from '../auth';
+import { notify } from '../utils/notifications';
 
 interface UserSettings {
     language: string;
@@ -382,12 +383,12 @@ function setupEventListeners(): void {
 
         // === Validación local antes de enviar ===
         if (newPassword && !currentPassword) {
-            alert(getTranslation('settings', 'emptyCurrentPassword'));
+            notify.warning(getTranslation('settings', 'emptyCurrentPassword'));
             return;
         }
 
         if (currentPassword && !newPassword) {
-            alert(getTranslation('settings', 'emptyNewPassword'));
+            notify.warning(getTranslation('settings', 'emptyNewPassword'));
             return;
         }
 
@@ -405,7 +406,7 @@ function setupEventListeners(): void {
             const result = await updateUserProfile(profileData);
             
             if (result.success) {
-                alert(getTranslation('alerts', 'successProfile'));
+                notify.success(getTranslation('alerts', 'successProfile'));
 
                 // Limpiar campos de contraseña
                 (document.getElementById('current-password') as HTMLInputElement).value = '';
@@ -429,10 +430,10 @@ function setupEventListeners(): void {
                     errorMsg.includes('invalid') || 
                     errorMsg.includes('wrong') ||
                     errorMsg.includes('current password')) {
-                    alert(getTranslation('settings', 'wrongPassword'));
+                    notify.error(getTranslation('settings', 'wrongPassword'));
                 } else {
                     // Otro error (conexión, servidor, etc.)
-                    alert(errorMsg || getTranslation('alerts', 'connection'));
+                    notify.error(errorMsg || getTranslation('alerts', 'connection'));
                 }
             }
         } catch (error) {

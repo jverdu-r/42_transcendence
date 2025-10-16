@@ -2,6 +2,7 @@
 
 import { getTranslation } from '../i18n';
 import { getCurrentUser } from '../auth';
+import { notify } from '../utils/notifications';
 
 declare global {
     interface Window {
@@ -180,7 +181,7 @@ export async function renderFriendsPage(): Promise<void> {
 
     window.handleChallenge = (userId: number, username: string) => {
         console.log(`Desafiando a ${username} (ID: ${userId})`);
-        alert(`${getTranslation('friends', 'challenging')} ${username}!`);
+        notify.info(`${getTranslation('friends', 'challenging')} ${username}!`);
     };
 
     window.handleAcceptRequest = async (senderId: number, rowElement: HTMLElement) => {
@@ -205,14 +206,14 @@ export async function renderFriendsPage(): Promise<void> {
             if (response.ok) {
                 rowElement.remove();
                 await renderFriendsPage();
-                alert(getTranslation('friends', 'requestAccepted'));
+                notify.success(getTranslation('friends', 'requestAccepted'));
             } else {
                 const error = await response.json();
-                alert(`Error: ${error.message} || ${getTranslation('alerts', 'noAccept')}`);
+                notify.error(`Error: ${error.message} || ${getTranslation('alerts', 'noAccept')}`);
             }
         } catch (err) {
             console.error('Error aceptando solicitud:', err);
-            alert(getTranslation('alerts', 'network'));
+            notify.error(getTranslation('alerts', 'network'));
         }
     };
 
@@ -231,15 +232,15 @@ export async function renderFriendsPage(): Promise<void> {
             });
 
             if (res.ok) {
-                alert(getTranslation('friends', 'friendDeleted'));
+                notify.success(getTranslation('friends', 'friendDeleted'));
                 await renderFriendsPage();
             } else {
                 const err = await res.json();
-                alert(`Error: ${err.error || getTranslation('friends', 'deletingError')}`);
+                notify.error(`Error: ${err.error || getTranslation('friends', 'deletingError')}`);
             }
         } catch (err) {
             console.error('Error eliminando amigo:', err);
-            alert(getTranslation('alerts', 'network'));
+            notify.error(getTranslation('alerts', 'network'));
         }
     };
 
@@ -265,14 +266,14 @@ export async function renderFriendsPage(): Promise<void> {
             if (response.ok) {
                 rowElement.remove();
                 await renderFriendsPage();
-                alert(`${getTranslation('friends', 'requestRejected')}`);
+                notify.success(`${getTranslation('friends', 'requestRejected')}`);
             } else {
                 const error = await response.json();
-                alert(`Error: ${error.message || 'No se pudo rechazar'}`);
+                notify.error(`Error: ${error.message || 'No se pudo rechazar'}`);
             }
         } catch (err) {
             console.error(getTranslation('alerts', 'failRequest'), err);
-            alert(getTranslation('alerts', 'network'));
+            notify.error(getTranslation('alerts', 'network'));
         }
     };
 
@@ -291,7 +292,7 @@ export async function renderFriendsPage(): Promise<void> {
     (window as any).handleSendRequest = async (targetId: number, username: string, buttonElement: HTMLElement) => {
         if (typeof targetId !== 'number' || isNaN(targetId) || targetId <= 0) {
             console.error('Invalid targetId:', targetId);
-            alert(getTranslation('friends', 'sentError'));
+            notify.error(getTranslation('friends', 'sentError'));
             return;
         }
 
@@ -301,7 +302,7 @@ export async function renderFriendsPage(): Promise<void> {
 
         const token = localStorage.getItem('jwt');
         if (!token) {
-            alert(getTranslation('friends', 'sessionExpired'));
+            notify.warning(getTranslation('friends', 'sessionExpired'));
             window.location.href = '/login';
             return;
         }
@@ -335,13 +336,13 @@ export async function renderFriendsPage(): Promise<void> {
                 buttonElement.classList.add('bg-gray-500', 'cursor-not-allowed');
                 buttonElement.removeAttribute('onclick');
 
-                alert(getTranslation('friends', 'requestSentSuccessfully'));
+                notify.success(getTranslation('friends', 'requestSentSuccessfully'));
             } else {
                 throw new Error(data.error || 'Request failed');
             }
         } catch (err: any) {
             console.error('Error enviando solicitud de amistad:', err);
-            alert(`${getTranslation('alerts', 'failRequest')} ${err.message || ''}`);
+            notify.error(`${getTranslation('alerts', 'failRequest')} ${err.message || ''}`);
         }
     };
 
