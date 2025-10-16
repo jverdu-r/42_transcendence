@@ -452,51 +452,19 @@ async function autoJoinChallengeGame(gameId: string): Promise<void> {
       return;
     }
 
-    // Wait for the game to be created in the backend
-    console.log('⏳ Waiting for challenge game to be created...');
-    let attempts = 0;
-    const maxAttempts = 8; // 4 seconds max
-    let gameExists = false;
-
-    while (attempts < maxAttempts && !gameExists) {
-      try {
-        const response = await fetch(`/api/games/${gameId}`, {
-          headers: { 'Accept': 'application/json' }
-        });
-        
-        if (response.ok) {
-          const game = await response.json();
-          console.log('✅ Challenge game found:', game);
-          gameExists = true;
-          break;
-        }
-      } catch (err) {
-        console.log(`Attempt ${attempts + 1}/${maxAttempts} - Game not ready yet...`);
-      }
-      
-      // Wait 500ms before retrying
-      await new Promise(resolve => setTimeout(resolve, 500));
-      attempts++;
-    }
-
-    if (!gameExists) {
-      showNotification('❌ No se pudo conectar a la partida. Intenta de nuevo.', 'error');
-      setTimeout(() => navigateTo('/chat'), 2000);
-      return;
-    }
-
-    // Save game information
+    // Save game information IMMEDIATELY - the backend already created the game before sending notifications
     sessionStorage.setItem('currentGameId', gameId);
     sessionStorage.setItem('currentGameMode', 'challenge');
     sessionStorage.setItem('isChallenge', 'true');
     
-    console.log('✅ Challenge game ready, redirecting to lobby...');
-    showNotification('🎮 ' + getTranslation('notifications', 'challenge_starting'), 'success');
+    console.log('✅ Connecting to challenge game:', gameId);
+    showNotification('🎮 Conectando a la partida...', 'success');
     
-    // Redirect to lobby
+    // Redirect to game lobby immediately - it will connect to the WebSocket
+    // Using a very short delay just to show the notification
     setTimeout(() => {
       navigateTo('/game-lobby');
-    }, 500);
+    }, 300);
     
   } catch (error) {
     console.error('❌ Error joining challenge game:', error);

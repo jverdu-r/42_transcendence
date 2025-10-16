@@ -348,18 +348,26 @@ function handleWebSocketMessage(message: any): void {
 
         case 'challenge_accepted':
             // El invitador recibe esto cuando aceptan su desafío
-            showNotification(`${message.data.opponentUsername} aceptó tu desafío! Iniciando partida...`, 'success');
+            showNotification(`🎮 ${message.data.opponentUsername} aceptó tu desafío! Iniciando partida...`, 'success');
+            // Guardar gameId y redirigir directamente al lobby
+            sessionStorage.setItem('currentGameId', message.data.gameId);
+            sessionStorage.setItem('currentGameMode', 'challenge');
+            sessionStorage.setItem('isChallenge', 'true');
             setTimeout(() => {
-                navigateTo(`/unified-game-online?gameId=${message.data.gameId}&mode=challenge`);
-            }, 1500);
+                navigateTo('/game-lobby');
+            }, 800);
             break;
 
         case 'challenge_start':
             // El que acepta recibe esto para iniciar la partida
-            showNotification(`Partida contra ${message.data.opponentUsername} iniciando...`, 'success');
+            showNotification(`🎮 Partida contra ${message.data.opponentUsername} iniciando...`, 'success');
+            // Guardar gameId y redirigir directamente al lobby
+            sessionStorage.setItem('currentGameId', message.data.gameId);
+            sessionStorage.setItem('currentGameMode', 'challenge');
+            sessionStorage.setItem('isChallenge', 'true');
             setTimeout(() => {
-                navigateTo(`/unified-game-online?gameId=${message.data.gameId}&mode=challenge`);
-            }, 1500);
+                navigateTo('/game-lobby');
+            }, 800);
             break;
 
         case 'challenge_declined':
