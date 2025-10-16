@@ -706,7 +706,7 @@ fastify.register(async function (fastify) {
                                 // Crear la partida en el game-service ANTES de notificar
                                 try {
                                     console.log(`🎮 Creating challenge game: ${gameId}`);
-                                    const createGameResponse = await fetch('http://api-gateway:3001/api/games', {
+                                    const createGameResponse = await fetch('http://api-gateway:8000/api/games', {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json'
