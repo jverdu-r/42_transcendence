@@ -3,7 +3,26 @@
 # Script to automatically detect and set the machine IP in .env file
 
 # Get the current machine's IP address (excluding localhost)
-CURRENT_IP=$(hostname -I | awk '{print $1}')
+# Try multiple methods to detect the IP address
+CURRENT_IP=""
+
+# Method 1: Using ip route (most reliable)
+if command -v ip >/dev/null 2>&1; then
+    CURRENT_IP=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' 2>/dev/null)
+fi
+
+# Method 2: Using hostname -I (fallback)
+if [ -z "$CURRENT_IP" ] && command -v hostname >/dev/null 2>&1; then
+    CURRENT_IP=$(hostname -i 2>/dev/null | awk '{print $1}' | grep -v '127.0')
+    if [ "$CURRENT_IP" = "127.0.1.1" ] || [ "$CURRENT_IP" = "127.0.0.1" ]; then
+        CURRENT_IP=""
+    fi
+fi
+
+# Method 3: Using ifconfig (another fallback)
+if [ -z "$CURRENT_IP" ] && command -v ifconfig >/dev/null 2>&1; then
+    CURRENT_IP=$(ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | head -n1 | cut -d' ' -f2 | cut -d':' -f2)
+fi
 
 if [ -z "$CURRENT_IP" ]; then
     echo "❌ Could not detect machine IP automatically"
