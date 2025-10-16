@@ -700,12 +700,12 @@ fastify.register(async function (fastify) {
                             // Obtener información de la invitación
                             const invitation = getInvitationById(invId);
                             if (invitation) {
-                                // Crear la partida en el game-service
+                                const inviterUsername = getUsername(invitation.inviter_id);
+                                const accepterUsername = username;
+                                
+                                // Crear la partida en el game-service ANTES de notificar
                                 try {
-                                    const inviterUsername = getUsername(invitation.inviter_id);
-                                    const accepterUsername = username;
-                                    
-                                    // Crear la partida via API
+                                    console.log(`🎮 Creating challenge game: ${gameId}`);
                                     const createGameResponse = await fetch('http://api-gateway:3001/api/games', {
                                         method: 'POST',
                                         headers: {
@@ -721,33 +721,47 @@ fastify.register(async function (fastify) {
                                     });
                                     
                                     if (createGameResponse.ok) {
-                                        console.log(`✅ Challenge game created: ${gameId}`);
+                                        const gameData = await createGameResponse.json();
+                                        console.log(`✅ Challenge game created successfully:`, gameData);
+                                        
+                                        // Solo enviar notificaciones DESPUÉS de crear la partida exitosamente
+                                        // Notificar al invitador que se aceptó y comenzar partida
+                                        sendToUser(invitation.inviter_id, 'challenge_accepted', {
+                                            invitationId: invId,
+                                            gameId: gameId,
+                                            opponentId: userId,
+                                            opponentUsername: username
+                                        });
+                                        
+                                        // Notificar al que aceptó
+                                        socket.send(JSON.stringify({
+                                            type: 'challenge_start',
+                                            data: {
+                                                invitationId: invId,
+                                                gameId: gameId,
+                                                opponentId: invitation.inviter_id,
+                                                opponentUsername: inviterUsername
+                                            }
+                                        }));
                                     } else {
-                                        console.error('❌ Error creating challenge game:', await createGameResponse.text());
+                                        const errorText = await createGameResponse.text();
+                                        console.error('❌ Error creating challenge game:', errorText);
+                                        
+                                        // Notificar error al usuario
+                                        socket.send(JSON.stringify({
+                                            type: 'error',
+                                            data: { message: 'No se pudo crear la partida de desafío' }
+                                        }));
                                     }
                                 } catch (error) {
-                                    console.error('❌ Error creating challenge game:', error);
+                                    console.error('❌ Exception creating challenge game:', error);
+                                    
+                                    // Notificar error al usuario
+                                    socket.send(JSON.stringify({
+                                        type: 'error',
+                                        data: { message: 'Error al crear la partida de desafío' }
+                                    }));
                                 }
-                                
-                                // Notificar al invitador que se aceptó y comenzar partida
-                                sendToUser(invitation.inviter_id, 'challenge_accepted', {
-                                    invitationId: invId,
-                                    gameId: gameId,
-                                    opponentId: userId,
-                                    opponentUsername: username
-                                });
-                                
-                                // Notificar al que aceptó
-                                const inviterUsername = getUsername(invitation.inviter_id);
-                                socket.send(JSON.stringify({
-                                    type: 'challenge_start',
-                                    data: {
-                                        invitationId: invId,
-                                        gameId: gameId,
-                                        opponentId: invitation.inviter_id,
-                                        opponentUsername: inviterUsername
-                                    }
-                                }));
                             }
                         } else {
                             updateInvitationStatus(invId, status);

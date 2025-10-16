@@ -455,7 +455,7 @@ async function autoJoinChallengeGame(gameId: string): Promise<void> {
     // Wait for the game to be created in the backend
     console.log('⏳ Waiting for challenge game to be created...');
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 8; // 4 seconds max
     let gameExists = false;
 
     while (attempts < maxAttempts && !gameExists) {
@@ -480,7 +480,9 @@ async function autoJoinChallengeGame(gameId: string): Promise<void> {
     }
 
     if (!gameExists) {
-      throw new Error('Challenge game was not created in time');
+      showNotification('❌ No se pudo conectar a la partida. Intenta de nuevo.', 'error');
+      setTimeout(() => navigateTo('/chat'), 2000);
+      return;
     }
 
     // Save game information
