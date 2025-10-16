@@ -60,28 +60,28 @@ export function renderEnhancedChatPage(): void {
                     <!-- Tabs -->
                     <div class="flex gap-1 mb-4">
                         <button id="tab-global" class="flex-1 px-3 py-2 bg-[#ffc300] text-black font-bold rounded-lg text-sm">
-                            💬 Global
+                            💬 ${getTranslation('chat','tabGlobal')}
                         </button>
                         <button id="tab-friends" class="flex-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm">
-                            👥 Amigos
+                            👥 ${getTranslation('chat','tabFriends')}
                         </button>
                         <button id="tab-users" class="flex-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm">
-                            🌐 Todos
+                            🌐 ${getTranslation('chat','tabUsers')}
                         </button>
                     </div>
 
                     <!-- Online Users List -->
                     <div id="sidebar-content" class="flex-1 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-gray-600">
-                        <div class="text-center text-gray-400 py-4">Cargando...</div>
+                        <div class="text-center text-gray-400 py-4">${getTranslation('chat','loading')}</div>
                     </div>
 
                     <!-- User Actions -->
                     <div class="mt-4 space-y-2">
                         <button id="show-blocked-btn" class="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm">
-                            🚫 Bloqueados
+                            🚫 ${getTranslation('chat','blockedButton')}
                         </button>
                         <button id="show-invitations-btn" class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm relative">
-                            🎮 Invitaciones
+                            🎮 ${getTranslation('chat','invitationsButton')}
                             <span id="invitations-badge" class="hidden absolute top-0 right-0 -mt-1 -mr-1 bg-red-500 text-white text-xs px-2 py-1 rounded-full"></span>
                         </button>
                     </div>
@@ -91,15 +91,15 @@ export function renderEnhancedChatPage(): void {
                 <div class="flex-1 pl-6 flex flex-col">
                     <!-- Chat Header -->
                     <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-600">
-                        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3">
                             <span id="chat-icon" class="text-3xl">💬</span>
                             <div>
-                                <h2 id="chat-title" class="text-2xl font-bold text-[#ffc300]">Chat Global</h2>
-                                <p id="chat-subtitle" class="text-xs text-gray-400">Todos los usuarios</p>
+                <h2 id="chat-title" class="text-2xl font-bold text-[#ffc300]">${getTranslation('chat','globalChatTitle')}</h2>
+                <p id="chat-subtitle" class="text-xs text-gray-400">${getTranslation('chat','globalChatSubtitle')}</p>
                             </div>
                         </div>
-                        <button id="back-to-global" class="hidden px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg">
-                            ← Volver
+            <button id="back-to-global" class="hidden px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg">
+                ← ${getTranslation('chat','backToGlobal')}
                         </button>
                     </div>
 
@@ -107,7 +107,7 @@ export function renderEnhancedChatPage(): void {
                     <div id="chat-messages" class="flex-1 overflow-y-auto mb-4 space-y-3 px-2 scrollbar-thin scrollbar-thumb-gray-600">
                         <div class="text-center text-gray-400 py-8">
                             <div class="animate-spin inline-block w-8 h-8 border-4 border-[#ffc300] border-t-transparent rounded-full mb-2"></div>
-                            <p>Conectando...</p>
+                            <p>${getTranslation('chat','connecting')}</p>
                         </div>
                     </div>
 
@@ -116,7 +116,7 @@ export function renderEnhancedChatPage(): void {
                         <input
                             type="text"
                             id="chat-input"
-                            placeholder="Escribe un mensaje..."
+                            placeholder="${getTranslation('chat','inputPlaceholder')}"
                             class="flex-1 px-4 py-3 bg-gray-800 bg-opacity-50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-[#ffc300] transition-colors disabled:opacity-50"
                             maxlength="500"
                             disabled
@@ -126,14 +126,14 @@ export function renderEnhancedChatPage(): void {
                             class="px-6 py-3 bg-[#ffc300] hover:bg-[#ffd60a] text-black font-bold rounded-lg transition-colors disabled:opacity-50"
                             disabled
                         >
-                            Enviar
+                            ${getTranslation('chat','send')}
                         </button>
                     </div>
 
                     <!-- Connection Status -->
                     <div id="connection-status" class="mt-2 text-sm text-gray-400 text-center">
                         <span class="inline-block w-2 h-2 rounded-full bg-yellow-500 animate-pulse mr-2"></span>
-                        Conectando...
+                        ${getTranslation('chat','connecting')}
                     </div>
                 </div>
             </div>
@@ -142,7 +142,7 @@ export function renderEnhancedChatPage(): void {
             <div id="profile-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div class="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
                     <div class="flex justify-between items-start mb-4">
-                        <h3 class="text-2xl font-bold text-[#ffc300]">Perfil de Usuario</h3>
+                        <h3 class="text-2xl font-bold text-[#ffc300]">${getTranslation('chat','profileTitle')}</h3>
                         <button id="close-profile-modal" class="text-gray-400 hover:text-white text-2xl">&times;</button>
                     </div>
                     <div id="profile-content" class="space-y-4"></div>
@@ -153,7 +153,7 @@ export function renderEnhancedChatPage(): void {
             <div id="blocked-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div class="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
                     <div class="flex justify-between items-start mb-4">
-                        <h3 class="text-2xl font-bold text-[#ffc300]">Usuarios Bloqueados</h3>
+                        <h3 class="text-2xl font-bold text-[#ffc300]">${getTranslation('chat','blockedUsersTitle')}</h3>
                         <button id="close-blocked-modal" class="text-gray-400 hover:text-white text-2xl">&times;</button>
                     </div>
                     <div id="blocked-content" class="space-y-2 max-h-96 overflow-y-auto"></div>
@@ -164,7 +164,7 @@ export function renderEnhancedChatPage(): void {
             <div id="invitations-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div class="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
                     <div class="flex justify-between items-start mb-4">
-                        <h3 class="text-2xl font-bold text-[#ffc300]">Invitaciones a Juegos</h3>
+                        <h3 class="text-2xl font-bold text-[#ffc300]">${getTranslation('chat','invitationsModalTitle')}</h3>
                         <button id="close-invitations-modal" class="text-gray-400 hover:text-white text-2xl">&times;</button>
                     </div>
                     <div id="invitations-content" class="space-y-2 max-h-96 overflow-y-auto"></div>
@@ -197,8 +197,8 @@ function connectWebSocket(): void {
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-        console.log('✅ WebSocket conectado');
-        updateConnectionStatus('Conectado', 'green');
+    console.log('✅ WebSocket conectado');
+    updateConnectionStatus(getTranslation('chat','connected'), 'green');
         
         // Enviar autenticación
         if (currentUser) {
@@ -219,13 +219,13 @@ function connectWebSocket(): void {
     };
 
     ws.onerror = (error) => {
-        console.error('❌ Error en WebSocket:', error);
-        updateConnectionStatus('Error', 'red');
+    console.error('❌ Error en WebSocket:', error);
+    updateConnectionStatus(getTranslation('chat','connectionError'), 'red');
     };
 
     ws.onclose = () => {
-        console.log('🔌 WebSocket desconectado');
-        updateConnectionStatus('Desconectado', 'red');
+    console.log('🔌 WebSocket desconectado');
+    updateConnectionStatus(getTranslation('chat','disconnected'), 'red');
         // Intentar reconectar
         setTimeout(() => connectWebSocket(), 3000);
     };
@@ -299,7 +299,7 @@ function handleWebSocketMessage(message: any): void {
         case 'user_blocked':
             if (message.data.success) {
                 blockedUsers.set(message.data.userId, message.data.username || `User${message.data.userId}`);
-                showNotification('Usuario bloqueado correctamente', 'success');
+                showNotification(getTranslation('chat','userBlockedSuccess'), 'success');
                 
                 // Si estamos chateando con el usuario bloqueado, volver al chat global
                 if (currentView === 'direct' && currentChatUserId === message.data.userId) {
@@ -315,14 +315,14 @@ function handleWebSocketMessage(message: any): void {
                     updateOnlineUsersList();
                 }
             } else {
-                showNotification('Error al bloquear usuario', 'error');
+                showNotification(getTranslation('chat','userBlockedError'), 'error');
             }
             break;
 
         case 'user_unblocked':
             if (message.data.success) {
                 blockedUsers.delete(message.data.userId);
-                showNotification('Usuario desbloqueado correctamente', 'success');
+                showNotification(getTranslation('chat','userUnblockedSuccess'), 'success');
                 
                 // Actualizar las listas para mostrar al usuario desbloqueado
                 if (currentView === 'friends') {
@@ -331,7 +331,7 @@ function handleWebSocketMessage(message: any): void {
                     updateOnlineUsersList();
                 }
             } else {
-                showNotification('Error al desbloquear usuario', 'error');
+                showNotification(getTranslation('chat','userUnblockedError'), 'error');
             }
             break;
 
@@ -339,16 +339,16 @@ function handleWebSocketMessage(message: any): void {
             pendingInvitations.push(message.data);
             updateInvitationsBadge();
             // Mostrar notificación visual prominente
-            (window as any).showNotification(`🎮 ${message.data.inviterUsername} te desafió a una partida!`, 'info');
+            (window as any).showNotification(getTranslation('chat','challengeReceived').replace('{{username}}', message.data.inviterUsername), 'info');
             break;
 
         case 'invitation_sent':
-            showNotification('Invitación enviada', 'success');
+            showNotification(getTranslation('chat','invitationSent'), 'success');
             break;
 
         case 'challenge_accepted':
             // El invitador recibe esto cuando aceptan su desafío
-            showNotification(`🎮 ${message.data.opponentUsername} aceptó tu desafío! Iniciando partida...`, 'success');
+            showNotification(getTranslation('chat','challengeAccepted').replace('{{opponent}}', message.data.opponentUsername), 'success');
             // Guardar gameId y redirigir directamente al lobby
             sessionStorage.setItem('currentGameId', message.data.gameId);
             sessionStorage.setItem('currentGameMode', 'challenge');
@@ -360,7 +360,7 @@ function handleWebSocketMessage(message: any): void {
 
         case 'challenge_start':
             // El que acepta recibe esto para iniciar la partida
-            showNotification(`🎮 Partida contra ${message.data.opponentUsername} iniciando...`, 'success');
+            showNotification(getTranslation('chat','challengeStart').replace('{{opponent}}', message.data.opponentUsername), 'success');
             // Guardar gameId y redirigir directamente al lobby
             sessionStorage.setItem('currentGameId', message.data.gameId);
             sessionStorage.setItem('currentGameMode', 'challenge');
@@ -371,7 +371,7 @@ function handleWebSocketMessage(message: any): void {
             break;
 
         case 'challenge_declined':
-            showNotification(`${message.data.declinedBy} rechazó tu desafío`, 'info');
+            showNotification(getTranslation('chat','challengeDeclined').replace('{{username}}', message.data.declinedBy), 'info');
             break;
 
         case 'user_profile':
@@ -424,8 +424,8 @@ function switchToGlobal(): void {
     currentChatUserId = null;
 
     document.getElementById('chat-icon')!.textContent = '💬';
-    document.getElementById('chat-title')!.textContent = 'Chat Global';
-    document.getElementById('chat-subtitle')!.textContent = 'Todos los usuarios';
+    document.getElementById('chat-title')!.textContent = getTranslation('chat','globalChatTitle');
+    document.getElementById('chat-subtitle')!.textContent = getTranslation('chat','globalChatSubtitle');
     document.getElementById('back-to-global')?.classList.add('hidden');
 
     // Update tabs
@@ -460,7 +460,7 @@ function updateOnlineUsersList(): void {
     );
 
     if (filteredUsers.length === 0) {
-        container.innerHTML = '<div class="text-center text-gray-400 py-4">No hay usuarios online</div>';
+        container.innerHTML = `<div class="text-center text-gray-400 py-4">${getTranslation('chat','usersListEmpty')}</div>`;
         return;
     }
 
@@ -476,17 +476,17 @@ function updateOnlineUsersList(): void {
                     <div class="flex gap-1">
                         <button onclick="event.stopPropagation(); window.viewProfile(${user.id})"
                                 class="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs"
-                                title="Ver perfil">
+                                title="${getTranslation('chat','tooltipViewProfile')}">
                             👤
                         </button>
                         <button onclick="event.stopPropagation(); window.inviteToGame(${user.id})"
                                 class="px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-xs"
-                                title="Invitar a jugar">
+                                title="${getTranslation('chat','tooltipInviteToPlay')}">
                             🎮
                         </button>
                         <button onclick="event.stopPropagation(); window.blockUser(${user.id})"
                                 class="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs"
-                                title="Bloquear">
+                                title="${getTranslation('chat','tooltipBlock')}">
                             🚫
                         </button>
                     </div>
@@ -574,8 +574,8 @@ function updateFriendsList(): void {
         container.innerHTML = `
             <div class="text-center text-gray-400 py-4">
                 <p class="mb-2">😔</p>
-                <p>No tienes amigos disponibles</p>
-                <p class="text-xs mt-2">Ve a la pestaña "Todos" para encontrar usuarios</p>
+                <p>${getTranslation('chat','friendsEmptyTitle')}</p>
+                <p class="text-xs mt-2">${getTranslation('chat','friendsEmptySubtitle')}</p>
             </div>
         `;
         return;
@@ -590,23 +590,23 @@ function updateFriendsList(): void {
                         <span class="w-3 h-3 ${friend.isOnline ? 'bg-green-500' : 'bg-gray-500'} rounded-full"></span>
                         <div>
                             <div class="font-medium text-white">${escapeHtml(friend.username)}</div>
-                            <div class="text-xs text-gray-400">${friend.isOnline ? 'Online' : 'Offline'}</div>
+                            <div class="text-xs text-gray-400">${friend.isOnline ? getTranslation('chat','online') : getTranslation('chat','offline')}</div>
                         </div>
                     </div>
                     <div class="flex gap-1">
                         <button onclick="event.stopPropagation(); window.viewProfile(${friend.id})"
                                 class="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs"
-                                title="Ver perfil">
+                                title="${getTranslation('chat','tooltipViewProfile')}">
                             👤
                         </button>
                         <button onclick="event.stopPropagation(); window.inviteToGame(${friend.id})"
                                 class="px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-xs"
-                                title="Invitar a jugar">
+                                title="${getTranslation('chat','tooltipInviteToPlay')}">
                             🎮
                         </button>
                         <button onclick="event.stopPropagation(); window.blockUser(${friend.id})"
                                 class="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs"
-                                title="Bloquear">
+                                title="${getTranslation('chat','tooltipBlock')}">
                             🚫
                         </button>
                     </div>
@@ -655,7 +655,7 @@ function appendMessage(message: ChatMessage, isDirect: boolean = false): void {
     const messageEl = document.createElement('div');
     messageEl.className = `flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`;
     
-    const time = new Date(message.timestamp).toLocaleTimeString('es-ES', {
+    const time = new Date(message.timestamp).toLocaleTimeString(undefined, {
         hour: '2-digit',
         minute: '2-digit'
     });
@@ -702,7 +702,7 @@ function updateConnectionStatus(status: string, color: string): void {
 function updateInvitationsBadge(): void {
     const badge = document.getElementById('invitations-badge');
     if (badge) {
-        if (pendingInvitations.length > 0) {
+    if (pendingInvitations.length > 0) {
             badge.textContent = pendingInvitations.length.toString();
             badge.classList.remove('hidden');
         } else {
@@ -757,7 +757,7 @@ function escapeHtml(text: string): string {
 (window as any).openUserChat = (userId: number, username: string) => {
     // Verificar si el usuario está bloqueado
     if (blockedUsers.has(userId)) {
-        showNotification('No puedes chatear con este usuario porque está bloqueado', 'error');
+        showNotification(getTranslation('chat','cannotChatBlocked'), 'error');
         return;
     }
 
@@ -766,7 +766,7 @@ function escapeHtml(text: string): string {
 
     document.getElementById('chat-icon')!.textContent = '💬';
     document.getElementById('chat-title')!.textContent = username;
-    document.getElementById('chat-subtitle')!.textContent = 'Mensaje directo';
+    document.getElementById('chat-subtitle')!.textContent = getTranslation('chat','directMessageSubtitle');
     document.getElementById('back-to-global')?.classList.remove('hidden');
 
     // Solicitar historial
@@ -797,7 +797,7 @@ function escapeHtml(text: string): string {
 };
 
 (window as any).blockUser = (userId: number) => {
-    if (confirm('¿Estás seguro de que quieres bloquear a este usuario?')) {
+    if (confirm(getTranslation('friends','confirmDelete').replace('eliminar a este amigo','bloquear a este usuario'))) {
         if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({
                 type: 'block_user',
@@ -854,7 +854,7 @@ function showBlockedUsersModal(): void {
     if (!content) return;
 
     if (blockedUsers.size === 0) {
-        content.innerHTML = '<div class="text-center text-gray-400 py-4">No tienes usuarios bloqueados</div>';
+        content.innerHTML = `<div class="text-center text-gray-400 py-4">${getTranslation('chat','noBlockedUsers')}</div>`;
     } else {
         content.innerHTML = Array.from(blockedUsers.entries()).map(([userId, username]) => `
             <div class="bg-gray-700 rounded-lg p-3 flex items-center justify-between">
@@ -864,7 +864,7 @@ function showBlockedUsersModal(): void {
                 </div>
                 <button onclick="window.unblockUser(${userId})"
                         class="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm">
-                    Desbloquear
+                    ${getTranslation('chat','unblock')}
                 </button>
             </div>
         `).join('');
@@ -878,7 +878,7 @@ function showInvitationsModal(): void {
     if (!content) return;
 
     if (pendingInvitations.length === 0) {
-        content.innerHTML = '<div class="text-center text-gray-400 py-4">No tienes invitaciones pendientes</div>';
+        content.innerHTML = `<div class="text-center text-gray-400 py-4">${getTranslation('chat','noPendingInvitations')}</div>`;
     } else {
         content.innerHTML = pendingInvitations.map(inv => `
             <div class="bg-gray-700 rounded-lg p-4">
@@ -886,15 +886,15 @@ function showInvitationsModal(): void {
                     <span class="text-white font-bold">${escapeHtml(inv.inviterUsername)}</span>
                     <span class="text-gray-400 text-xs">${new Date(inv.timestamp).toLocaleTimeString()}</span>
                 </div>
-                <p class="text-gray-300 text-sm mb-3">Te invitó a jugar Pong</p>
+                <p class="text-gray-300 text-sm mb-3">${getTranslation('chat','invitedToPlayPong')}</p>
                 <div class="flex gap-2">
                     <button onclick="window.respondInvitation(${inv.id}, true)"
                             class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded">
-                        ✓ Aceptar
+                        ✓ ${getTranslation('chat','accept')}
                     </button>
                     <button onclick="window.respondInvitation(${inv.id}, false)"
                             class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 rounded">
-                        ✗ Rechazar
+                        ✗ ${getTranslation('chat','decline')}
                     </button>
                 </div>
             </div>
@@ -916,10 +916,10 @@ function showInvitationsModal(): void {
         updateInvitationsBadge();
         
         if (accepted) {
-            showNotification('Invitación aceptada! Redirigiendo al juego...', 'success');
+            showNotification(getTranslation('chat','invitationAcceptedRedirect'), 'success');
             // TODO: Redirigir al juego cuando se cree
         } else {
-            showNotification('Invitación rechazada', 'info');
+            showNotification(getTranslation('chat','invitationDeclined'), 'info');
         }
         
         hideModal('invitations-modal');

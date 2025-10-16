@@ -34,14 +34,14 @@ export function renderChatPage(): void {
                     <div class="flex items-center gap-3">
                         <span class="text-3xl">💬</span>
                         <div>
-                            <h2 class="text-2xl font-bold text-[#ffc300]">Chat Global</h2>
-                            <p class="text-xs text-gray-400">Todos los usuarios conectados</p>
+                            <h2 class="text-2xl font-bold text-[#ffc300]">${getTranslation('chat','globalChatTitle')}</h2>
+                            <p class="text-xs text-gray-400">${getTranslation('chat','globalChatSubtitleConnected')}</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-2 text-gray-300">
                         <span class="text-lg">👥</span>
                         <span id="online-count" class="font-medium">0</span>
-                        <span class="text-sm">online</span>
+                        <span class="text-sm">${getTranslation('chat','online')}</span>
                     </div>
                 </div>
                 
@@ -49,7 +49,7 @@ export function renderChatPage(): void {
                 <div id="chat-messages" class="flex-1 overflow-y-auto mb-4 space-y-3 px-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
                     <div class="text-center text-gray-400 py-8">
                         <div class="animate-spin inline-block w-8 h-8 border-4 border-[#ffc300] border-t-transparent rounded-full mb-2"></div>
-                        <p>Conectando al chat...</p>
+                        <p>${getTranslation('chat','connectingToChat')}</p>
                     </div>
                 </div>
                 
@@ -58,7 +58,7 @@ export function renderChatPage(): void {
                     <input
                         type="text"
                         id="chat-input"
-                        placeholder="Escribe un mensaje..."
+                        placeholder="${getTranslation('chat','inputPlaceholder')}"
                         class="flex-1 px-4 py-3 bg-gray-800 bg-opacity-50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-[#ffc300] transition-colors disabled:opacity-50"
                         maxlength="500"
                         disabled
@@ -68,14 +68,14 @@ export function renderChatPage(): void {
                         class="px-6 py-3 bg-[#ffc300] hover:bg-[#ffd60a] text-black font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         disabled
                     >
-                        Enviar
+                        ${getTranslation('chat','send')}
                     </button>
                 </div>
                 
                 <!-- Connection Status -->
                 <div id="connection-status" class="mt-2 text-sm text-gray-400 text-center">
                     <span class="inline-block w-2 h-2 rounded-full bg-yellow-500 animate-pulse mr-2"></span>
-                    Conectando...
+                    ${getTranslation('chat','connecting')}
                 </div>
             </div>
             
@@ -147,7 +147,7 @@ function initializeChat(): void {
     currentUser = getCurrentUser();
     
     if (!currentUser) {
-        showError('Debes iniciar sesión para usar el chat');
+    showError(getTranslation('chat','mustLogin'));
         setTimeout(() => navigateTo('/login'), 2000);
         return;
     }
@@ -238,7 +238,7 @@ function sendMessage(data: any): void {
         console.log('📤 Mensaje enviado:', data.type);
     } else {
         console.error('❌ WebSocket no está conectado. ReadyState:', ws?.readyState);
-        showError('No estás conectado al chat. Reconectando...');
+    showError(getTranslation('chat','notConnectedReconnect'));
     }
 }
 
@@ -247,7 +247,7 @@ function handleServerMessage(message: any): void {
         case 'join_global':
             if (message.data.success) {
                 console.log('✅ Unido al chat:', message.data.username);
-                showSystemMessage(`Te has unido al chat como ${message.data.username}`, 'join');
+                showSystemMessage(getTranslation('chat','joinedAs').replace('{{username}}', message.data.username), 'join');
             }
             break;
             
@@ -263,12 +263,12 @@ function handleServerMessage(message: any): void {
             
         case 'user_joined':
             console.log('👋 Usuario entró:', message.data.username);
-            showSystemMessage(`${message.data.username} se unió al chat`, 'join');
+            showSystemMessage(getTranslation('chat','userJoined').replace('{{username}}', message.data.username), 'join');
             break;
             
         case 'user_left':
             console.log('🚪 Usuario salió:', message.data.username);
-            showSystemMessage(`${message.data.username} salió del chat`, 'leave');
+            showSystemMessage(getTranslation('chat','userLeft').replace('{{username}}', message.data.username), 'leave');
             break;
             
         case 'error':
@@ -289,8 +289,8 @@ function renderMessages(messages: ChatMessage[]): void {
         container.innerHTML = `
             <div class="text-center text-gray-400 py-8">
                 <div class="text-5xl mb-3">💬</div>
-                <p class="font-medium">No hay mensajes aún</p>
-                <p class="text-sm mt-1">¡Sé el primero en escribir!</p>
+                <p class="font-medium">${getTranslation('chat','noMessagesYetTitle')}</p>
+                <p class="text-sm mt-1">${getTranslation('chat','noMessagesYetSubtitle')}</p>
             </div>
         `;
         return;
@@ -330,7 +330,7 @@ function createMessageHTML(msg: ChatMessage): string {
                 ` : `
                     <div class="flex items-center justify-end gap-2 mb-1">
                         <span class="text-xs opacity-70">${time}</span>
-                        <span class="font-bold text-sm">Tú</span>
+                        <span class="font-bold text-sm">${getTranslation('chat','you')}</span>
                     </div>
                 `}
                 <p class="text-sm break-words whitespace-pre-wrap">${escapeHtml(msg.content)}</p>
@@ -362,19 +362,20 @@ function formatTimestamp(timestamp: string): string {
         const date = new Date(timestamp);
         const now = new Date();
         
-        const isToday = date.toDateString() === now.toDateString();
+    const isToday = date.toDateString() === now.toDateString();
         
         if (isToday) {
-            return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
         } else {
             const yesterday = new Date(now);
             yesterday.setDate(yesterday.getDate() - 1);
             
             if (date.toDateString() === yesterday.toDateString()) {
-                return `Ayer ${date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+                // 'Yesterday' simplified; not localized label available here
+                return `${date.toLocaleDateString(undefined, { month: 'short', day: '2-digit' })} ${date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
             }
             
-            return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+            return date.toLocaleDateString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
         }
     } catch (error) {
         console.error('Error formateando timestamp:', error);
@@ -400,7 +401,7 @@ function setupEventListeners(): void {
     const button = document.getElementById('send-button') as HTMLButtonElement;
     
     if (!input || !button) {
-        console.error('❌ No se encontraron elementos del chat');
+    console.error('❌ No se encontraron elementos del chat');
         return;
     }
     
@@ -448,12 +449,12 @@ function sendChatMessage(): void {
     const content = input.value.trim();
     
     if (!content) {
-        showError('El mensaje no puede estar vacío');
+    showError(getTranslation('chat','messageEmpty'));
         return;
     }
     
     if (content.length > 500) {
-        showError('El mensaje es demasiado largo (máximo 500 caracteres)');
+    showError(getTranslation('chat','messageTooLong'));
         return;
     }
     
@@ -474,25 +475,25 @@ function updateConnectionStatus(status: 'connecting' | 'connected' | 'disconnect
     
     const statuses = {
         connecting: { 
-            text: 'Conectando...', 
+            text: getTranslation('chat','connecting'), 
             color: 'yellow', 
             pulse: true,
             icon: '⏳'
         },
         connected: { 
-            text: 'Conectado', 
+            text: getTranslation('chat','connected'), 
             color: 'green', 
             pulse: false,
             icon: '✅'
         },
         disconnected: { 
-            text: 'Desconectado. Reconectando...', 
+            text: getTranslation('chat','disconnected'), 
             color: 'red', 
             pulse: true,
             icon: '🔌'
         },
         error: { 
-            text: 'Error de conexión', 
+            text: getTranslation('chat','connectionError'), 
             color: 'red', 
             pulse: true,
             icon: '⚠️'
