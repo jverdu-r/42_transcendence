@@ -239,6 +239,7 @@ function handleWebSocketMessage(message: any): void {
             onlineUsers = message.data.onlineUsers || [];
             updateOnlineUsersList();
             enableChatInput();
+            loadBlockedUsers(); // Cargar usuarios bloqueados al conectar
             break;
 
         case 'global_history':
@@ -300,9 +301,16 @@ function handleWebSocketMessage(message: any): void {
                 blockedUsers.add(message.data.userId);
                 showNotification('Usuario bloqueado correctamente', 'success');
                 
+                // Si estamos chateando con el usuario bloqueado, volver al chat global
+                if (currentView === 'direct' && currentChatUserId === message.data.userId) {
+                    switchToGlobal();
+                }
+                
                 // Actualizar las listas para remover al usuario bloqueado
                 if (currentView === 'friends') {
                     loadFriends().then(() => updateFriendsList());
+                } else if (currentView === 'global') {
+                    // No hacer nada, ya estamos en global
                 } else {
                     updateOnlineUsersList();
                 }
@@ -316,7 +324,7 @@ function handleWebSocketMessage(message: any): void {
                 blockedUsers.delete(message.data.userId);
                 showNotification('Usuario desbloqueado correctamente', 'success');
                 
-                // Actualizar las listas
+                // Actualizar las listas para mostrar al usuario desbloqueado
                 if (currentView === 'friends') {
                     loadFriends().then(() => updateFriendsList());
                 } else {
@@ -417,13 +425,17 @@ function updateOnlineUsersList(): void {
     const container = document.getElementById('sidebar-content');
     if (!container) return;
 
-    if (onlineUsers.length === 0) {
+    // Filtrar usuarios bloqueados y el usuario actual
+    const filteredUsers = onlineUsers.filter(u => 
+        u.id !== currentUser?.id && !blockedUsers.has(u.id)
+    );
+
+    if (filteredUsers.length === 0) {
         container.innerHTML = '<div class="text-center text-gray-400 py-4">No hay usuarios online</div>';
         return;
     }
 
-    container.innerHTML = onlineUsers
-        .filter(u => u.id !== currentUser?.id) // No mostrar al usuario actual
+    container.innerHTML = filteredUsers
         .map(user => `
             <div class="bg-gray-700 bg-opacity-50 rounded-lg p-3 hover:bg-gray-600 cursor-pointer transition-colors"
                  onclick="window.openUserChat(${user.id}, '${user.username.replace(/'/g, "\\'")}')">
@@ -475,6 +487,37 @@ async function loadFriends(): Promise<void> {
     }
 }
 
+// Cargar lista de usuarios bloqueados desde el servidor
+async function loadBlockedUsers(): Promise<void> {
+    if (!currentUser) return;
+    
+    try {
+        const protocol = window.location.protocol;
+        const host = window.location.host;
+        const response = await fetch(`${protocol}//${host}/api/chat/blocked-users/${currentUser.id}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            blockedUsers.clear();
+            data.data.forEach((user: any) => {
+                blockedUsers.add(user.id);
+            });
+            console.log('✅ Usuarios bloqueados cargados:', blockedUsers.size);
+            
+            // Actualizar las listas después de cargar bloqueados
+            if (currentView === 'friends') {
+                updateFriendsList();
+            } else {
+                updateOnlineUsersList();
+            }
+        } else {
+            console.error('❌ Error cargando bloqueados:', data.error);
+        }
+    } catch (error) {
+        console.error('❌ Error al cargar bloqueados:', error);
+    }
+}
+
 // Mostrar lista de amigos en el sidebar
 function showFriendsList(): void {
     currentView = 'friends';
@@ -495,18 +538,21 @@ function updateFriendsList(): void {
     const container = document.getElementById('sidebar-content');
     if (!container) return;
 
-    if (friendsList.length === 0) {
+    // Filtrar amigos bloqueados
+    const filteredFriends = friendsList.filter(friend => !blockedUsers.has(friend.id));
+
+    if (filteredFriends.length === 0) {
         container.innerHTML = `
             <div class="text-center text-gray-400 py-4">
                 <p class="mb-2">😔</p>
-                <p>No tienes amigos agregados</p>
+                <p>No tienes amigos disponibles</p>
                 <p class="text-xs mt-2">Ve a la pestaña "Todos" para encontrar usuarios</p>
             </div>
         `;
         return;
     }
 
-    container.innerHTML = friendsList
+    container.innerHTML = filteredFriends
         .map(friend => `
             <div class="bg-gray-700 bg-opacity-50 rounded-lg p-3 hover:bg-gray-600 cursor-pointer transition-colors"
                  onclick="window.openUserChat(${friend.id}, '${friend.username.replace(/'/g, "\\'")}')">
@@ -680,6 +726,12 @@ function escapeHtml(text: string): string {
 // ============================================
 
 (window as any).openUserChat = (userId: number, username: string) => {
+    // Verificar si el usuario está bloqueado
+    if (blockedUsers.has(userId)) {
+        showNotification('No puedes chatear con este usuario porque está bloqueado', 'error');
+        return;
+    }
+
     currentView = 'direct';
     currentChatUserId = userId;
 
