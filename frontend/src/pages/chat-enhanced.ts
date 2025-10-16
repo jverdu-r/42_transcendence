@@ -39,7 +39,7 @@ let onlineUsers: User[] = [];
 let friendsList: User[] = [];
 let globalMessages: ChatMessage[] = [];
 let directMessages: Map<number, ChatMessage[]> = new Map();
-let blockedUsers: Set<number> = new Set();
+let blockedUsers: Map<number, string> = new Map(); // Map<userId, username>
 let pendingInvitations: GameInvitation[] = [];
 let currentView: 'global' | 'direct' | 'friends' = 'global';
 let currentChatUserId: number | null = null;
@@ -298,7 +298,7 @@ function handleWebSocketMessage(message: any): void {
 
         case 'user_blocked':
             if (message.data.success) {
-                blockedUsers.add(message.data.userId);
+                blockedUsers.set(message.data.userId, message.data.username || `User${message.data.userId}`);
                 showNotification('Usuario bloqueado correctamente', 'success');
                 
                 // Si estamos chateando con el usuario bloqueado, volver al chat global
@@ -500,7 +500,7 @@ async function loadBlockedUsers(): Promise<void> {
         if (data.success) {
             blockedUsers.clear();
             data.data.forEach((user: any) => {
-                blockedUsers.add(user.id);
+                blockedUsers.set(user.id, user.username);
             });
             console.log('✅ Usuarios bloqueados cargados:', blockedUsers.size);
             
@@ -821,16 +821,18 @@ function showProfileModal(profile: any): void {
 }
 
 function showBlockedUsersModal(): void {
-    // TODO: Cargar lista de usuarios bloqueados del servidor
     const content = document.getElementById('blocked-content');
     if (!content) return;
 
     if (blockedUsers.size === 0) {
         content.innerHTML = '<div class="text-center text-gray-400 py-4">No tienes usuarios bloqueados</div>';
     } else {
-        content.innerHTML = Array.from(blockedUsers).map(userId => `
+        content.innerHTML = Array.from(blockedUsers.entries()).map(([userId, username]) => `
             <div class="bg-gray-700 rounded-lg p-3 flex items-center justify-between">
-                <span class="text-white">Usuario ${userId}</span>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">🚫</span>
+                    <span class="text-white font-medium">${escapeHtml(username)}</span>
+                </div>
                 <button onclick="window.unblockUser(${userId})"
                         class="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm">
                     Desbloquear

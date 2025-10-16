@@ -607,10 +607,13 @@ fastify.register(async function (fastify) {
                         if (!blockedUserId) return;
 
                         const blocked = blockUser(userId, blockedUserId);
+                        const blockedUsername = getUsername(blockedUserId);
+                        
                         socket.send(JSON.stringify({
                             type: 'user_blocked',
                             data: {
                                 userId: blockedUserId,
+                                username: blockedUsername,
                                 success: blocked
                             }
                         }));
