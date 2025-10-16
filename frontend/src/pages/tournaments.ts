@@ -84,7 +84,7 @@ export function renderTournamentsPage() {
                             return;
                         }
                         // Verificar si el usuario ya ha creado un torneo pendiente
-                        const tournamentsRes = await fetch(`http://localhost:8005/tournaments?created_by=${user.id}`);
+                        const tournamentsRes = await fetch(`/api/tournaments?created_by=${user.id}`);
                         const userTournaments = tournamentsRes.ok ? await tournamentsRes.json() : [];
                         const hasPending = userTournaments.some((t:any) => t.status === 'pending');
                         if (hasPending) {
@@ -92,7 +92,7 @@ export function renderTournamentsPage() {
                             return;
                         }
                         try {
-                            const res = await fetch(`http://localhost:8005/tournaments`, {
+                            const res = await fetch(`/api/tournaments`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
@@ -127,13 +127,13 @@ export function renderTournamentsPage() {
                                 clearInterval((window as any)._tournamentListInterval);
                             }
                         }, 10000);
-                fetch(`http://localhost:8005/tournaments`)
+                fetch(`/api/tournaments`)
                     .then(res => res.json())
                     .then((tournaments) => {
                         tournaments = tournaments.filter((t:any) => t.status === 'pending');
                         Promise.all(
                             tournaments.map((t: any) =>
-                                fetch(`http://localhost:8005/tournaments/${t.id}/participants`).then(r => r.json()).catch(() => [])
+                                fetch(`/api/tournaments/${t.id}/participants`).then(r => r.json()).catch(() => [])
                             )
                         ).then(allParticipantsArr => {
                             const joinedTournamentIds = allParticipantsArr.map((participants, idx) => {
@@ -210,7 +210,7 @@ export function renderTournamentsPage() {
                                         return;
                                     }
                                     try {
-                                        const res = await fetch(`http://localhost:8005/tournaments/${tournamentId}/join`, {
+                                        const res = await fetch(`/api/tournaments/${tournamentId}/join`, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ user_id: currentUser.id })
@@ -230,7 +230,7 @@ export function renderTournamentsPage() {
                                 btn.addEventListener('click', async () => {
                                     const tournamentId = btn.getAttribute('data-start-id');
                                     try {
-                                        const res = await fetch(`http://localhost:8005/tournaments/${tournamentId}/start`, {
+                                        const res = await fetch(`/api/tournaments/${tournamentId}/start`, {
                                             method: 'POST'
                                         });
                                         if (!res.ok) throw new Error(await res.text());
@@ -246,7 +246,7 @@ export function renderTournamentsPage() {
                                     const tournamentId = btn.getAttribute('data-delete-id');
                                     if (!confirm('¿Seguro que quieres borrar este torneo?')) return;
                                     try {
-                                        const res = await fetch(`http://localhost:8005/tournaments/${tournamentId}`, {
+                                        const res = await fetch(`/api/tournaments/${tournamentId}`, {
                                             method: 'DELETE',
                                             headers: { 'Content-Type': 'application/json' }
                                         });

@@ -347,7 +347,7 @@ export class UnifiedGameRenderer {
                 this.startPaddleMovement(e.key);
             } else {
                 // Si la tecla ya estaba presionada pero no hay intervalo, reiniciarlo
-                const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown', 'o', 'O', 'l', 'L'];
+                const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'];
                 if (movementKeys.includes(e.key) && !this.movementIntervals[e.key]) {
                     console.log('[handleKeyDown] Restarting lost movement for key:', e.key);
                     this.startPaddleMovement(e.key);
@@ -371,7 +371,7 @@ export class UnifiedGameRenderer {
             }
         } else {
             // SISTEMA ANTERIOR PARA LOCAL/AI
-            const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown', 'o', 'O', 'l', 'L'];
+            const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'];
             if (movementKeys.includes(e.key)) {
                 this.stopPaddleMovement(e.key);
                 console.log('[handleKeyUp] Stopped movement for key:', e.key);
@@ -765,8 +765,8 @@ export class UnifiedGameRenderer {
     }
     
     private startPaddleMovement(key: string): void {
-        // Solo procesar teclas de movimiento - incluye ambos jugadores en modo local
-        const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown', 'o', 'O', 'l', 'L'];
+        // Solo procesar teclas de movimiento
+        const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'];
         if (!movementKeys.includes(key)) {
             return;
         }
@@ -860,8 +860,7 @@ export class UnifiedGameRenderer {
     }
     
     private movePaddle(key: string): void {
-        // Velocidad unificada para ambas palas en TODOS los modos
-        const speed = 5; // Velocidad consistente para ambos jugadores
+        const speed = 4; // Velocidad ajustada para movimiento más fluido
         
         if (this.gameMode === 'online') {
             // Para modo online, usar playerNumber
@@ -925,8 +924,7 @@ export class UnifiedGameRenderer {
     }
     
     private updatePaddles(): void {
-        // Velocidad unificada para ambas palas en modo local
-        const speed = 5; // Velocidad consistente para ambos jugadores
+        const speed = 4; // Velocidad consistente con otras funciones
         
         // Left paddle (Player 1) - W/S or Arrow Up/Down
         if ((this.keys['w'] || this.keys['W'] || this.keys['ArrowUp']) && this.gameState.paddles.left.y > 0) {

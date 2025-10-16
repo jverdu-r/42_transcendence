@@ -184,10 +184,7 @@ export async function logout(): Promise<void> {
   } else {
     console.warn('[LOGOUT] No hay JWT en localStorage');
   }
-  
-  // Limpiar todo el localStorage
   localStorage.removeItem('jwt');
-  localStorage.removeItem('user');
   localStorage.removeItem('language');
   localStorage.removeItem('notifications');
   localStorage.removeItem('doubleFactor');
@@ -197,15 +194,7 @@ export async function logout(): Promise<void> {
   localStorage.removeItem('email');
   
   console.log(getTranslation('auth', 'sessionClosed'));
-  
-  // 🛡️ Limpiar historial y forzar redirección a login
-  // Esto previene que el usuario vuelva atrás con el botón del navegador
-  window.history.pushState(null, '', '/login');
-  window.history.pushState(null, '', '/login');
-  window.history.back();
-  
-  // Usar replace en lugar de href para no añadir al historial
-  window.location.replace('/login');
+  window.location.href = '/login';
 }
 
 
