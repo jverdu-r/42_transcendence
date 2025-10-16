@@ -7,7 +7,8 @@ import { navigateTo } from './router';
 import { renderNavbar } from './components/navbar';
 import { getCurrentLanguage, setLanguage } from './i18n';
 import { showNotification, checkRankingChange } from './utils/utils';
-import { isAuthenticated } from './auth';
+import { initGlobalNotifications, requestNotificationPermission, disconnectGlobalNotifications } from './globalNotifications';
+import { getCurrentUser } from './auth';
 
 window.showNotification = showNotification;
 window.checkRankingChange = checkRankingChange;
@@ -19,29 +20,15 @@ function initializeApp(): void {
     const savedLang = localStorage.getItem('lang') || 'es';
     setLanguage(savedLang);
     
-    const currentPath = window.location.pathname;
+    // Initialize global notifications if user is logged in
+    const currentUser = getCurrentUser();
+    if (currentUser) {
+        console.log('👤 Usuario conectado, iniciando notificaciones globales...');
+        initGlobalNotifications();
+        requestNotificationPermission();
+    }
     
-    // 🛡️ Guard de autenticación global
-    // Lista de páginas públicas
-    const publicPages = ['/login', '/register'];
-    const isPublicPage = publicPages.includes(currentPath);
-    const userIsAuthenticated = isAuthenticated();
-
-    // Si no está autenticado y no es una página pública -> forzar login
-    if (!userIsAuthenticated && !isPublicPage) {
-        console.warn('⚠️ Usuario no autenticado detectado. Redirigiendo a login...');
-        navigateTo('/login');
-        return;
-    }
-
-    // Si está autenticado y está en página pública -> ir a home
-    if (userIsAuthenticated && isPublicPage) {
-        console.log('✅ Usuario autenticado en página pública. Redirigiendo a home...');
-        navigateTo('/home');
-        return;
-    }
-
-    // Navegar a la ruta actual (con verificación incluida en navigateTo)
+    const currentPath = window.location.pathname;
     navigateTo(currentPath);
     
     console.log('✅ Transcendence inicializado correctamente');
@@ -55,3 +42,22 @@ window.addEventListener('languageChanged', () => {
   renderNavbar(currentPath);
   navigateTo(currentPath);
 });
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    disconnectGlobalNotifications();
+});
+
+// Re-initialize notifications when user logs in
+window.addEventListener('userLoggedIn', () => {
+    console.log('👤 Usuario inició sesión, iniciando notificaciones globales...');
+    initGlobalNotifications();
+    requestNotificationPermission();
+});
+
+// Disconnect notifications when user logs out
+window.addEventListener('userLoggedOut', () => {
+    console.log('👤 Usuario cerró sesión, desconectando notificaciones globales...');
+    disconnectGlobalNotifications();
+});
+

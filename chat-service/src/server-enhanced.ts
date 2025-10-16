@@ -309,20 +309,6 @@ function getPendingInvitations(userId: number): any[] {
     }
 }
 
-// Obtener una invitación específica por ID
-function getInvitationById(invitationId: number): any {
-    try {
-        const stmt = db.prepare(`
-            SELECT * FROM game_invitations
-            WHERE id = ?
-        `);
-        return stmt.get(invitationId);
-    } catch (error) {
-        console.error('❌ Error obteniendo invitación:', error);
-        return null;
-    }
-}
-
 // Obtener lista de usuarios online
 function getOnlineUsersList(): any[] {
     const users: any[] = [];
@@ -337,46 +323,6 @@ function getOnlineUsersList(): any[] {
         }
     }
     return users;
-}
-
-// Obtener lista de amigos aceptados
-function getFriends(userId: number): any[] {
-    try {
-        const stmt = db.prepare(`
-            SELECT 
-                u.id,
-                u.username,
-                u.email,
-                up.avatar_url,
-                f.created_at
-            FROM friendships f
-            INNER JOIN users u ON (
-                CASE 
-                    WHEN f.requester_id = ? THEN f.approver_id = u.id
-                    WHEN f.approver_id = ? THEN f.requester_id = u.id
-                END
-            )
-            LEFT JOIN user_profiles up ON u.id = up.user_id
-            WHERE (f.requester_id = ? OR f.approver_id = ?)
-            AND f.status = 'accepted'
-            ORDER BY u.username ASC
-        `);
-        
-        const friends = stmt.all(userId, userId, userId, userId) as any[];
-        
-        // Marcar si están online
-        return friends.map((friend: any) => ({
-            id: friend.id,
-            username: friend.username,
-            email: friend.email,
-            avatarUrl: friend.avatar_url,
-            isOnline: onlineUsers.has(friend.id),
-            friendSince: friend.created_at
-        }));
-    } catch (error) {
-        console.error('Error obteniendo amigos:', error);
-        return [];
-    }
 }
 
 // ============================================
@@ -444,23 +390,6 @@ fastify.get('/invitations/:userId', async (request, reply) => {
         success: true,
         data: getPendingInvitations(parseInt(userId))
     };
-});
-
-fastify.get('/friends/:userId', async (request, reply) => {
-    const { userId } = request.params as any;
-    try {
-        const friends = getFriends(parseInt(userId));
-        return {
-            success: true,
-            data: friends
-        };
-    } catch (error) {
-        console.error('Error obteniendo amigos:', error);
-        return {
-            success: false,
-            error: 'Error al obtener la lista de amigos'
-        };
-    }
 });
 
 // ============================================
@@ -621,13 +550,10 @@ fastify.register(async function (fastify) {
                         if (!blockedUserId) return;
 
                         const blocked = blockUser(userId, blockedUserId);
-                        const blockedUsername = getUsername(blockedUserId);
-                        
                         socket.send(JSON.stringify({
                             type: 'user_blocked',
                             data: {
                                 userId: blockedUserId,
-                                username: blockedUsername,
                                 success: blocked
                             }
                         }));
@@ -691,91 +617,9 @@ fastify.register(async function (fastify) {
                         if (!invId) return;
 
                         const status = accepted ? 'accepted' : 'declined';
-                        
-                        if (accepted) {
-                            // Generar un ID único para la partida de desafío
-                            const gameId = `challenge_${invId}_${Date.now()}`;
-                            updateInvitationStatus(invId, status, gameId);
-                            
-                            // Obtener información de la invitación
-                            const invitation = getInvitationById(invId);
-                            if (invitation) {
-                                const inviterUsername = getUsername(invitation.inviter_id);
-                                const accepterUsername = username;
-                                
-                                // Crear la partida en el game-service ANTES de notificar
-                                try {
-                                    console.log(`🎮 Creating challenge game: ${gameId}`);
-                                    const createGameResponse = await fetch('http://api-gateway:8000/api/games', {
-                                        method: 'POST',
-                                        headers: {
-                                            'Content-Type': 'application/json'
-                                        },
-                                        body: JSON.stringify({
-                                            nombre: `Challenge: ${inviterUsername} vs ${accepterUsername}`,
-                                            gameMode: 'challenge',
-                                            maxPlayers: 2,
-                                            playerName: inviterUsername,
-                                            customGameId: gameId
-                                        })
-                                    });
-                                    
-                                    if (createGameResponse.ok) {
-                                        const gameData = await createGameResponse.json();
-                                        console.log(`✅ Challenge game created successfully:`, gameData);
-                                        
-                                        // Solo enviar notificaciones DESPUÉS de crear la partida exitosamente
-                                        // Notificar al invitador que se aceptó y comenzar partida
-                                        sendToUser(invitation.inviter_id, 'challenge_accepted', {
-                                            invitationId: invId,
-                                            gameId: gameId,
-                                            opponentId: userId,
-                                            opponentUsername: username
-                                        });
-                                        
-                                        // Notificar al que aceptó
-                                        socket.send(JSON.stringify({
-                                            type: 'challenge_start',
-                                            data: {
-                                                invitationId: invId,
-                                                gameId: gameId,
-                                                opponentId: invitation.inviter_id,
-                                                opponentUsername: inviterUsername
-                                            }
-                                        }));
-                                    } else {
-                                        const errorText = await createGameResponse.text();
-                                        console.error('❌ Error creating challenge game:', errorText);
-                                        
-                                        // Notificar error al usuario
-                                        socket.send(JSON.stringify({
-                                            type: 'error',
-                                            data: { message: 'No se pudo crear la partida de desafío' }
-                                        }));
-                                    }
-                                } catch (error) {
-                                    console.error('❌ Exception creating challenge game:', error);
-                                    
-                                    // Notificar error al usuario
-                                    socket.send(JSON.stringify({
-                                        type: 'error',
-                                        data: { message: 'Error al crear la partida de desafío' }
-                                    }));
-                                }
-                            }
-                        } else {
-                            updateInvitationStatus(invId, status);
-                            
-                            // Notificar al invitador que se rechazó
-                            const invitation = getInvitationById(invId);
-                            if (invitation) {
-                                sendToUser(invitation.inviter_id, 'challenge_declined', {
-                                    invitationId: invId,
-                                    declinedBy: username
-                                });
-                            }
-                        }
-                        
+                        updateInvitationStatus(invId, status);
+
+                        // TODO: Si aceptó, crear partida y notificar
                         socket.send(JSON.stringify({
                             type: 'invitation_responded',
                             data: { invitationId: invId, status }

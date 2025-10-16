@@ -2,6 +2,7 @@
 
 import { navigateTo } from '../router';
 import { getTranslation, setLanguage, getCurrentLanguage } from '../i18n';
+import { notify } from '../utils/notifications';
 
 // Email validation function
 function isValidEmail(email: string): boolean {
@@ -189,31 +190,31 @@ export function renderRegister(): void {
                 
                 // Validate empty fields
                 if (!username || !email || !password || !confirmPassword) {
-                    alert(getTranslation('alerts', 'emptyFields'));
+                    notify.warning(getTranslation('alerts', 'emptyFields'));
                     return;
                 }
                 
                 // Validate username length
                 if (username.length < 3) {
-                    alert(getTranslation('alerts', 'usernameTooShort'));
+                    notify.warning(getTranslation('alerts', 'usernameTooShort'));
                     return;
                 }
                 
                 // Validate email format
                 if (!isValidEmail(email)) {
-                    alert(getTranslation('alerts', 'invalidEmail'));
+                    notify.warning(getTranslation('alerts', 'invalidEmail'));
                     return;
                 }
                 
                 // Validate password length
                 if (password.length < 6) {
-                    alert(getTranslation('alerts', 'passwordTooShort'));
+                    notify.warning(getTranslation('alerts', 'passwordTooShort'));
                     return;
                 }
                 
                 // Validate passwords match
                 if (password !== confirmPassword) {
-                    alert(getTranslation('alerts', 'passError'));
+                    notify.error(getTranslation('alerts', 'passError'));
                     return;
                 }
 
@@ -227,15 +228,15 @@ export function renderRegister(): void {
                     });
 
                     if (response.ok) {
-                        alert(getTranslation('alerts', 'successLogin'));
-                        navigateTo('/login');
+                        notify.success(getTranslation('alerts', 'successLogin'));
+                        setTimeout(() => navigateTo('/login'), 1500);
                     } else {
                         const error = await response.json();
-                        alert(`${getTranslation('alerts', 'successLogin')}${error.message}`);
+                        notify.error(`${getTranslation('alerts', 'successLogin')} ${error.message}`);
                     }
                 } catch (error) {
                     console.error(getTranslation('alerts', 'registerError'), error);
-                    alert(getTranslation('alerts', 'connection'));
+                    notify.error(getTranslation('alerts', 'connection'));
                 }
             });
         }
@@ -261,11 +262,11 @@ export function renderRegister(): void {
                     localStorage.setItem('jwt', data.token);
                     navigateTo('/home');
                 } else {
-                    alert(data.message || getTranslation('alerts', 'connection'));
+                    notify.error(data.message || getTranslation('alerts', 'connection'));
                 }
             } catch (error) {
                 console.error(`${getTranslation('alerts', 'google')}:`, error);
-                alert(getTranslation('alerts', 'serverError'));
+                notify.error(getTranslation('alerts', 'serverError'));
             }
         };
 

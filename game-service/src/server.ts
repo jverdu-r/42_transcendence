@@ -848,9 +848,9 @@ fastify.get("/api/games", async (request, reply) => {
 
 fastify.post("/api/games", async (request: any, reply) => {
   try {
-    const { nombre, gameMode = "pvp", maxPlayers = 2, playerName } = request.body;
+    const { nombre, gameMode = "pvp", maxPlayers = 2, playerName, customGameId } = request.body;
     const finalPlayerName = playerName || "Jugador1";
-    const gameId = uuidv4();
+    const gameId = customGameId || uuidv4(); // Use custom ID if provided (for challenges)
     const now = Date.now();
     const game = {
       id: gameId,

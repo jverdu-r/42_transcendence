@@ -3,6 +3,7 @@
 import { navigateTo } from '../router';
 import { getTranslation } from '../i18n';
 import { getCurrentUser } from '../auth';
+import { notify } from '../utils/notifications';
 
 interface User {
   id: number;
@@ -225,9 +226,9 @@ export async function renderProfilePage(): Promise<void> {
             localStorage.setItem('user', JSON.stringify(user));
             renderProfilePage(); // Recarga perfil para que se vea
           }
-          alert(getTranslation('alerts', 'avatarOk'));
+          notify.success(getTranslation('alerts', 'avatarOk'));
         } else {
-          alert(getTranslation('alerts', 'avatarFail'));
+          notify.error(getTranslation('alerts', 'avatarFail'));
         }
       });
     }
@@ -244,7 +245,7 @@ export async function renderProfilePage(): Promise<void> {
       downloadBtn.addEventListener('click', async () => {
         const token = localStorage.getItem('jwt');
         if (!token) {
-          alert(getTranslation('alerts', 'history'));
+          notify.warning(getTranslation('alerts', 'history'));
           return;
         }
 
@@ -274,7 +275,7 @@ export async function renderProfilePage(): Promise<void> {
           downloadBtn.textContent = '✔ Descargado';
         } catch (err) {
           console.error(err);
-          alert(getTranslation('alerts', 'historyError'));
+          notify.error(getTranslation('alerts', 'historyError'));
           downloadBtn.textContent = 'Descargar historial';
         } finally {
           setTimeout(() => {

@@ -3,6 +3,7 @@
 import { navigateTo } from '../router';
 import { getTranslation, setLanguage, getCurrentLanguage } from '../i18n';
 import { applyUserSettings } from '../auth';
+import { notify } from '../utils/notifications';
 
 export function renderLoginPage(): void {
     const loginHtml = `
@@ -101,7 +102,10 @@ export function renderLoginPage(): void {
                 const email = (document.getElementById('email') as HTMLInputElement)?.value || '';
                 const password = (document.getElementById('password') as HTMLInputElement)?.value || '';
 
-                if (!email || !password) return alert(getTranslation('alerts', 'emptyFields'));
+                if (!email || !password) {
+                    notify.warning(getTranslation('alerts', 'emptyFields'));
+                    return;
+                }
 
                 try {
                     const res = await fetch('/api/auth/login', {
@@ -130,7 +134,7 @@ export function renderLoginPage(): void {
                             }
                             navigateTo('/home');
                             } else {
-                            alert(verifyData.message || getTranslation('alerts', 'invalid2FACode'));
+                            notify.error(verifyData.message || getTranslation('alerts', 'invalid2FACode'));
                             }
                         } else if (data.token) {
                             // Login normal
@@ -142,10 +146,10 @@ export function renderLoginPage(): void {
                         navigateTo('/home');
                     }
                     } else {
-                    alert(data.message || getTranslation('alerts', 'failLogin'));
+                    notify.error(data.message || getTranslation('alerts', 'failLogin'));
                     }
                 } catch (e) {
-                    alert(getTranslation('alerts', 'connection'));
+                    notify.error(getTranslation('alerts', 'connection'));
                     console.error(e);
                 }
             });
@@ -182,7 +186,7 @@ export function renderLoginPage(): void {
                 }
                 navigateTo('/home');
                 } else {
-                alert(verifyData.message || getTranslation('alerts', 'invalid2FACode'));
+                notify.error(verifyData.message || getTranslation('alerts', 'invalid2FACode'));
                 }
             } else if (data.token) {
                 // Login normal con Google
@@ -195,11 +199,11 @@ export function renderLoginPage(): void {
             }
             } else {
             // ❌ Error en autenticación
-            alert(data.message || getTranslation('alerts', 'failGoogleLogin'));
+            notify.error(data.message || getTranslation('alerts', 'failGoogleLogin'));
             }
         } catch (error) {
             console.error('Error en autenticación con Google:', error);
-            alert(getTranslation('alerts', 'connection'));
+            notify.error(getTranslation('alerts', 'connection'));
         }
         };
 
