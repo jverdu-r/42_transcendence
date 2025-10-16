@@ -163,6 +163,9 @@ export async function loginUser(token: string): Promise<void> {
   
   // Aplicar configuraciones del usuario
   await applyUserSettings();
+  
+  // Dispatch event for global notifications
+  window.dispatchEvent(new CustomEvent('userLoggedIn'));
 }
 
 export async function logout(): Promise<void> {
@@ -184,6 +187,10 @@ export async function logout(): Promise<void> {
   } else {
     console.warn('[LOGOUT] No hay JWT en localStorage');
   }
+  
+  // Dispatch event before clearing storage
+  window.dispatchEvent(new CustomEvent('userLoggedOut'));
+  
   localStorage.removeItem('jwt');
   localStorage.removeItem('language');
   localStorage.removeItem('notifications');

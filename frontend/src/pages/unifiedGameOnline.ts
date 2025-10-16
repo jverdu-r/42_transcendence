@@ -12,6 +12,31 @@ export function renderUnifiedGameOnline(): void {
     return;
   }
 
+  // Check if coming from a challenge invitation
+  const urlParams = new URLSearchParams(window.location.search);
+  const challengeGameId = urlParams.get('gameId');
+  const gameMode = urlParams.get('mode');
+
+  // If it's a challenge, auto-join immediately
+  if (challengeGameId && gameMode === 'challenge') {
+    console.log('🎮 Auto-joining challenge game:', challengeGameId);
+    content.innerHTML = `
+      <div class="w-full max-w-6xl mx-auto p-8">
+        <div class="text-center">
+          <div class="animate-spin inline-block w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full mb-8"></div>
+          <h2 class="text-3xl font-bold mb-4 text-purple-400">🎮 ${getTranslation('unifiedGameOnline', 'joiningChallenge')}</h2>
+          <p class="text-lg text-gray-300">${getTranslation('unifiedGameOnline', 'preparingMatch')}</p>
+        </div>
+      </div>
+    `;
+    
+    // Auto-join the challenge game
+    setTimeout(() => {
+      autoJoinChallengeGame(challengeGameId);
+    }, 500);
+    return;
+  }
+
   content.innerHTML = `
     <div class="w-full max-w-6xl mx-auto p-8">
       <div class="text-center mb-8">
@@ -412,6 +437,42 @@ async function joinGame(gameId: string): Promise<void> {
     // Restore button
     joinButton.disabled = false;
     joinButton.innerHTML = originalText;
+  }
+}
+
+// Auto-join a challenge game without UI interaction
+async function autoJoinChallengeGame(gameId: string): Promise<void> {
+  try {
+    console.log(`🎮 Auto-joining challenge game: ${gameId}`);
+    
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      showNotification('❌ ' + getTranslation('notifications', 'login_required'), 'error');
+      navigateTo('/login');
+      return;
+    }
+
+    // Save game information immediately
+    sessionStorage.setItem('currentGameId', gameId);
+    sessionStorage.setItem('currentGameMode', 'challenge');
+    sessionStorage.setItem('isChallenge', 'true');
+    
+    console.log('✅ Challenge game info saved, redirecting to lobby...');
+    showNotification('🎮 ' + getTranslation('notifications', 'challenge_starting'), 'success');
+    
+    // Redirect to lobby immediately
+    setTimeout(() => {
+      navigateTo('/game-lobby');
+    }, 800);
+    
+  } catch (error) {
+    console.error('❌ Error joining challenge game:', error);
+    showNotification('❌ ' + getTranslation('notifications', 'game_join_error'), 'error');
+    
+    // Fallback to normal online mode
+    setTimeout(() => {
+      navigateTo('/unified-game-online');
+    }, 2000);
   }
 }
 

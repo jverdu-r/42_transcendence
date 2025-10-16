@@ -700,6 +700,35 @@ fastify.register(async function (fastify) {
                             // Obtener información de la invitación
                             const invitation = getInvitationById(invId);
                             if (invitation) {
+                                // Crear la partida en el game-service
+                                try {
+                                    const inviterUsername = getUsername(invitation.inviter_id);
+                                    const accepterUsername = username;
+                                    
+                                    // Crear la partida via API
+                                    const createGameResponse = await fetch('http://api-gateway:3001/api/games', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json'
+                                        },
+                                        body: JSON.stringify({
+                                            nombre: `Challenge: ${inviterUsername} vs ${accepterUsername}`,
+                                            gameMode: 'challenge',
+                                            maxPlayers: 2,
+                                            playerName: inviterUsername,
+                                            customGameId: gameId
+                                        })
+                                    });
+                                    
+                                    if (createGameResponse.ok) {
+                                        console.log(`✅ Challenge game created: ${gameId}`);
+                                    } else {
+                                        console.error('❌ Error creating challenge game:', await createGameResponse.text());
+                                    }
+                                } catch (error) {
+                                    console.error('❌ Error creating challenge game:', error);
+                                }
+                                
                                 // Notificar al invitador que se aceptó y comenzar partida
                                 sendToUser(invitation.inviter_id, 'challenge_accepted', {
                                     invitationId: invId,
