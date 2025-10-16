@@ -289,7 +289,8 @@ const translations: Translations = {
             challengeDeclined: "{{username}} rechazó tu desafío",
             invitationAcceptedRedirect: "Invitación aceptada! Redirigiendo al juego...",
             invitationDeclined: "Invitación rechazada",
-            cannotChatBlocked: "No puedes chatear con este usuario porque está bloqueado"
+            cannotChatBlocked: "No puedes chatear con este usuario porque está bloqueado",
+            confirmBlockUser: "¿Estás seguro de que quieres bloquear a este usuario?"
         },
         tournaments: {
             containerNotFound: 'No se encontró el contenedor #page-content para renderizar torneos.',
@@ -957,7 +958,8 @@ const translations: Translations = {
             challengeDeclined: "{{username}} declined your challenge",
             invitationAcceptedRedirect: "Invitation accepted! Redirecting to game...",
             invitationDeclined: "Invitation declined",
-            cannotChatBlocked: "You cannot chat with this user because they are blocked"
+            cannotChatBlocked: "You cannot chat with this user because they are blocked",
+            confirmBlockUser: "Are you sure you want to block this user?"
         },
         tournaments: {
             underConstruction: "Under construction!",
@@ -1592,7 +1594,8 @@ const translations: Translations = {
             challengeDeclined: "{{username}} rexeitou o teu desafío",
             invitationAcceptedRedirect: "Invitación aceptada! Redirixindo ao xogo...",
             invitationDeclined: "Invitación rexeitada",
-            cannotChatBlocked: "Non podes chatear con este usuario porque está bloqueado"
+            cannotChatBlocked: "Non podes chatear con este usuario porque está bloqueado",
+            confirmBlockUser: "Estás seguro de que queres bloquear a este usuario?"
         },
         tournaments: {
             underConstruction: "En construción!",
@@ -2239,7 +2242,8 @@ const translations: Translations = {
             challengeDeclined: "{{username}} 拒绝了你的挑战",
             invitationAcceptedRedirect: "邀请已接受！正在跳转到游戏...",
             invitationDeclined: "邀请已拒绝",
-            cannotChatBlocked: "你无法与该用户聊天，因为他已被你屏蔽"
+            cannotChatBlocked: "你无法与该用户聊天，因为他已被你屏蔽",
+            confirmBlockUser: "确定要屏蔽此用户吗？"
         },
         tournaments: {
             underConstruction: "建设中！",

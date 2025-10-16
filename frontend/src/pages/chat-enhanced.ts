@@ -797,7 +797,7 @@ function escapeHtml(text: string): string {
 };
 
 (window as any).blockUser = (userId: number) => {
-    if (confirm(getTranslation('friends','confirmDelete').replace('eliminar a este amigo','bloquear a este usuario'))) {
+    if (confirm(getTranslation('chat','confirmBlockUser'))) {
         if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({
                 type: 'block_user',
