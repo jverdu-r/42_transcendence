@@ -2,6 +2,7 @@
 import { getTranslation } from '../i18n';
 import { getCurrentUser } from '../auth';
 import { navigateTo } from '../router';
+import { getWebSocket, sendChatMessage, addEventListener, removeEventListener } from '../services/chatConnection';
 
 // Types
 interface User {
@@ -183,8 +184,64 @@ export function renderEnhancedChatPage(): void {
 }
 
 function initializeChat(): void {
-    connectWebSocket();
+    // Usar el WebSocket global en lugar de crear uno nuevo
+    ws = getWebSocket();
+    
+    if (!ws) {
+        console.error('❌ WebSocket global no está disponible');
+        updateConnectionStatus('Desconectado', 'red');
+        return;
+    }
+    
+    // Registrar handlers para eventos del chat
+    setupWebSocketHandlers();
     setupEventListeners();
+    
+    updateConnectionStatus('Conectado', 'green');
+}
+
+function setupWebSocketHandlers(): void {
+    // Registrar handlers para los eventos del WebSocket global
+    addEventListener('joined', handleJoined);
+    addEventListener('global_history', handleGlobalHistory);
+    addEventListener('new_global_message', handleNewGlobalMessage);
+    addEventListener('conversation_history', handleConversationHistory);
+    addEventListener('new_direct_message', handleNewDirectMessage);
+    addEventListener('user_joined', handleUserJoined);
+    addEventListener('user_left', handleUserLeft);
+    addEventListener('user_blocked', handleUserBlocked);
+    addEventListener('user_unblocked', handleUserUnblocked);
+    addEventListener('game_invitation', handleGameInvitation);
+    addEventListener('invitation_sent', handleInvitationSent);
+    addEventListener('invitation_response', handleInvitationResponse);
+    addEventListener('user_profile', handleUserProfile);
+    addEventListener('tournament_notification', handleTournamentNotification);
+    addEventListener('error', handleError);
+}
+
+// Cleanup al salir de la página de chat
+export function cleanupChatPage(): void {
+    // Remover los event listeners
+    removeEventListener('joined', handleJoined);
+    removeEventListener('global_history', handleGlobalHistory);
+    removeEventListener('new_global_message', handleNewGlobalMessage);
+    removeEventListener('conversation_history', handleConversationHistory);
+    removeEventListener('new_direct_message', handleNewDirectMessage);
+    removeEventListener('user_joined', handleUserJoined);
+    removeEventListener('user_left', handleUserLeft);
+    removeEventListener('user_blocked', handleUserBlocked);
+    removeEventListener('user_unblocked', handleUserUnblocked);
+    removeEventListener('game_invitation', handleGameInvitation);
+    removeEventListener('invitation_sent', handleInvitationSent);
+    removeEventListener('invitation_response', handleInvitationResponse);
+    removeEventListener('user_profile', handleUserProfile);
+    removeEventListener('tournament_notification', handleTournamentNotification);
+    removeEventListener('error', handleError);
+}
+
+function connectWebSocket(): void {
+    // Esta función ya no es necesaria, usamos la conexión global
+    console.log('ℹ️ Usando WebSocket global');
 }
 
 function connectWebSocket(): void {
@@ -299,6 +356,15 @@ function handleWebSocketMessage(message: any): void {
             if (message.data.success) {
                 blockedUsers.add(message.data.userId);
                 showNotification('Usuario bloqueado correctamente', 'success');
+                
+                // Actualizar las listas para remover al usuario bloqueado
+                if (currentView === 'friends') {
+                    loadFriends().then(() => updateFriendsList());
+                } else {
+                    updateOnlineUsersList();
+                }
+            } else {
+                showNotification('Error al bloquear usuario', 'error');
             }
             break;
 
@@ -306,6 +372,15 @@ function handleWebSocketMessage(message: any): void {
             if (message.data.success) {
                 blockedUsers.delete(message.data.userId);
                 showNotification('Usuario desbloqueado correctamente', 'success');
+                
+                // Actualizar las listas
+                if (currentView === 'friends') {
+                    loadFriends().then(() => updateFriendsList());
+                } else {
+                    updateOnlineUsersList();
+                }
+            } else {
+                showNotification('Error al desbloquear usuario', 'error');
             }
             break;
 
