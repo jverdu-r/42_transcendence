@@ -452,18 +452,49 @@ async function autoJoinChallengeGame(gameId: string): Promise<void> {
       return;
     }
 
-    // Save game information immediately
+    // Wait for the game to be created in the backend
+    console.log('⏳ Waiting for challenge game to be created...');
+    let attempts = 0;
+    const maxAttempts = 10;
+    let gameExists = false;
+
+    while (attempts < maxAttempts && !gameExists) {
+      try {
+        const response = await fetch(`/api/games/${gameId}`, {
+          headers: { 'Accept': 'application/json' }
+        });
+        
+        if (response.ok) {
+          const game = await response.json();
+          console.log('✅ Challenge game found:', game);
+          gameExists = true;
+          break;
+        }
+      } catch (err) {
+        console.log(`Attempt ${attempts + 1}/${maxAttempts} - Game not ready yet...`);
+      }
+      
+      // Wait 500ms before retrying
+      await new Promise(resolve => setTimeout(resolve, 500));
+      attempts++;
+    }
+
+    if (!gameExists) {
+      throw new Error('Challenge game was not created in time');
+    }
+
+    // Save game information
     sessionStorage.setItem('currentGameId', gameId);
     sessionStorage.setItem('currentGameMode', 'challenge');
     sessionStorage.setItem('isChallenge', 'true');
     
-    console.log('✅ Challenge game info saved, redirecting to lobby...');
+    console.log('✅ Challenge game ready, redirecting to lobby...');
     showNotification('🎮 ' + getTranslation('notifications', 'challenge_starting'), 'success');
     
-    // Redirect to lobby immediately
+    // Redirect to lobby
     setTimeout(() => {
       navigateTo('/game-lobby');
-    }, 800);
+    }, 500);
     
   } catch (error) {
     console.error('❌ Error joining challenge game:', error);
