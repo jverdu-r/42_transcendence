@@ -338,11 +338,32 @@ function handleWebSocketMessage(message: any): void {
         case 'game_invitation':
             pendingInvitations.push(message.data);
             updateInvitationsBadge();
-            showNotification(`${message.data.inviterUsername} te invitó a jugar!`, 'info');
+            // Mostrar notificación visual prominente
+            (window as any).showNotification(`🎮 ${message.data.inviterUsername} te desafió a una partida!`, 'info');
             break;
 
         case 'invitation_sent':
             showNotification('Invitación enviada', 'success');
+            break;
+
+        case 'challenge_accepted':
+            // El invitador recibe esto cuando aceptan su desafío
+            showNotification(`${message.data.opponentUsername} aceptó tu desafío! Iniciando partida...`, 'success');
+            setTimeout(() => {
+                navigateTo(`/unified-game-online?gameId=${message.data.gameId}&mode=challenge`);
+            }, 1500);
+            break;
+
+        case 'challenge_start':
+            // El que acepta recibe esto para iniciar la partida
+            showNotification(`Partida contra ${message.data.opponentUsername} iniciando...`, 'success');
+            setTimeout(() => {
+                navigateTo(`/unified-game-online?gameId=${message.data.gameId}&mode=challenge`);
+            }, 1500);
+            break;
+
+        case 'challenge_declined':
+            showNotification(`${message.data.declinedBy} rechazó tu desafío`, 'info');
             break;
 
         case 'user_profile':

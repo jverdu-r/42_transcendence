@@ -309,6 +309,20 @@ function getPendingInvitations(userId: number): any[] {
     }
 }
 
+// Obtener una invitación específica por ID
+function getInvitationById(invitationId: number): any {
+    try {
+        const stmt = db.prepare(`
+            SELECT * FROM game_invitations
+            WHERE id = ?
+        `);
+        return stmt.get(invitationId);
+    } catch (error) {
+        console.error('❌ Error obteniendo invitación:', error);
+        return null;
+    }
+}
+
 // Obtener lista de usuarios online
 function getOnlineUsersList(): any[] {
     const users: any[] = [];
@@ -677,9 +691,48 @@ fastify.register(async function (fastify) {
                         if (!invId) return;
 
                         const status = accepted ? 'accepted' : 'declined';
-                        updateInvitationStatus(invId, status);
-
-                        // TODO: Si aceptó, crear partida y notificar
+                        
+                        if (accepted) {
+                            // Generar un ID único para la partida de desafío
+                            const gameId = `challenge_${invId}_${Date.now()}`;
+                            updateInvitationStatus(invId, status, gameId);
+                            
+                            // Obtener información de la invitación
+                            const invitation = getInvitationById(invId);
+                            if (invitation) {
+                                // Notificar al invitador que se aceptó y comenzar partida
+                                sendToUser(invitation.inviter_id, 'challenge_accepted', {
+                                    invitationId: invId,
+                                    gameId: gameId,
+                                    opponentId: userId,
+                                    opponentUsername: username
+                                });
+                                
+                                // Notificar al que aceptó
+                                const inviterUsername = getUsername(invitation.inviter_id);
+                                socket.send(JSON.stringify({
+                                    type: 'challenge_start',
+                                    data: {
+                                        invitationId: invId,
+                                        gameId: gameId,
+                                        opponentId: invitation.inviter_id,
+                                        opponentUsername: inviterUsername
+                                    }
+                                }));
+                            }
+                        } else {
+                            updateInvitationStatus(invId, status);
+                            
+                            // Notificar al invitador que se rechazó
+                            const invitation = getInvitationById(invId);
+                            if (invitation) {
+                                sendToUser(invitation.inviter_id, 'challenge_declined', {
+                                    invitationId: invId,
+                                    declinedBy: username
+                                });
+                            }
+                        }
+                        
                         socket.send(JSON.stringify({
                             type: 'invitation_responded',
                             data: { invitationId: invId, status }
