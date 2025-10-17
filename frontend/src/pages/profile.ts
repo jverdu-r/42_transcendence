@@ -68,7 +68,7 @@ export async function renderProfilePage(): Promise<void> {
         <div class="max-w-6xl w-full">
           <div class="bg-white bg-opacity-5 backdrop-filter backdrop-blur-xl rounded-3xl p-6 sm:p-8 border border-[#003566] shadow-2xl mb-8">
             <div class="flex items-center justify-center">
-              <div class="text-[#ffc300] text-xl">Cargando estadísticas...</div>
+              <div class="text-[#ffc300] text-xl">${getTranslation('profile', 'loadingStats')}</div>
             </div>
           </div>
         </div>
@@ -99,7 +99,10 @@ export async function renderProfilePage(): Promise<void> {
           <div class="flex flex-col lg:flex-row items-center gap-8">
             ${
               user.avatar_url
-                ? `<img src="${user.avatar_url}" alt="Avatar" class="w-32 h-32 rounded-full object-cover border-2 border-[#ffc300]" />`
+                ? `<img src="${user.avatar_url}?t=${Date.now()}" alt="Avatar" class="w-32 h-32 rounded-full object-cover border-2 border-[#ffc300]" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                   <div class="w-32 h-32 rounded-full bg-gradient-to-r from-[#ffc300] to-[#ffd60a] flex items-center justify-center text-[#000814] text-4xl font-bold" style="display:none;">
+                    ${user.username.charAt(0).toUpperCase()}
+                  </div>`
                 : `<div class="w-32 h-32 rounded-full bg-gradient-to-r from-[#ffc300] to-[#ffd60a] flex items-center justify-center text-[#000814] text-4xl font-bold">
                     ${user.username.charAt(0).toUpperCase()}
                   </div>`
@@ -175,7 +178,7 @@ export async function renderProfilePage(): Promise<void> {
                   <span class="text-[#ffc300] font-bold">${match.score}</span>
                 </div>
               `).join('') : `
-                <div class="text-center p-4 text-gray-400">No hay partidas jugadas aún</div>
+                <div class="text-center p-4 text-gray-400">${getTranslation('profile', 'noMatchesYet')}</div>
               `}
             </div>
           </div>
@@ -202,34 +205,55 @@ export async function renderProfilePage(): Promise<void> {
         const file = avatarInput.files?.[0];
         if (!file) return;
 
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          notify.error('Por favor selecciona un archivo de imagen válido');
+          return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          notify.error('La imagen es demasiado grande. Máximo 5MB');
+          return;
+        }
+
         const formData = new FormData();
         formData.append('file', file);
 
         const token = localStorage.getItem('jwt');
-        const res = await fetch('/api/auth/profile/avatar', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData
-        });
+        
+        try {
+          const res = await fetch('/api/auth/profile/avatar', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData
+          });
 
-        if (res.ok) {
-          const data = await res.json();
-          const user: User | null = getCurrentUser();
-          const avatarPreview = document.getElementById('avatar-preview');
-          if (user && user.avatar_url && avatarPreview) {
-            avatarPreview.innerHTML = `<img src="${user.avatar_url}" alt="Avatar" style="width: 128px; height: 128px; border-radius: 50%; margin: auto; display: block;" />`;
-          } else if (avatarPreview) {
-            avatarPreview.innerHTML = '<p class="text-center">Avatar no disponible</p>';
+          if (res.ok) {
+            const data = await res.json();
+            
+            // Update user object with new avatar URL
+            const user: User | null = getCurrentUser();
+            if (user) {
+              user.avatar_url = data.avatar_url;
+              localStorage.setItem('user', JSON.stringify(user));
+            }
+            
+            notify.success(getTranslation('alerts', 'avatarOk'));
+            
+            // Reload profile page to show new avatar
+            await renderProfilePage();
+          } else {
+            const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+            notify.error(getTranslation('alerts', 'avatarFail') + ': ' + (errorData.error || 'Error desconocido'));
           }
-          if (user) {
-            user.avatar_url = data.avatar_url;
-            localStorage.setItem('user', JSON.stringify(user));
-            renderProfilePage(); // Recarga perfil para que se vea
-          }
-          notify.success(getTranslation('alerts', 'avatarOk'));
-        } else {
+        } catch (error) {
+          console.error('Avatar upload error:', error);
           notify.error(getTranslation('alerts', 'avatarFail'));
         }
+        
+        // Clear the input so the same file can be uploaded again if needed
+        avatarInput.value = '';
       });
     }
 
@@ -249,7 +273,7 @@ export async function renderProfilePage(): Promise<void> {
           return;
         }
 
-        downloadBtn.textContent = 'Descargando...';
+        downloadBtn.textContent = getTranslation('profile', 'downloading');
         downloadBtn.disabled = true;
 
         try {
@@ -272,14 +296,14 @@ export async function renderProfilePage(): Promise<void> {
           document.body.removeChild(link);
           window.URL.revokeObjectURL(url);
 
-          downloadBtn.textContent = '✔ Descargado';
+          downloadBtn.textContent = getTranslation('profile', 'downloaded');
         } catch (err) {
           console.error(err);
           notify.error(getTranslation('alerts', 'historyError'));
-          downloadBtn.textContent = 'Descargar historial';
+          downloadBtn.textContent = getTranslation('profile', 'downloadHistory');
         } finally {
           setTimeout(() => {
-            downloadBtn.textContent = 'Descargar historial';
+            downloadBtn.textContent = getTranslation('profile', 'downloadHistory');
             downloadBtn.disabled = false;
           }, 2000);
         }

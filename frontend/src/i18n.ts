@@ -130,7 +130,13 @@ const translations: Translations = {
             download: "Descargar historial",
             ranking: "Ranking",
             ELO: "ELO",
-            games: "Partidas"
+            games: "Partidas",
+            loadingStats: "Cargando estadísticas...",
+            noMatchesYet: "No hay partidas jugadas aún",
+            avatarNotAvailable: "Avatar no disponible",
+            downloading: "Descargando...",
+            downloaded: "✔ Descargado",
+            downloadHistory: "Descargar historial"
         },
         play: {
             selectGameMode: "Selecciona un Modo de Juego",
@@ -803,7 +809,13 @@ const translations: Translations = {
             download: "Download history",
             ranking: "Ranking",
             ELO: "ELO",
-            games: "Games"
+            games: "Games",
+            loadingStats: "Loading statistics...",
+            noMatchesYet: "No matches played yet",
+            avatarNotAvailable: "Avatar not available",
+            downloading: "Downloading...",
+            downloaded: "✔ Downloaded",
+            downloadHistory: "Download history"
         },
         play: {
             selectGameMode: "Select Game Mode",
@@ -1439,7 +1451,13 @@ const translations: Translations = {
             download: "Descargar historial",
             ranking: "Ranking",
             ELO: "ELO",
-            games: "Partidas"
+            games: "Partidas",
+            loadingStats: "Cargando estatísticas...",
+            noMatchesYet: "Non hai partidas xogadas aínda",
+            avatarNotAvailable: "Avatar non dispoñible",
+            downloading: "Descargando...",
+            downloaded: "✔ Descargado",
+            downloadHistory: "Descargar historial"
         },
         play: {
             selectGameMode: "Selecciona un Modo de Xogo",
@@ -2087,7 +2105,13 @@ const translations: Translations = {
             download: "下载历史记录",
             ranking: "排名",
             ELO: "ELO",
-            games: "对局"
+            games: "对局",
+            loadingStats: "加载统计数据中...",
+            noMatchesYet: "尚未进行任何比赛",
+            avatarNotAvailable: "头像不可用",
+            downloading: "下载中...",
+            downloaded: "✔ 已下载",
+            downloadHistory: "下载历史记录"
         },
         play: {
             selectGameMode: "选择游戏模式",

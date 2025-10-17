@@ -823,24 +823,24 @@ function showProfileModal(profile: any): void {
     content.innerHTML = `
         <div class="flex flex-col items-center">
             <div class="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center text-4xl mb-4">
-                ${profile.avatar_url ? `<img src="${profile.avatar_url}" class="w-full h-full rounded-full object-cover" />` : '👤'}
+                ${profile.avatar_url ? `<img src="${profile.avatar_url}?t=${Date.now()}" class="w-full h-full rounded-full object-cover" onerror="this.style.display='none'; this.parentElement.innerHTML='👤';" />` : '👤'}
             </div>
             <h4 class="text-2xl font-bold text-white mb-2">${escapeHtml(profile.username)}</h4>
             <p class="text-gray-400 text-sm mb-4">${escapeHtml(profile.email || '')}</p>
             <div class="w-full space-y-2 text-sm">
-                <div class="flex justify-between"><span class="text-gray-400">ID:</span><span class="text-white">${profile.id}</span></div>
-                <div class="flex justify-between"><span class="text-gray-400">Idioma:</span><span class="text-white">${profile.language || 'N/A'}</span></div>
-                <div class="flex justify-between"><span class="text-gray-400">Dificultad:</span><span class="text-white">${profile.difficulty || 'N/A'}</span></div>
-                <div class="flex justify-between"><span class="text-gray-400">Miembro desde:</span><span class="text-white">${new Date(profile.created_at).toLocaleDateString()}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">${getTranslation('chat', 'profileFieldID')}</span><span class="text-white">${profile.id}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">${getTranslation('chat', 'profileFieldLanguage')}</span><span class="text-white">${profile.language || 'N/A'}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">${getTranslation('chat', 'profileFieldDifficulty')}</span><span class="text-white">${profile.difficulty || 'N/A'}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">${getTranslation('chat', 'profileFieldMemberSince')}</span><span class="text-white">${new Date(profile.created_at).toLocaleDateString()}</span></div>
             </div>
             <div class="flex gap-2 mt-6 w-full">
                 <button onclick="window.openUserChat(${profile.id}, '${profile.username.replace(/'/g, "\\'")}'); window.hideModal('profile-modal')"
                         class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg">
-                    💬 Mensaje
+                    💬 ${getTranslation('chat', 'profileButtonMessage')}
                 </button>
                 <button onclick="window.inviteToGame(${profile.id}); window.hideModal('profile-modal')"
                         class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg">
-                    🎮 Invitar
+                    🎮 ${getTranslation('chat', 'profileButtonInvite')}
                 </button>
             </div>
         </div>
