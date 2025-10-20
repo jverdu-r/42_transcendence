@@ -62,7 +62,7 @@ export function renderRegister(): void {
                             placeholder=" "
                             minlength="3"
                             maxlength="20"
-                            title="El nombre de usuario debe tener entre 3 y 20 caracteres"
+                            title={getTranslation('register', 'usernameTitle')}
                             required
                         />
                         <label
@@ -81,7 +81,7 @@ export function renderRegister(): void {
                             class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
                             placeholder=" "
                             pattern="[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"
-                            title="Introduce un correo electrónico válido (ejemplo: usuario@dominio.com)"
+                            title={getTranslation('register', 'emailTitle')}
                             required
                         />
                         <label
@@ -100,7 +100,7 @@ export function renderRegister(): void {
                             class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
                             placeholder=" "
                             minlength="6"
-                            title="La contraseña debe tener al menos 6 caracteres"
+                            title={getTranslation('register', 'passwordTitle')}
                             required
                         />
                         <label
@@ -119,7 +119,7 @@ export function renderRegister(): void {
                             class="block py-2.5 px-0 w-full text-lg text-gray-100 bg-transparent border-0 border-b-2 border-[#003566] appearance-none focus:outline-none focus:ring-0 focus:border-[#ffc300] peer"
                             placeholder=" "
                             minlength="6"
-                            title="La contraseña debe tener al menos 6 caracteres"
+                            title={getTranslation('register', 'passwordTitle')}
                             required
                         />
                         <label
