@@ -54,7 +54,10 @@ const translations: Translations = {
             alreadyHaveAccount: '¿Ya tienes una cuenta?',
             loginHere: 'Iniciar sesión aquí',
             registerWithGoogle: 'Registrarse con Google',
-            or: 'O'
+            or: 'O',
+            usernameTitle: 'El nombre de usuario debe tener entre 3 y 20 caracteres',
+            emailTitle: 'Introduce un correo electrónico válido (ejemplo: usuario@dominio.com)',
+            passwordTitle: 'La contraseña debe tener al menos 6 caracteres'
         },
         home: {
             noLiveMatches: 'No hay partidos en curso',
@@ -130,7 +133,13 @@ const translations: Translations = {
             download: "Descargar historial",
             ranking: "Ranking",
             ELO: "ELO",
-            games: "Partidas"
+            games: "Partidas",
+            loadingStats: "Cargando estadísticas...",
+            noMatchesYet: "No hay partidas jugadas aún",
+            avatarNotAvailable: "Avatar no disponible",
+            downloading: "Descargando...",
+            downloaded: "✔ Descargado",
+            downloadHistory: "Descargar historial"
         },
         play: {
             selectGameMode: "Selecciona un Modo de Juego",
@@ -727,7 +736,10 @@ const translations: Translations = {
             alreadyHaveAccount: 'Already have an account?',
             loginHere: 'Login here',
             registerWithGoogle: 'Register with Google',
-            or: 'Or'
+            or: 'Or',
+            usernameTitle: 'Username must be between 3 and 20 characters',
+            emailTitle: 'Enter a valid email address (e.g. user@domain.com)',
+            passwordTitle: 'Password must be at least 6 characters'
         },
         home: {
             noLiveMatches: 'No live matches right now',
@@ -803,7 +815,13 @@ const translations: Translations = {
             download: "Download history",
             ranking: "Ranking",
             ELO: "ELO",
-            games: "Games"
+            games: "Games",
+            loadingStats: "Loading statistics...",
+            noMatchesYet: "No matches played yet",
+            avatarNotAvailable: "Avatar not available",
+            downloading: "Downloading...",
+            downloaded: "✔ Downloaded",
+            downloadHistory: "Download history"
         },
         play: {
             selectGameMode: "Select Game Mode",
@@ -1363,7 +1381,10 @@ const translations: Translations = {
             alreadyHaveAccount: 'Xa tes unha conta?',
             loginHere: 'Iniciar sesión aquí',
             registerWithGoogle: 'Rexistrarse con Google',
-            or: 'Ou'
+            or: 'Ou',
+            usernameTitle: 'O nome de usuario debe ter entre 3 e 20 caracteres',
+            emailTitle: 'Introduce un correo electrónico válido (exemplo: usuario@dominio.com)',
+            passwordTitle: 'O contrasinal debe ter polo menos 6 caracteres'
         },
         home: {
             noLiveMatches: 'Non hai partidos agora mesmo',
@@ -1439,7 +1460,13 @@ const translations: Translations = {
             download: "Descargar historial",
             ranking: "Ranking",
             ELO: "ELO",
-            games: "Partidas"
+            games: "Partidas",
+            loadingStats: "Cargando estatísticas...",
+            noMatchesYet: "Non hai partidas xogadas aínda",
+            avatarNotAvailable: "Avatar non dispoñible",
+            downloading: "Descargando...",
+            downloaded: "✔ Descargado",
+            downloadHistory: "Descargar historial"
         },
         play: {
             selectGameMode: "Selecciona un Modo de Xogo",
@@ -2011,7 +2038,10 @@ const translations: Translations = {
             alreadyHaveAccount: '已经有账户了？',
             loginHere: '在这里登录',
             registerWithGoogle: '使用Google注册',
-            or: '或'
+            or: '或',
+            usernameTitle: '用户名必须为3到20个字符',
+            emailTitle: '请输入有效的电子邮件地址（例如 user@domain.com）',
+            passwordTitle: '密码必须至少为6个字符'
         },
         home: {
             noLiveMatches: '当前没有正在进行的比赛',
@@ -2087,7 +2117,13 @@ const translations: Translations = {
             download: "下载历史记录",
             ranking: "排名",
             ELO: "ELO",
-            games: "对局"
+            games: "对局",
+            loadingStats: "加载统计数据中...",
+            noMatchesYet: "尚未进行任何比赛",
+            avatarNotAvailable: "头像不可用",
+            downloading: "下载中...",
+            downloaded: "✔ 已下载",
+            downloadHistory: "下载历史记录"
         },
         play: {
             selectGameMode: "选择游戏模式",

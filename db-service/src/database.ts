@@ -563,6 +563,16 @@ export async function initializeDb() {
             INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (198, 99, NULL, 'Medium Bot 6', 1);
             INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (199, 100, 1, 'Team A', 5);
             INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (200, 100, 5, 'Team B', 4);
+            INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (201, 91, 6, 'Team A', 5);
+            INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (202, 91, 6, 'Team A', 5);
+            INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (203, 91, 6, 'Team A', 5);
+            INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (204, 91, 6, 'Team A', 5);
+            INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (205, 91, 6, 'Team A', 5);
+            INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (206, 91, 6, 'Team A', 5);
+            INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (207, 91, 6, 'Team A', 5);
+            INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (208, 91, 6, 'Team A', 5);
+            INSERT OR IGNORE INTO scores (id, game_id, scorer_id, team_name, point_number) VALUES (209, 91, 6, 'Team A', 5);
+
         `);
         console.log('Base de datos inicializada y tablas creadas (si no existían).');
     } finally {
