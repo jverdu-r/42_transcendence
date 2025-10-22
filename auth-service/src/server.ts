@@ -374,10 +374,20 @@ fastify.post('/auth/google', async (request: FastifyRequest, reply: FastifyReply
     
     if (!user) {
       // Crear nuevo usuario con Google
-      const result = await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+      await redisClient.rPush('sqlite_write_queue', JSON.stringify({
         sql: 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
         params: [payload.name, payload.email, ''] // Sin contraseña para usuarios de Google
-    }));
+      }));
+      
+      // Crear perfil de usuario con configuración por defecto
+      await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+        sql: `INSERT INTO user_profiles (user_id, avatar_url, language, notifications, doubleFactor, doubleFactorSecret, difficulty) 
+              VALUES ((SELECT id FROM users WHERE email = ?), ?, ?, ?, ?, ?, ?)`,
+        params: [payload.email, null, 'es', 'false', 'false', null, 'normal']
+      }));
+      
+      // Esperar un momento para que se procese la escritura
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       user = await db.get('SELECT * FROM users WHERE email = ?', [payload.email]);
     }
