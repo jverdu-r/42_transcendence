@@ -1515,31 +1515,69 @@ fastify.post('/tournaments/:id/advance', async (request: any, reply: any) => {
   try {
     fastify.log.info({ tournamentId: id }, 'Advancing tournament to next round');
     
-    // Orden de rondas (de menor a mayor)
-    const roundPrefixes = ['1/8', '1/4', '1/2', 'Final'];
-
-    // 1) Determinar la última ronda existente para el torneo
-    let latestIndex = -1;
-    for (let i = 0; i < roundPrefixes.length; i++) {
-      const prefix = roundPrefixes[i];
-      const matchLike = prefix === 'Final' ? 'Final' : `${prefix}%`;
-      const row = await db.get('SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND match LIKE ?', [id, matchLike]);
-      if (row && row.cnt && Number(row.cnt) > 0) latestIndex = i;
+    // 1) Obtener información del torneo
+    const tournament = await db.get('SELECT players FROM tournaments WHERE id = ?', [id]);
+    if (!tournament) {
+      await db.close();
+      fastify.log.error({ tournamentId: id }, 'Tournament not found');
+      reply.code(404).send({ message: 'Tournament not found' });
+      return;
     }
-    if (latestIndex === -1) {
+
+    const totalPlayers = tournament.players;
+
+    // 2) Obtener todas las rondas que existen actualmente
+    const allGames = await db.all(
+      'SELECT DISTINCT match FROM games WHERE tournament_id = ? ORDER BY id ASC',
+      [id]
+    );
+    
+    if (!allGames || allGames.length === 0) {
       await db.close();
       fastify.log.error({ tournamentId: id }, 'No rounds found for tournament');
       reply.code(400).send({ message: 'No rounds found for tournament' });
       return;
     }
 
-    const currentPrefix = roundPrefixes[latestIndex];
-    const currentLike = currentPrefix === 'Final' ? 'Final' : `${currentPrefix}%`;
+    // 3) Determinar la ronda actual basándose en la última ronda con partidos
+    const lastMatch = allGames[allGames.length - 1].match;
+    let currentRoundPlayers: number;
     
-    fastify.log.info({ tournamentId: id, currentRound: currentPrefix }, 'Current tournament round');
+    if (lastMatch === 'Final') {
+      await db.close();
+      fastify.log.info({ tournamentId: id }, 'Tournament already in final round');
+      reply.send({ message: 'Tournament already in final round' });
+      return;
+    } else if (lastMatch.startsWith('1/2')) {
+      currentRoundPlayers = 4;
+    } else if (lastMatch.startsWith('1/4')) {
+      currentRoundPlayers = 8;
+    } else if (lastMatch.startsWith('1/8')) {
+      currentRoundPlayers = 16;
+    } else if (lastMatch.startsWith('1/16')) {
+      currentRoundPlayers = 32;
+    } else {
+      // Extraer del formato si es dinámico
+      currentRoundPlayers = 8; // fallback
+    }
 
-    // 2) Comprobar si hay partidos pendientes en la ronda actual
-    const pendingRow = await db.get('SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND match LIKE ? AND status != ?', [id, currentLike, 'finished']);
+    const currentLike = currentRoundPlayers === 2 ? 'Final' : 
+                        currentRoundPlayers === 4 ? '1/2%' :
+                        currentRoundPlayers === 8 ? '1/4%' :
+                        currentRoundPlayers === 16 ? '1/8%' :
+                        currentRoundPlayers === 32 ? '1/16%' : '%';
+    
+    fastify.log.info({ 
+      tournamentId: id, 
+      currentRoundPlayers,
+      currentPattern: currentLike 
+    }, 'Current tournament round');
+
+    // 4) Comprobar si hay partidos pendientes en la ronda actual
+    const pendingRow = await db.get(
+      'SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND match LIKE ? AND status != ?', 
+      [id, currentLike, 'finished']
+    );
     const pendingCount = pendingRow?.cnt ? Number(pendingRow.cnt) : 0;
     if (pendingCount > 0) {
       await db.close();
@@ -1548,34 +1586,33 @@ fastify.post('/tournaments/:id/advance', async (request: any, reply: any) => {
       return;
     }
 
-    // 3) Si la ronda actual es Final o no hay siguiente, no crear más rondas
-    if (currentPrefix === 'Final' || latestIndex === roundPrefixes.length - 1) {
-      await db.close();
-      fastify.log.info({ tournamentId: id }, 'Tournament already in final round');
-      reply.send({ message: 'Tournament already in final round or no next round to generate' });
-      return;
-    }
+    const nextRoundPlayers = currentRoundPlayers / 2;
+    const nextLike = nextRoundPlayers === 2 ? 'Final' :
+                     nextRoundPlayers === 4 ? '1/2%' :
+                     nextRoundPlayers === 8 ? '1/4%' :
+                     nextRoundPlayers === 16 ? '1/8%' : '%';
 
-    const nextIndex = latestIndex + 1;
-    const nextPrefix = roundPrefixes[nextIndex];
-
-    // 4) Verificar que la siguiente ronda no exista ya
-    const nextLike = nextPrefix === 'Final' ? 'Final' : `${nextPrefix}%`;
-    const nextExistsRow = await db.get('SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND match LIKE ?', [id, nextLike]);
+    // 5) Verificar que la siguiente ronda no exista ya
+    const nextExistsRow = await db.get(
+      'SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND match LIKE ?', 
+      [id, nextLike]
+    );
     if (nextExistsRow && Number(nextExistsRow.cnt) > 0) {
       await db.close();
-      fastify.log.info({ tournamentId: id, nextRound: nextPrefix }, 'Next round already exists');
+      fastify.log.info({ tournamentId: id, nextRound: nextLike }, 'Next round already exists');
       reply.send({ message: 'Next round already exists' });
       return;
     }
 
-    // 5) Obtener ganadores de la ronda actual, ordenados por game id para mantener emparejamientos esperados
+    // 6) Obtener ganadores de la ronda actual, ordenados por game id para mantener emparejamientos esperados
     const winners = await db.all(
-      `SELECT p.id AS participant_id, p.user_id, p.is_bot, p.team_name, g.id AS game_id
+      `SELECT p.id AS participant_id, p.user_id, p.is_bot, p.team_name, g.id AS game_id, u.username
        FROM participants p
        JOIN games g ON p.game_id = g.id
+       LEFT JOIN users u ON p.user_id = u.id
        WHERE g.tournament_id = ? AND g.match LIKE ? AND p.is_winner = 1
-       ORDER BY g.id ASC, p.id ASC`, [id, currentLike]
+       ORDER BY g.id ASC, p.id ASC`, 
+      [id, currentLike]
     );
 
     if (!winners || winners.length === 0) {
@@ -1585,51 +1622,55 @@ fastify.post('/tournaments/:id/advance', async (request: any, reply: any) => {
       return;
     }
     
-    fastify.log.info({ tournamentId: id, winnersCount: winners.length, nextRound: nextPrefix }, 'Creating next round');
+    fastify.log.info({ 
+      tournamentId: id, 
+      winnersCount: winners.length, 
+      nextRoundPlayers,
+      nextPattern: nextLike 
+    }, 'Creating next round');
 
-    // 6) Si número de ganadores impar: deja el último en bye (se avanza automáticamente)
-    // Para simplicidad: si impar, el último se avanza sin crear partido (se insertará luego si hay par)
+    // 7) Generar emparejamientos para la siguiente ronda
     const pairs: Array<[any, any]> = [];
     for (let i = 0; i < winners.length; i += 2) {
       const a = winners[i];
       const b = winners[i + 1] ?? null;
-      if (b) pairs.push([a, b]);
-      else {
-        // TODO: manejar bye; por ahora el ganador sin pareja avanza como participante en siguiente ronda
-        // Implementación: crear un participante placeholder en la siguiente ronda (será emparejado cuando haya otro)
-        // Para simplicidad, guardamos temporalmente en pairs como [a, null] y no creamos juego.
-        pairs.push([a, null]);
+      if (b) {
+        pairs.push([a, b]);
+      } else {
+        // Si hay número impar de ganadores, algo está mal en el torneo
+        fastify.log.warn({ tournamentId: id }, 'Odd number of winners, skipping bye');
+        continue;
       }
     }
 
-    // 7) Construir y encolar las inserciones para la siguiente ronda
-    for (let idx = 0; idx < pairs.length; idx++) {
-      const [w1, w2] = pairs[idx];
-      // Si w2 === null -> avance sin partido por ahora (no creamos juego)
-      if (!w2) {
-        // En caso de bye, insertamos un tournament participant placeholder for next round by using participants table
-        // We'll create a game only when we have pairs. For now enqueue a participant in a future game placeholder is complex.
-        // Simpler approach: skip creating a match until we have pairs (this is acceptable for standard even-player tournaments).
-        continue;
-      }
+    // 8) Construir y encolar las inserciones para la siguiente ronda
+    let matchCounter = 1;
+    for (const [w1, w2] of pairs) {
+      // Generar label del match dinámicamente
+      const matchLabel = nextRoundPlayers === 2 ? 'Final' : 
+                         `${nextRoundPlayers === 4 ? '1/2' : 
+                             nextRoundPlayers === 8 ? '1/4' : 
+                             nextRoundPlayers === 16 ? '1/8' : 
+                             nextRoundPlayers === 32 ? '1/16' : 'Round'}(${matchCounter})`;
 
-      // match label
-      const matchLabel = nextPrefix === 'Final' ? 'Final' : `${nextPrefix}(${Math.floor(idx) + 1})`;
+      // Generar team names consistentes para la nueva ronda
+      const team1Name = `Team A-R${nextRoundPlayers / 2}-M${matchCounter}`;
+      const team2Name = `Team B-R${nextRoundPlayers / 2}-M${matchCounter}`;
 
-      // 7.1) INSERT game
+      // 8.1) INSERT game
       await redisClient.rPush('sqlite_write_queue', JSON.stringify({
         sql: 'INSERT INTO games (tournament_id, match, status) VALUES (?, ?, ?)',
         params: [id, matchLabel, 'pending']
       }));
 
-      // 7.2) INSERT participants using subquery to get game_id
+      // 8.2) INSERT participants using subquery to get game_id with consistent team names
       await redisClient.rPush('sqlite_write_queue', JSON.stringify({
         sql: `INSERT INTO participants (game_id, user_id, is_bot, is_winner, team_name)
               VALUES (
                 (SELECT id FROM games WHERE tournament_id = ? AND match = ? LIMIT 1),
                 ?, ?, 0, ?
               )`,
-        params: [id, matchLabel, w1.user_id ? w1.user_id : null, w1.is_bot ? 1 : 0, w1.team_name || 'Team A']
+        params: [id, matchLabel, w1.user_id ? w1.user_id : null, w1.is_bot ? 1 : 0, team1Name]
       }));
       await redisClient.rPush('sqlite_write_queue', JSON.stringify({
         sql: `INSERT INTO participants (game_id, user_id, is_bot, is_winner, team_name)
@@ -1637,60 +1678,76 @@ fastify.post('/tournaments/:id/advance', async (request: any, reply: any) => {
                 (SELECT id FROM games WHERE tournament_id = ? AND match = ? LIMIT 1),
                 ?, ?, 0, ?
               )`,
-        params: [id, matchLabel, w2.user_id ? w2.user_id : null, w2.is_bot ? 1 : 0, w2.team_name || 'Team B']
+        params: [id, matchLabel, w2.user_id ? w2.user_id : null, w2.is_bot ? 1 : 0, team2Name]
       }));
 
-      // 7.3) INSERT initial scores (0)
+      // 8.3) INSERT initial scores (0)
       await redisClient.rPush('sqlite_write_queue', JSON.stringify({
         sql: `INSERT INTO scores (game_id, team_name, point_number)
               VALUES ((SELECT id FROM games WHERE tournament_id = ? AND match = ? LIMIT 1), ?, 0)`,
-        params: [id, matchLabel, w1.team_name || 'Team A']
+        params: [id, matchLabel, team1Name]
       }));
       await redisClient.rPush('sqlite_write_queue', JSON.stringify({
         sql: `INSERT INTO scores (game_id, team_name, point_number)
               VALUES ((SELECT id FROM games WHERE tournament_id = ? AND match = ? LIMIT 1), ?, 0)`,
-        params: [id, matchLabel, w2.team_name || 'Team B']
+        params: [id, matchLabel, team2Name]
       }));
 
-      // 7.4) If one or both players are humans ask game-service to create real game and then update external_game_id
-      if (!w1.is_bot || !w2.is_bot) {
-        try {
-          const GAME_SERVICE_URL = process.env.GAME_SERVICE_URL || 'https://game-service:8000';
-          const playerName = (w1.is_bot ? w2.user_id : w1.user_id) ? 'Jugador' : 'Jugador';
-          const gameRes = await fetch(`${GAME_SERVICE_URL}/api/games`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              nombre: `Torneo ${id} - ${w1.team_name || 'Team A'} vs ${w2.team_name || 'Team B'}`,
-              gameMode: (!w1.is_bot && !w2.is_bot) ? 'pvp' : 'pve',
-              maxPlayers: 2,
-              playerName,
-              aiDifficulty: 'medium',
-              tournamentId: id  // Pass tournament ID to game-service
-            })
-          });
-          if (gameRes.ok) {
-            const gameData = await gameRes.json() as any;
-            const externalId = gameData?.id ?? gameData?.gameId ?? gameData?.external_game_id ?? null;
-            if (externalId) {
-              await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-                sql: 'UPDATE games SET external_game_id = ? WHERE tournament_id = ? AND match = ?',
-                params: [externalId, id, matchLabel]
-              }));
-              fastify.log.info({ matchLabel, externalId }, 'Game created for tournament match');
-            }
-          } else {
-            fastify.log.error({ status: gameRes.status }, 'Error creating game in game-service');
+      // 8.4) Crear partida en game-service para todos los partidos (solo jugadores humanos)
+      try {
+        const GAME_SERVICE_URL = process.env.GAME_SERVICE_URL || 'https://game-service:8000';
+        const w1Name = w1.username || 'Player 1';
+        const w2Name = w2.username || 'Player 2';
+        
+        const gameRes = await fetch(`${GAME_SERVICE_URL}/api/games`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nombre: `Torneo ${id} - ${w1Name} vs ${w2Name}`,
+            gameMode: 'pvp',
+            maxPlayers: 2,
+            playerName: w1Name,
+            tournamentId: id  // Pass tournament ID to game-service
+          })
+        });
+        
+        if (gameRes.ok) {
+          const gameData = await gameRes.json() as any;
+          const externalId = gameData?.id ?? gameData?.gameId ?? gameData?.external_game_id ?? null;
+          if (externalId) {
+            await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+              sql: 'UPDATE games SET external_game_id = ? WHERE tournament_id = ? AND match = ?',
+              params: [externalId, id, matchLabel]
+            }));
+            fastify.log.info({ matchLabel, externalId }, 'Game created for tournament match');
           }
-        } catch (err) {
-          fastify.log.error({ err }, 'Error creating game instance for next round');
+        } else {
+          fastify.log.error({ status: gameRes.status }, 'Error creating game in game-service');
         }
+      } catch (err) {
+        fastify.log.error({ err }, 'Error creating game instance for next round');
       }
+      
+      matchCounter++;
     }
 
     await db.close();
-    fastify.log.info({ tournamentId: id, nextRound: nextPrefix, pairsCreated: pairs.length }, 'Next round generated successfully');
-    reply.send({ message: 'Next round generated (enqueued)', nextRound: nextPrefix, matches: pairs.length });
+    const nextRoundLabel = nextRoundPlayers === 2 ? 'Final' : 
+                           nextRoundPlayers === 4 ? '1/2' :
+                           nextRoundPlayers === 8 ? '1/4' :
+                           nextRoundPlayers === 16 ? '1/8' : `Round-${nextRoundPlayers}`;
+    
+    fastify.log.info({ 
+      tournamentId: id, 
+      nextRound: nextRoundLabel, 
+      pairsCreated: pairs.length 
+    }, 'Next round generated successfully');
+    
+    reply.send({ 
+      message: 'Next round generated (enqueued)', 
+      nextRound: nextRoundLabel, 
+      matches: pairs.length 
+    });
   } catch (error: any) {
     fastify.log.error(error);
     reply.code(500).send({ message: 'Internal Server Error' });

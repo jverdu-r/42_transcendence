@@ -76,9 +76,7 @@ export function renderTournamentsPage() {
                                 body: JSON.stringify({
                                     name,
                                     created_by: user.id,
-                                    players: numPlayers,
-                                    bots: 0,
-                                    bots_difficulty: "-"
+                                    players: numPlayers
                                 })
                             });
                             if (!res.ok) throw new Error(await res.text());
