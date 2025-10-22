@@ -135,6 +135,13 @@ fastify.get('/tournaments/:id/matches', async (request: any, reply: any) => {
                 external_game_id: m.external_game_id 
             });
         }
+        
+        // Determinar qué rondas existen basándose en las etiquetas de los partidos
+        const hasOctavos = Object.keys(rounds).some(k => k.startsWith('1/8'));
+        const hasCuartos = Object.keys(rounds).some(k => k.startsWith('1/4'));
+        const hasSemis = Object.keys(rounds).some(k => k.startsWith('1/2'));
+        const hasFinal = Object.keys(rounds).some(k => k === 'Final');
+        
         // Orden clásico de rondas para torneos de hasta 16 jugadores
         const roundOrder = [
             '1/8(1)', '1/8(2)', '1/8(3)', '1/8(4)', '1/8(5)', '1/8(6)', '1/8(7)', '1/8(8)',
@@ -142,20 +149,34 @@ fastify.get('/tournaments/:id/matches', async (request: any, reply: any) => {
             '1/2(1)', '1/2(2)',
             'Final'
         ];
+        
         // Agrupar partidos por ronda en el orden correcto
         const groupedRounds: any[][] = [];
-        // Octavos
-        const octavos = roundOrder.slice(0,8).map(r => rounds[r]).filter(arr => arr && arr.length > 0).flat();
-        if (octavos.length > 0) groupedRounds.push(octavos);
-        // Cuartos
-        const cuartos = roundOrder.slice(8,12).map(r => rounds[r]).filter(arr => arr && arr.length > 0).flat();
-        if (cuartos.length > 0) groupedRounds.push(cuartos);
-        // Semifinales
-        const semis = roundOrder.slice(12,14).map(r => rounds[r]).filter(arr => arr && arr.length > 0).flat();
-        if (semis.length > 0) groupedRounds.push(semis);
-        // Final
-        const final = roundOrder.slice(14,15).map(r => rounds[r]).filter(arr => arr && arr.length > 0).flat();
-        if (final.length > 0) groupedRounds.push(final);
+        
+        // Octavos (solo si existen)
+        if (hasOctavos) {
+            const octavos = roundOrder.slice(0,8).map(r => rounds[r]).filter(arr => arr && arr.length > 0).flat();
+            if (octavos.length > 0) groupedRounds.push(octavos);
+        }
+        
+        // Cuartos (solo si existen)
+        if (hasCuartos) {
+            const cuartos = roundOrder.slice(8,12).map(r => rounds[r]).filter(arr => arr && arr.length > 0).flat();
+            if (cuartos.length > 0) groupedRounds.push(cuartos);
+        }
+        
+        // Semifinales (solo si existen)
+        if (hasSemis) {
+            const semis = roundOrder.slice(12,14).map(r => rounds[r]).filter(arr => arr && arr.length > 0).flat();
+            if (semis.length > 0) groupedRounds.push(semis);
+        }
+        
+        // Final (solo si existe)
+        if (hasFinal) {
+            const final = roundOrder.slice(14,15).map(r => rounds[r]).filter(arr => arr && arr.length > 0).flat();
+            if (final.length > 0) groupedRounds.push(final);
+        }
+        
         reply.send(groupedRounds);
     } catch (error: any) {
         fastify.log.error(error);
@@ -307,7 +328,8 @@ fastify.post('/tournaments/:id/start', async (request: any, reply: any) => {
                             gameMode,
                             maxPlayers: 2,
                             playerName,
-                            aiDifficulty
+                            aiDifficulty,
+                            tournamentId: id  // Pass tournament ID to game-service
                         })
                     });
 

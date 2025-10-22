@@ -1414,7 +1414,9 @@ fastify.post('/api/games/finish', async (request, reply) => {
       params: [gameId, gameId, winnerTeam]
     }));
 
-    // Commit DB handle locally for reads after enqueuing
+    // Esperar un momento para que las escrituras encoladas se procesen
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     // Consultar si pertenece a torneo y si quedan partidas pendientes en esa ronda
     const gameRow = await db.get('SELECT id, tournament_id, match FROM games WHERE id = ? OR external_game_id = ? LIMIT 1', [gameId, gameId]);
     fastify.log.info({ gameRow }, 'DEBUG gameRow in /api/games/finish');
@@ -1424,24 +1426,24 @@ fastify.post('/api/games/finish', async (request, reply) => {
       const ready = await waitForPendingToBeZero(db, tournamentId);
       fastify.log.info({ tournamentId, ready }, 'DEBUG pendingCount in /api/games/finish');
 
-      // Si ya no quedan partidas pendientes, notificar a db-service para generar la siguiente ronda
+      // Si ya no quedan partidas pendientes, generar la siguiente ronda directamente
       if (ready) {
-        const DB_SERVICE_URL = process.env.DB_SERVICE_URL || 'http://db-service:8000';
-        // Notificar al db-service de que genere la siguiente ronda (esperando respuesta y logueando errores)
         try {
-          const res = await fetch(`${DB_SERVICE_URL}/tournaments/${tournamentId}/advance`, {
+          // Llamar al endpoint del auth-service para avanzar el torneo
+          const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'https://auth-service:8000';
+          const res = await fetch(`${AUTH_SERVICE_URL}/tournaments/${tournamentId}/advance`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tournament_id: tournamentId })
           });
           if (!res.ok) {
             const text = await res.text().catch(() => '');
-            fastify.log.error({ status: res.status, body: text }, 'db-service /advance returned error');
+            fastify.log.error({ status: res.status, body: text }, 'Error advancing tournament');
           } else {
-            fastify.log.info(`Notified db-service to advance tournament ${tournamentId}`);
+            fastify.log.info(`Tournament ${tournamentId} advanced to next round`);
           }
         } catch (err) {
-          fastify.log.error({ err }, 'Error notifying db-service to advance tournament');
+          fastify.log.error({ err }, 'Error advancing tournament');
         }
       }
     }
@@ -1460,18 +1462,49 @@ fastify.post('/api/games/finish', async (request, reply) => {
 async function waitForPendingToBeZero(
   db: any,
   tournamentId: number,
-  maxRetries: number = 10,
-  delayMs: number = 200
+  maxRetries: number = 20,
+  delayMs: number = 300
 ): Promise<boolean> {
+  // Determine the current round
+  const roundPrefixes = ['1/8', '1/4', '1/2', 'Final'];
+  let currentRound = null;
+  
+  for (const prefix of roundPrefixes) {
+    const matchLike = prefix === 'Final' ? 'Final' : `${prefix}%`;
+    const row = await db.get(
+      'SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND match LIKE ?',
+      [tournamentId, matchLike]
+    );
+    if (row && row.cnt && Number(row.cnt) > 0) {
+      currentRound = prefix;
+    }
+  }
+  
+  if (!currentRound) {
+    fastify.log.warn({ tournamentId }, 'No current round found for tournament');
+    return false;
+  }
+  
+  fastify.log.info({ tournamentId, currentRound }, 'Checking if round is complete');
+  
+  // Check if current round is finished
+  const currentLike = currentRound === 'Final' ? 'Final' : `${currentRound}%`;
   for (let i = 0; i < maxRetries; i++) {
     const pending = await db.get(
-      'SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND status != ?', 
-      [tournamentId, 'finished']
+      'SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND match LIKE ? AND status != ?', 
+      [tournamentId, currentLike, 'finished']
     );
     const pendingCount = pending?.cnt ? Number(pending.cnt) : 0;
-    if (pendingCount === 0) return true;
+    fastify.log.info({ tournamentId, currentRound, pendingCount, attempt: i + 1 }, 'Pending games check');
+    
+    if (pendingCount === 0) {
+      fastify.log.info({ tournamentId, currentRound }, 'All games finished in round');
+      return true;
+    }
     await new Promise(res => setTimeout(res, delayMs));
   }
+  
+  fastify.log.warn({ tournamentId, currentRound, maxRetries }, 'Timeout waiting for pending games to finish');
   return false;
 }
 
@@ -1480,6 +1513,8 @@ fastify.post('/tournaments/:id/advance', async (request: any, reply: any) => {
   const { id } = request.params as any;
   const db = await openDb();
   try {
+    fastify.log.info({ tournamentId: id }, 'Advancing tournament to next round');
+    
     // Orden de rondas (de menor a mayor)
     const roundPrefixes = ['1/8', '1/4', '1/2', 'Final'];
 
@@ -1488,27 +1523,35 @@ fastify.post('/tournaments/:id/advance', async (request: any, reply: any) => {
     for (let i = 0; i < roundPrefixes.length; i++) {
       const prefix = roundPrefixes[i];
       const matchLike = prefix === 'Final' ? 'Final' : `${prefix}%`;
-      const row = await db.get('SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND match LIKE ?', id, matchLike);
+      const row = await db.get('SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND match LIKE ?', [id, matchLike]);
       if (row && row.cnt && Number(row.cnt) > 0) latestIndex = i;
     }
     if (latestIndex === -1) {
+      await db.close();
+      fastify.log.error({ tournamentId: id }, 'No rounds found for tournament');
       reply.code(400).send({ message: 'No rounds found for tournament' });
       return;
     }
 
     const currentPrefix = roundPrefixes[latestIndex];
     const currentLike = currentPrefix === 'Final' ? 'Final' : `${currentPrefix}%`;
+    
+    fastify.log.info({ tournamentId: id, currentRound: currentPrefix }, 'Current tournament round');
 
     // 2) Comprobar si hay partidos pendientes en la ronda actual
-    const pendingRow = await db.get('SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND match LIKE ? AND status != ?', id, currentLike, 'finished');
+    const pendingRow = await db.get('SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND match LIKE ? AND status != ?', [id, currentLike, 'finished']);
     const pendingCount = pendingRow?.cnt ? Number(pendingRow.cnt) : 0;
     if (pendingCount > 0) {
+      await db.close();
+      fastify.log.info({ tournamentId: id, pending: pendingCount }, 'Current round still in progress');
       reply.send({ message: 'Current round still in progress', pending: pendingCount });
       return;
     }
 
     // 3) Si la ronda actual es Final o no hay siguiente, no crear más rondas
     if (currentPrefix === 'Final' || latestIndex === roundPrefixes.length - 1) {
+      await db.close();
+      fastify.log.info({ tournamentId: id }, 'Tournament already in final round');
       reply.send({ message: 'Tournament already in final round or no next round to generate' });
       return;
     }
@@ -1518,8 +1561,10 @@ fastify.post('/tournaments/:id/advance', async (request: any, reply: any) => {
 
     // 4) Verificar que la siguiente ronda no exista ya
     const nextLike = nextPrefix === 'Final' ? 'Final' : `${nextPrefix}%`;
-    const nextExistsRow = await db.get('SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND match LIKE ?', id, nextLike);
+    const nextExistsRow = await db.get('SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND match LIKE ?', [id, nextLike]);
     if (nextExistsRow && Number(nextExistsRow.cnt) > 0) {
+      await db.close();
+      fastify.log.info({ tournamentId: id, nextRound: nextPrefix }, 'Next round already exists');
       reply.send({ message: 'Next round already exists' });
       return;
     }
@@ -1530,13 +1575,17 @@ fastify.post('/tournaments/:id/advance', async (request: any, reply: any) => {
        FROM participants p
        JOIN games g ON p.game_id = g.id
        WHERE g.tournament_id = ? AND g.match LIKE ? AND p.is_winner = 1
-       ORDER BY g.id ASC, p.id ASC`, id, currentLike
+       ORDER BY g.id ASC, p.id ASC`, [id, currentLike]
     );
 
     if (!winners || winners.length === 0) {
+      await db.close();
+      fastify.log.error({ tournamentId: id }, 'No winners found in current round');
       reply.code(400).send({ message: 'No winners found in current round' });
       return;
     }
+    
+    fastify.log.info({ tournamentId: id, winnersCount: winners.length, nextRound: nextPrefix }, 'Creating next round');
 
     // 6) Si número de ganadores impar: deja el último en bye (se avanza automáticamente)
     // Para simplicidad: si impar, el último se avanza sin crear partido (se insertará luego si hay par)
@@ -1606,8 +1655,9 @@ fastify.post('/tournaments/:id/advance', async (request: any, reply: any) => {
       // 7.4) If one or both players are humans ask game-service to create real game and then update external_game_id
       if (!w1.is_bot || !w2.is_bot) {
         try {
+          const GAME_SERVICE_URL = process.env.GAME_SERVICE_URL || 'https://game-service:8000';
           const playerName = (w1.is_bot ? w2.user_id : w1.user_id) ? 'Jugador' : 'Jugador';
-          const gameRes = await fetch('http://game-service:8000/api/games', {
+          const gameRes = await fetch(`${GAME_SERVICE_URL}/api/games`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1615,16 +1665,22 @@ fastify.post('/tournaments/:id/advance', async (request: any, reply: any) => {
               gameMode: (!w1.is_bot && !w2.is_bot) ? 'pvp' : 'pve',
               maxPlayers: 2,
               playerName,
-              aiDifficulty: 'medium'
+              aiDifficulty: 'medium',
+              tournamentId: id  // Pass tournament ID to game-service
             })
           });
           if (gameRes.ok) {
             const gameData = await gameRes.json() as any;
             const externalId = gameData?.id ?? gameData?.gameId ?? gameData?.external_game_id ?? null;
-            await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-              sql: 'UPDATE games SET external_game_id = ? WHERE tournament_id = ? AND match = ?',
-              params: [externalId, id, matchLabel]
-            }));
+            if (externalId) {
+              await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+                sql: 'UPDATE games SET external_game_id = ? WHERE tournament_id = ? AND match = ?',
+                params: [externalId, id, matchLabel]
+              }));
+              fastify.log.info({ matchLabel, externalId }, 'Game created for tournament match');
+            }
+          } else {
+            fastify.log.error({ status: gameRes.status }, 'Error creating game in game-service');
           }
         } catch (err) {
           fastify.log.error({ err }, 'Error creating game instance for next round');
@@ -1632,12 +1688,16 @@ fastify.post('/tournaments/:id/advance', async (request: any, reply: any) => {
       }
     }
 
-    reply.send({ message: 'Next round generated (enqueued)', nextRound: nextPrefix });
+    await db.close();
+    fastify.log.info({ tournamentId: id, nextRound: nextPrefix, pairsCreated: pairs.length }, 'Next round generated successfully');
+    reply.send({ message: 'Next round generated (enqueued)', nextRound: nextPrefix, matches: pairs.length });
   } catch (error: any) {
     fastify.log.error(error);
     reply.code(500).send({ message: 'Internal Server Error' });
   } finally {
-    await db.close();
+    if (db) {
+      await db.close().catch((err: any) => fastify.log.error({ err }, 'Error closing DB'));
+    }
   }
 });
 
