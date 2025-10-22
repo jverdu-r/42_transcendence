@@ -1463,10 +1463,29 @@ async function waitForPendingToBeZero(
   maxRetries: number = 10,
   delayMs: number = 200
 ): Promise<boolean> {
+  // Determine the current round
+  const roundPrefixes = ['1/8', '1/4', '1/2', 'Final'];
+  let currentRound = null;
+  
+  for (const prefix of roundPrefixes) {
+    const matchLike = prefix === 'Final' ? 'Final' : `${prefix}%`;
+    const row = await db.get(
+      'SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND match LIKE ?',
+      [tournamentId, matchLike]
+    );
+    if (row && row.cnt && Number(row.cnt) > 0) {
+      currentRound = prefix;
+    }
+  }
+  
+  if (!currentRound) return false;
+  
+  // Check if current round is finished
+  const currentLike = currentRound === 'Final' ? 'Final' : `${currentRound}%`;
   for (let i = 0; i < maxRetries; i++) {
     const pending = await db.get(
-      'SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND status != ?', 
-      [tournamentId, 'finished']
+      'SELECT COUNT(1) AS cnt FROM games WHERE tournament_id = ? AND match LIKE ? AND status != ?', 
+      [tournamentId, currentLike, 'finished']
     );
     const pendingCount = pending?.cnt ? Number(pending.cnt) : 0;
     if (pendingCount === 0) return true;
@@ -1615,7 +1634,8 @@ fastify.post('/tournaments/:id/advance', async (request: any, reply: any) => {
               gameMode: (!w1.is_bot && !w2.is_bot) ? 'pvp' : 'pve',
               maxPlayers: 2,
               playerName,
-              aiDifficulty: 'medium'
+              aiDifficulty: 'medium',
+              tournamentId: id  // Pass tournament ID to game-service
             })
           });
           if (gameRes.ok) {
