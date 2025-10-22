@@ -4,8 +4,7 @@ import { Game } from './game.js';
 import type { IPlayer, IGameConfig, IGameDimensions, GameMode, PlayerNumber } from '../interfaces/index.js';
 import { GameConfig } from '../config/index.js';
 import { v4 as uuidv4 } from 'uuid';
-import { notifyGameStarted, notifyGameFinished, notifyScore } from '../services/game-api-client.js';
-import { fetchUserId } from '../services/game-api-client.js';
+import { notifyGameStarted, notifyGameFinished, notifyScore, notifyGameStats, fetchUserId } from '../services/game-api-client.js';
 
 export class GameManager {
   private games: Map<string, Game>;
@@ -90,37 +89,15 @@ export class GameManager {
         name: `AI (${aiDifficulty})`,
       };
       game.addPlayer(aiPlayer);
-      // Arrancar PvE y avisar al lobby
-      void this.startGame(gameId);
-      const started = game.start();
-      if (started) {
-        this.broadcastCallback?.(gameId, {
-          type: 'gameStarted',
-          data: { gameId }
-        });
-        // Si tu función no es async, NO uses await aquí (ver cambio D).
-        // (La notificación a la API la gestiona otro flujo; evitamos type mismatch.)
-      } else {
-        console.warn(`⚠️ No se pudo iniciar PvE automáticamente (${gameId})`);
-      }
     }
 
     // Registrar juego y broadcasting periódico de estado
     this.games.set(gameId, game);
     this.setupGameBroadcast(gameId);
 
-    // 🔧 PvE debe arrancar y avisar al lobby
+    // Iniciar PvE en background (solo una vez)
     if (mode === 'pve') {
-      const started = game.start(); // o this.startGame(gameId) si prefieres reutilizar
-      if (started) {
-        // Emite el evento que espera el frontend para salir del "esperando..."
-        this.broadcastCallback?.(gameId, {
-          type: 'gameStarted',
-          data: { gameId }
-        });
-      } else {
-        console.log(`⚠️ No se pudo auto-iniciar PvE ${gameId}`);
-      }
+      void this.startGame(gameId); // startGame hará game.start(), notify y broadcast
     }
 
     console.log(`✅ Game created: ${gameId} by ${playerName} (${mode}${mode === 'pve' ? `, AI: ${aiDifficulty}` : ''})`);
@@ -404,13 +381,69 @@ export class GameManager {
       });
       // Si tienes una notifyScore con tipos estrictos y quieres usarla, dímelos y lo integro.
     });
+    if (typeof (game as any).onFinish === 'function') {
+      (game as any).onFinish?.(async (result: any) => {
+        try {
+          // Obtener info de jugadores
+          const players = game.getPlayers?.() || [];
+          const p1 = players[0] || null;
+          const p2 = players[1] || null;
+          const p1Name = p1?.name ?? null;
+          const p2Name = p2?.name ?? null;
+
+          // Intentar extraer puntuaciones desde el evento result, si no, desde el estado del juego
+          const state = (game as any).getGameState?.() ?? {};
+          const s1 = typeof result?.score1 === 'number' ? result.score1
+                    : typeof state?.score1 === 'number' ? state.score1
+                    : (Array.isArray(state?.scores) ? state.scores[0] : undefined) ?? 0;
+          const s2 = typeof result?.score2 === 'number' ? result.score2
+                    : typeof state?.score2 === 'number' ? state.score2
+                    : (Array.isArray(state?.scores) ? state.scores[1] : undefined) ?? 0;
+
+          const startedAt = state?.startedAt ?? state?.started_at ?? undefined;
+          const finishedAt = result?.finishedAt ?? new Date().toISOString();
+
+          // Notificar al db-service (notifyGameFinished está importado en este fichero)
+          try {
+            await notifyGameStats({
+               external_game_id: gameId,
+               player1_name: p1Name,
+               player2_name: p2Name,
+               score1: s1,
+               score2: s2,
+               start_time: startedAt,
+               end_time: finishedAt,
+               reason: result?.reason ?? 'finished'
+            });
+            const winnerTeam = s1 > s2 ? 'Team A' : (s2 > s1 ? 'Team B' : null);
+            if (winnerTeam) {
+              try {
+                await notifyGameFinished(gameId, winnerTeam);
+              } catch (err) {
+                console.error('notifyGameFinished (auth) failed:', err);
+              }
+            }
+          } catch (err) {
+            console.error('notifyGameFinished (onFinish) failed:', err);
+          }
+
+          // Emitir evento local para front-end
+          this.broadcastCallback?.(gameId, { type: 'gameFinished', data: { gameId, reason: result?.reason ?? 'finished' } });
+
+          // Cleanup: borrar juego de memoria
+          try { (game as any).finish?.(); } catch {}
+          this.games.delete(gameId);
+        } catch (e) {
+          console.error('Error handling onFinish for game', gameId, e);
+        }
+      });
+    }
   }
 
   private async awardWinByForfeit(gameId: string, winnerPlayerNumber: number): Promise<void> {
     const game = this.games.get(gameId);
     if (!game) return;
 
-    // Usa tus nombres de equipos; aquí asumimos 'Team A' (P1) y 'Team B' (P2)
     const winnerTeam = winnerPlayerNumber === 1 ? 'Team A' : 'Team B';
 
     // Enviar 5 tantos al backend (no bloquea al juego local)
@@ -422,11 +455,48 @@ export class GameManager {
       console.error('notifyScore (forfeit) failed:', e);
     }
 
-    // Avisar fin al lobby + a tu API
+    // Avisar fin al lobby + a API
     try {
       this.broadcastCallback?.(gameId, { type: 'gameFinished', data: { gameId, reason: 'forfeit' } });
     } catch {}
-    try { await (notifyGameFinished as any)(gameId, { reason: 'forfeit' }); } catch {}
+
+    // Enviar notificación completa de fin de partida al db-service (5-0)
+    try {
+      const players = game.getPlayers?.() || [];
+      const p1 = players[0] || null;
+      const p2 = players[1] || null;
+      const p1Name = p1?.name ?? null;
+      const p2Name = p2?.name ?? null;
+
+      // Forfeit siempre 5-0 para el ganador
+      const s1 = winnerPlayerNumber === 1 ? 5 : 0;
+      const s2 = winnerPlayerNumber === 2 ? 5 : 0;
+
+      const state = (game as any).getGameState?.() ?? {};
+      const startedAt = state?.startedAt ?? state?.started_at ?? undefined;
+      const finishedAt = new Date().toISOString();
+
+      await notifyGameStats({
+        external_game_id: gameId,
+        player1_name: p1Name,
+        player2_name: p2Name,
+        score1: s1,
+        score2: s2,
+        start_time: startedAt,
+        end_time: finishedAt,
+        reason: 'forfeit'
+      });
+      const winnerTeam = s1 > s2 ? 'Team A' : (s2 > s1 ? 'Team B' : null);
+      if (winnerTeam) {
+        try {
+          await notifyGameFinished(gameId, winnerTeam);
+        } catch (err) {
+          console.error('notifyGameFinished (auth) failed:', err);
+        }
+      }
+    } catch (e) {
+      console.error('notifyGameFinished (forfeit) failed:', e);
+    }
 
     // Limpieza motor si tiene finish()
     try { (game as any).finish?.(); } catch {}

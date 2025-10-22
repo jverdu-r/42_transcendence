@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://api-gateway:8000';
+const DB_SERVICE_URL   = process.env.DB_SERVICE_URL   || 'http://db-service:8000';
 
 export async function notifyGameStarted(payload: {
   gameId: string;
@@ -30,6 +31,32 @@ export async function notifyGameFinished(gameId: string, winnerTeam: string) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ gameId, winnerTeam })
   });
+}
+
+export async function notifyGameStats(payload: {
+  external_game_id?: string;
+  game_id?: string | number;
+  player1_name?: string | null;
+  player2_name?: string | null;
+  score1?: number;
+  score2?: number;
+  winner_name?: string | null;
+  winner_id?: number | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  game_mode?: string | null;
+  duration?: number | null;
+  reason?: string | null;
+}) {
+  try {
+    await fetch(`${DB_SERVICE_URL}/game/stats`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    console.error('notifyGameStats error:', err);
+  }
 }
 
 export async function fetchUserId(username: string): Promise<number | null> {

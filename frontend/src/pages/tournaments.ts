@@ -45,30 +45,10 @@ export function renderTournamentsPage() {
                                 <option value="16">16</option>
                             </select>
                         </label>
-                        <label class="font-semibold text-[#ffc300] flex items-center gap-2">
-                            <input type="checkbox" name="allowBots" id="allowBots" class="accent-[#ffc300]" /> ${getTranslation('tournaments', 'allowBotsLabel') || 'Permitir bots'}
-                        </label>
-                        <div id="bot-difficulty-container" style="display:none;">
-                            <label class="font-semibold text-[#ffc300]">
-                                ${getTranslation('tournaments', 'botDifficultyLabel') || 'Dificultad de bots'}:<br>
-                                <select name="botDifficulty" class="mt-1 p-2 rounded w-full bg-[#003566] text-[#ffc300] border border-[#ffc300]">
-                                    <option value="easy">${getTranslation('game_AI', 'easy') || 'Fácil'}</option>
-                                    <option value="medium">${getTranslation('game_AI', 'medium') || 'Media'}</option>
-                                    <option value="hard">${getTranslation('game_AI', 'hard') || 'Difícil'}</option>
-                                </select>
-                            </label>
-                        </div>
                         <button type="submit" class="px-4 py-2 rounded bg-[#ffc300] text-[#003566] font-bold hover:bg-[#003566] hover:text-[#ffc300] transition">${getTranslation('tournaments', 'createTournamentButton') || 'Crear torneo'}</button>
                     </form>
                 `;
-                // Mostrar/ocultar dificultad de bots
-                const allowBotsCheckbox = document.getElementById('allowBots') as HTMLInputElement | null;
-                const botDifficultyContainer = document.getElementById('bot-difficulty-container') as HTMLDivElement | null;
-                if (allowBotsCheckbox && botDifficultyContainer) {
-                    allowBotsCheckbox.addEventListener('change', () => {
-                        botDifficultyContainer.style.display = allowBotsCheckbox.checked ? 'block' : 'none';
-                    });
-                }
+
                 const form = document.getElementById('create-tournament-form') as HTMLFormElement | null;
                 if (form) {
                     form.addEventListener('submit', async (e) => {
@@ -76,8 +56,6 @@ export function renderTournamentsPage() {
                         const formData = new FormData(form);
                         const name = formData.get('name');
                         const numPlayers = Number(formData.get('numPlayers'));
-                        const allowBots = !!formData.get('allowBots');
-                        const botDifficulty = allowBots ? formData.get('botDifficulty') : null;
                         let user = getCurrentUser();
                         if (!user || !user.id) {
                             alert('You must be logged in to create a tournament.');
@@ -99,8 +77,8 @@ export function renderTournamentsPage() {
                                     name,
                                     created_by: user.id,
                                     players: numPlayers,
-                                    bots: allowBots ? 1 : 0,
-                                    bots_difficulty: botDifficulty || "-"
+                                    bots: 0,
+                                    bots_difficulty: "-"
                                 })
                             });
                             if (!res.ok) throw new Error(await res.text());
@@ -148,19 +126,10 @@ export function renderTournamentsPage() {
                                 ${tournaments.map((t: any, i:number) => {
                                     const participants = Array.isArray(allParticipantsArr[i]) ? allParticipantsArr[i] : [];
                                     const joined = !!(currentUser && currentUser.id && participants.find((p:any) => p.user_id==currentUser.id));
-                                    const botInfo = t.bots ? `Bots: Yes (${t.bots_difficulty || 'N/A'})` : 'Bots: No';
                                     const playerCount = `${participants.length} / ${t.players || 'N/A'}`;
                                     if (currentUser && currentUser.id && t.created_by === currentUser.id) {
                                         // Lógica para activar el botón Start
-                                        let canStart = false;
-                                        if (t.bots) {
-                                            // Si admite bots, al menos 2 humanos
-                                            const humanCount = participants.filter((p:any) => !p.is_bot).length;
-                                            canStart = humanCount >= 2;
-                                        } else {
-                                            // Si no admite bots, solo si están todos los jugadores
-                                            canStart = participants.length >= t.players;
-                                        }
+                                        const canStart = participants.length === t.players;
                                         return `
                                             <li class="border border-[#ffc300] rounded-lg p-4 flex flex-col gap-2 bg-[#003566]">
                                                 <div class="flex justify-between items-center">
@@ -169,7 +138,6 @@ export function renderTournamentsPage() {
                                                 </div>
                                                 <div class="flex justify-between items-center text-sm">
                                                     <span class="text-[#ffc300]">Players: ${playerCount}</span>
-                                                    <span class="text-[#ffc300]">${botInfo}</span>
                                                 </div>
                                                 <div class="flex gap-2 mt-2">
                                                     <button data-start-id="${t.id}" class="px-3 py-1 rounded bg-green-400 text-[#003566] font-bold hover:bg-green-600 hover:text-white transition" ${canStart ? '' : 'disabled style="opacity:0.5;cursor:not-allowed"'}>Comenzar</button>
@@ -179,6 +147,7 @@ export function renderTournamentsPage() {
                                         `;
                                     } else {
                                         const alreadyJoinedOther = joinedTournamentIds.length > 0 && !joined;
+                                        const isFull = participants.length >= t.players;
                                         return `
                                             <li class="border border-[#ffc300] rounded-lg p-4 flex flex-col gap-2 bg-[#003566]">
                                                 <div class="flex justify-between items-center">
@@ -187,9 +156,8 @@ export function renderTournamentsPage() {
                                                 </div>
                                                 <div class="flex justify-between items-center text-sm">
                                                     <span class="text-[#ffc300]">Players: ${playerCount}</span>
-                                                    <span class="text-[#ffc300]">${botInfo}</span>
                                                 </div>
-                                                <button data-id="${t.id}" class="mt-2 px-3 py-1 rounded bg-[#ffc300] text-[#003566] font-bold hover:bg-[#003566] hover:text-[#ffc300] transition" ${joined ? 'disabled style="opacity:0.7;cursor:not-allowed"' : alreadyJoinedOther ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>${joined ? 'Joined' : 'Inscribirse'}</button>
+                                                <button data-id="${t.id}" class="mt-2 px-3 py-1 rounded bg-[#ffc300] text-[#003566] font-bold hover:bg-[#003566] hover:text-[#ffc300] transition" ${joined ? 'disabled style="opacity:0.7;cursor:not-allowed"' : alreadyJoinedOther || isFull ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>${joined ? 'Joined' : isFull ? 'Full' : 'Inscribirse'}</button>
                                             </li>
                                         `;
                                     }
@@ -207,6 +175,18 @@ export function renderTournamentsPage() {
                                     let currentUser: any = getCurrentUser();
                                     if (!currentUser || !currentUser.id) {
                                         alert('You must be logged in to join a tournament.');
+                                        return;
+                                    }
+                                    // comprobación adicional en cliente para evitar race condition:
+                                    // obtener participantes y detalles del torneo y comparar con players
+                                    const [resCheck, resTourn] = await Promise.all([
+                                    fetch(`/api/tournaments/${tournamentId}/participants`),
+                                    fetch(`/api/tournaments/${tournamentId}`)
+                                    ]);
+                                    const parts = resCheck.ok ? await resCheck.json() : [];
+                                    const tourn = resTourn.ok ? await resTourn.json() : null;
+                                    if (tourn && Array.isArray(parts) && parts.length >= Number(tourn.players)) {
+                                        alert('Tournament is full.');
                                         return;
                                     }
                                     try {

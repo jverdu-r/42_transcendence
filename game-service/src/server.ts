@@ -509,55 +509,70 @@ async function getUserId(username: string): Promise<number | null> {
 
 // Function to save game statistics to database
 async function saveGameStats(gameId: string, game: any, winnerPlayer: number, winnerName: string, loserName: string): Promise<void> {
+  const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://auth-service:8000';
+  const player1 = game.players?.find((p: any) => p.numero === 1);
+  const player2 = game.players?.find((p: any) => p.numero === 2);
+
+  // Obtener userId real usando la función getUserId si no existe
+  let player1Id = player1?.userId || null;
+  let player2Id = player2?.userId || null;
+  if (!player1Id && player1?.nombre) {
+    player1Id = await getUserId(player1.nombre);
+  }
+  if (!player2Id && player2?.nombre) {
+    player2Id = await getUserId(player2.nombre);
+  }
+
+  const score1 = game.gameState?.puntuacion?.jugador1 ?? 0;
+  const score2 = game.gameState?.puntuacion?.jugador2 ?? 0;
+  const start_time = game.startedAt || new Date().toISOString();
+  const end_time = new Date().toISOString();
+  const winner_player = winnerPlayer; // 1 or 2
+  const winnerTeam = winnerPlayer === 1 ? 'Team A' : 'Team B';
+
   try {
-    const endTime = new Date().toISOString();
-    const startTime = new Date(game.createdAt).toISOString();
-    
-    // Get player IDs from usernames
-    const player1 = game.players.find((p: any) => p.numero === 1);
-    const player2 = game.players.find((p: any) => p.numero === 2);
-    
-    if (!player1 || !player2) {
-      fastify.log.error(`Missing players in game ${gameId}`);
-      return;
-    }
+    if (gameId) {
+      await fetch(`${AUTH_SERVICE_URL}/api/games/finish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gameId,
+          winnerTeam
+        })
+      });
 
-    const player1_id = await getUserId(player1.nombre);
-    const player2_id = await getUserId(player2.nombre);
-    
-    if (!player1_id || !player2_id) {
-      fastify.log.error(`Could not get user IDs for players in game ${gameId}`);
-      return;
-    }
-
-    const score1 = game.gameState.puntuacion.jugador1;
-    const score2 = game.gameState.puntuacion.jugador2;
-
-    // Create game in games table using auth-service
-    const createGameResponse = await fetch(`${AUTH_SERVICE_URL}/api/games/create-online`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        player1_id,
-        player2_id,
-        winner_player: winnerPlayer,
-        score1,
-        score2,
-        start_time: startTime,
-        end_time: endTime
-      })
-    });
-
-    if (createGameResponse.ok) {
-      fastify.log.info(`Online game stats saved successfully for game ${gameId}`);
+      await fetch(`${AUTH_SERVICE_URL}/api/games/create-online`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          player1_id: player1Id,
+          player2_id: player2Id,
+          winner_player,
+          score1,
+          score2,
+          start_time,
+          end_time,
+          gameId,
+          tournament_id: game.tournamentId ?? null
+        })
+      });
     } else {
-      fastify.log.error(`Failed to save online game stats for game ${gameId}: ${createGameResponse.status}`);
+      await fetch(`${AUTH_SERVICE_URL}/api/games/create-online`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          player1_id: player1Id,
+          player2_id: player2Id,
+          winner_player,
+          score1,
+          score2,
+          start_time,
+          end_time
+        })
+      });
     }
-
-  } catch (error) {
-    fastify.log.error(`Error saving game stats for game ${gameId}:`, error);
+  } catch (err) {
+    console.error('Error reporting game stats to auth-service:', err);
   }
 }
 

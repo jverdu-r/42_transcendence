@@ -722,7 +722,6 @@ export class UnifiedGameRenderer {
                     // Solo actualizar paleta derecha si no la controlo yo
                     this.gameState.paddles.right = newState.paddles.right;
                 }
-                console.log('[updateGameState] Selective update - my player:', this.playerNumber);
             } else {
                 // Para modos local/AI, actualizar todas las paletas normalmente
                 this.gameState.paddles = newState.paddles;
