@@ -411,13 +411,17 @@ export class GameManager {
           let finalS2 = s2;
           
           if (tournamentInfo) {
+            // Para torneos, SIEMPRE usar los nombres de la BD (no los del WebSocket)
+            finalP1Name = tournamentInfo.player1_name;
+            finalP2Name = tournamentInfo.player2_name;
+            
             // Verificar si el orden de jugadores en WebSocket coincide con el orden en BD
             const p1NameInGame = p1?.name;
             const p2NameInGame = p2?.name;
             
-            // Determinar si necesitamos invertir:
-            // - Si players[0] es player1 en BD → OK, no invertir
-            // - Si players[0] es player2 en BD → INVERTIR
+            // Determinar si necesitamos invertir los SCORES:
+            // - Si players[0] es player1 en BD → OK, scores están en orden correcto
+            // - Si players[0] es player2 en BD → INVERTIR scores
             let needsSwap = false;
             
             if (p1NameInGame === tournamentInfo.player2_name && p2NameInGame === tournamentInfo.player1_name) {
@@ -433,13 +437,11 @@ export class GameManager {
             }
             
             if (needsSwap) {
-              console.log(`🔄 Torneo: Invirtiendo orden (WebSocket: [${p1NameInGame}=${s1}, ${p2NameInGame}=${s2}] → BD: [${tournamentInfo.player1_name}=${s2}, ${tournamentInfo.player2_name}=${s1}])`);
-              finalP1Name = p2Name;
-              finalP2Name = p1Name;
-              finalS1 = s2;
-              finalS2 = s1;
+              console.log(`🔄 Torneo: Invirtiendo SCORES (WebSocket: [${p1NameInGame}=${s1}, ${p2NameInGame}=${s2}] → BD: [${tournamentInfo.player1_name}=${s2}, ${tournamentInfo.player2_name}=${s1}])`);
+              finalS1 = s2;  // score de player1 es el s2 del WebSocket
+              finalS2 = s1;  // score de player2 es el s1 del WebSocket
             } else {
-              console.log(`✅ Torneo: Orden correcto (WebSocket: [${p1NameInGame}=${s1}, ${p2NameInGame}=${s2}] → BD: [${tournamentInfo.player1_name}=${s1}, ${tournamentInfo.player2_name}=${s2}])`);
+              console.log(`✅ Torneo: Scores en orden correcto (WebSocket: [${p1NameInGame}=${s1}, ${p2NameInGame}=${s2}] → BD: [${tournamentInfo.player1_name}=${s1}, ${tournamentInfo.player2_name}=${s2}])`);
             }
           }
 
@@ -458,11 +460,14 @@ export class GameManager {
             
             // Para torneos, enviar el ID del ganador directamente (más confiable que Team A/B)
             if (tournamentInfo) {
+              // IMPORTANTE: finalS1 y finalS2 ya están en el orden correcto de la BD (player1, player2)
+              // Por lo tanto, finalS1 corresponde a player1_id y finalS2 corresponde a player2_id
               const winnerId = finalS1 > finalS2 ? tournamentInfo.player1_id : (finalS2 > finalS1 ? tournamentInfo.player2_id : null);
+              const winnerName = finalS1 > finalS2 ? tournamentInfo.player1_name : (finalS2 > finalS1 ? tournamentInfo.player2_name : null);
               if (winnerId) {
                 try {
                   await notifyGameFinished(gameId, null, winnerId);
-                  console.log(`🏆 Torneo: Ganador reportado por ID: ${winnerId} (score BD: ${finalS1}-${finalS2})`);
+                  console.log(`🏆 Torneo: Ganador reportado - ID: ${winnerId} (${winnerName}), Scores BD: ${tournamentInfo.player1_name}=${finalS1}, ${tournamentInfo.player2_name}=${finalS2}`);
                 } catch (err) {
                   console.error('notifyGameFinished (auth) failed:', err);
                 }
