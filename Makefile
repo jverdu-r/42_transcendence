@@ -7,7 +7,7 @@ MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 
 # CONSTRUCCION__________________________________________________________________
 
-all-auto: ip set-ip prepare build up ngrok-start
+all-auto: ip set-ip prepare build up
 
 ip:
 	@./update_machine_ip.sh
@@ -113,7 +113,7 @@ shell:
 		$(COMPOSE) exec -it $$service /bin/bash || $(COMPOSE) exec -it $$service /bin/sh'
 
 # LIMPIEZA______________________________________________________________________
-clean: down ngrok-stop
+clean: down
 
 fclean: clean
 	@echo "Stopping and removing all containers..."
@@ -153,26 +153,6 @@ fclean: clean
 quick-re: clean
 	@$(COMPOSE) up -d --force-recreate
 
-re: fclean all ngrok-stop
+re: fclean all
 
 .PHONY: all all-auto build up down start stop shell clean fclean re quick-re prepare set-ip show ngrok-start ngrok-stop
-
-# Lanzar ngrok en background y guardar el PID
-ngrok-start:
-	@if pgrep -f "ngrok http https://localhost:9443" > /dev/null; then \
-		echo "ngrok ya está corriendo"; \
-	else \
-		nohup ngrok http https://localhost:9443 > ngrok.log 2>&1 & echo $$! > .ngrok.pid; \
-		echo "ngrok lanzado"; \
-	fi
-
-# Parar ngrok si está corriendo
-ngrok-stop:
-	@if [ -f .ngrok.pid ]; then \
-		kill $$(cat .ngrok.pid) 2>/dev/null || true; \
-		rm -f .ngrok.pid; \
-		echo "ngrok parado"; \
-	else \
-		pkill -f "ngrok http https://localhost:9443" 2>/dev/null || true; \
-		echo "ngrok no estaba corriendo"; \
-	fi
