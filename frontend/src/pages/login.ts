@@ -218,7 +218,7 @@ export function renderLoginPage(): void {
                 // 2. Editar el OAuth 2.0 Client ID
                 // 3. Agregar tu dominio a "Authorized JavaScript origins"
                 window.google.accounts.id.initialize({
-                    client_id: "910896001109-i750tf3lr67obd2rf3nkgt0j9puh1i48.apps.googleusercontent.com",
+                    client_id: "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
                     callback: (window as any).handleGoogleCredentialResponse,
                 });
 

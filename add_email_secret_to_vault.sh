@@ -17,7 +17,7 @@ echo "✅ Token obtenido: ${VAULT_TOKEN:0:10}..."
 
 # Agregar el secreto EMAIL_PASS
 docker exec -e VAULT_TOKEN="$VAULT_TOKEN" hashicorp_vault vault kv put secret/email \
-    EMAIL_PASS="kmevsiupyuxwkxsh"
+    EMAIL_PASS="YOUR_GMAIL_APP_PASSWORD"
 
 if [ $? -eq 0 ]; then
     echo "✅ EMAIL_PASS agregado exitosamente a Vault"
