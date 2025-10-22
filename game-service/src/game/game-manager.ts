@@ -411,19 +411,35 @@ export class GameManager {
           let finalS2 = s2;
           
           if (tournamentInfo) {
-            // Verificar si players[0] corresponde a player2 en BD (están invertidos)
+            // Verificar si el orden de jugadores en WebSocket coincide con el orden en BD
             const p1NameInGame = p1?.name;
             const p2NameInGame = p2?.name;
             
-            // Si el jugador en players[0] es realmente player2 en la BD, invertir todo
-            if (p1NameInGame && tournamentInfo.player2_name && p1NameInGame === tournamentInfo.player2_name) {
-              console.log(`🔄 Torneo: Invirtiendo orden de datos para coincidir con BD (WebSocket: ${p1NameInGame} vs ${p2NameInGame}, BD: ${tournamentInfo.player1_name} vs ${tournamentInfo.player2_name})`);
+            // Determinar si necesitamos invertir:
+            // - Si players[0] es player1 en BD → OK, no invertir
+            // - Si players[0] es player2 en BD → INVERTIR
+            let needsSwap = false;
+            
+            if (p1NameInGame === tournamentInfo.player2_name && p2NameInGame === tournamentInfo.player1_name) {
+              // players[0]=player2_name y players[1]=player1_name → están invertidos
+              needsSwap = true;
+            } else if (p1NameInGame === tournamentInfo.player1_name && p2NameInGame === tournamentInfo.player2_name) {
+              // players[0]=player1_name y players[1]=player2_name → orden correcto
+              needsSwap = false;
+            } else {
+              // No podemos determinar (nombres no coinciden perfectamente), asumir orden correcto
+              console.log(`⚠️ Torneo: No se pudo mapear jugadores exactamente (WebSocket: ${p1NameInGame} vs ${p2NameInGame}, BD: ${tournamentInfo.player1_name} vs ${tournamentInfo.player2_name})`);
+              needsSwap = false;
+            }
+            
+            if (needsSwap) {
+              console.log(`🔄 Torneo: Invirtiendo orden (WebSocket: [${p1NameInGame}=${s1}, ${p2NameInGame}=${s2}] → BD: [${tournamentInfo.player1_name}=${s2}, ${tournamentInfo.player2_name}=${s1}])`);
               finalP1Name = p2Name;
               finalP2Name = p1Name;
               finalS1 = s2;
               finalS2 = s1;
             } else {
-              console.log(`✅ Torneo: Orden correcto (WebSocket: ${p1NameInGame} vs ${p2NameInGame}, BD: ${tournamentInfo.player1_name} vs ${tournamentInfo.player2_name})`);
+              console.log(`✅ Torneo: Orden correcto (WebSocket: [${p1NameInGame}=${s1}, ${p2NameInGame}=${s2}] → BD: [${tournamentInfo.player1_name}=${s1}, ${tournamentInfo.player2_name}=${s2}])`);
             }
           }
 
