@@ -834,25 +834,28 @@ function handleClientDisconnect(clientId: string, gameId: string): void {
 // API Routes for game management
 fastify.get("/api/games", async (request, reply) => {
   try {
-    const games = Array.from(activeGames.values()).map(game => ({
-      id: game.id,
-      nombre: `Partida ${game.id.substring(0, 8)}`,
-      jugadores: game.players.map((p: any) => ({ nombre: p.nombre, numero: p.numero })),
-      jugadoresConectados: game.players.length,
-      capacidadMaxima: 2,
-      estado: game.status,
-      enJuego: game.status === 'playing',
-      gameMode: 'pvp',
-      puntuacion: game.gameState ? {
-        jugador1: game.gameState.puntuacion.jugador1,
-        jugador2: game.gameState.puntuacion.jugador2
-      } : { jugador1: 0, jugador2: 0 },
-      tipoJuego: 'pong',
-      espectadores: 0,
-      puedeUnirse: game.players.length < 2 && game.status === 'waiting',
-      puedeObservar: game.status === 'playing',
-      createdAt: game.createdAt
-    }));
+    // Filter out tournament games - only show non-tournament games in online mode
+    const games = Array.from(activeGames.values())
+      .filter(game => !game.tournamentId)  // Exclude games associated with tournaments
+      .map(game => ({
+        id: game.id,
+        nombre: `Partida ${game.id.substring(0, 8)}`,
+        jugadores: game.players.map((p: any) => ({ nombre: p.nombre, numero: p.numero })),
+        jugadoresConectados: game.players.length,
+        capacidadMaxima: 2,
+        estado: game.status,
+        enJuego: game.status === 'playing',
+        gameMode: 'pvp',
+        puntuacion: game.gameState ? {
+          jugador1: game.gameState.puntuacion.jugador1,
+          jugador2: game.gameState.puntuacion.jugador2
+        } : { jugador1: 0, jugador2: 0 },
+        tipoJuego: 'pong',
+        espectadores: 0,
+        puedeUnirse: game.players.length < 2 && game.status === 'waiting',
+        puedeObservar: game.status === 'playing',
+        createdAt: game.createdAt
+      }));
     
     return reply.send({ success: true, games });
   } catch (error) {
@@ -882,6 +885,7 @@ fastify.post("/api/games", async (request: any, reply) => {
       id: gameId,
       players: [],
       status: 'waiting',
+      tournamentId: tournamentId || null,  // Track tournament association
       gameState: {
         palas: {
           jugador1: { x: 30, y: 250 },

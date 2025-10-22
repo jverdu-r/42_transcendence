@@ -21,6 +21,8 @@ import { connectRedis } from './redis-client'
 import redisClient from './redis-client';
 import * as speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
+import { isNotificationEnabled } from './utils/user-settings.util';
+import { sendGameResultEmail } from './utils/email-notifier';
 
 dotenv.config();
 // Recarga de variables de entorno en caliente al recibir SIGHUP
@@ -1387,9 +1389,152 @@ fastify.get('/api/games/user-id', async (request, reply) => {
   }
 });
 
+// Función auxiliar para enviar notificaciones de finalización de juego
+async function sendGameFinishNotifications(db: any, gameId: string, winnerTeam: string, gameRow: any) {
+  try {
+    console.log('📧 [EMAIL] Iniciando proceso de notificaciones para gameId:', gameId);
+    
+    // Esperar a que el juego se guarde en la base de datos (race condition fix)
+    // El endpoint /api/games/finish se llama ANTES que /api/games/create-online
+    let game = null;
+    const maxRetries = 5;
+    const retryDelay = 100; // 100ms entre intentos
+    
+    for (let i = 0; i < maxRetries; i++) {
+      game = await db.get(`
+        SELECT id, tournament_id, external_game_id
+        FROM games 
+        WHERE external_game_id = ?
+        LIMIT 1
+      `, [gameId]);
+      
+      if (game) {
+        console.log(`📧 [EMAIL] Juego encontrado en intento ${i + 1} (id interno: ${game.id})`);
+        break;
+      }
+      
+      if (i < maxRetries - 1) {
+        console.log(`📧 [EMAIL] Juego no encontrado, reintentando en ${retryDelay}ms... (intento ${i + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+    }
+
+    if (!game) {
+      console.log('⚠️  No se encontró el juego en la base de datos después de varios intentos');
+      return;
+    }
+    
+    // Obtener participantes usando el id interno del juego
+    const participants = await db.all(`
+      SELECT 
+        p.user_id,
+        p.team_name,
+        p.is_bot,
+        p.is_winner,
+        u.username,
+        u.email,
+        up.notifications
+      FROM participants p
+      LEFT JOIN users u ON p.user_id = u.id
+      LEFT JOIN user_profiles up ON u.id = up.user_id
+      WHERE p.game_id = ?
+      ORDER BY p.id ASC
+    `, [game.id]);
+
+    console.log('📧 [EMAIL] Participantes encontrados:', participants?.length || 0);
+    if (participants && participants.length > 0) {
+      console.log('📧 [EMAIL] Detalles participantes:', JSON.stringify(participants, null, 2));
+    }
+
+    if (!participants || participants.length < 2) {
+      console.log('⚠️  No hay suficientes participantes para enviar notificaciones');
+      return;
+    }
+
+    const player1 = participants[0];
+    const player2 = participants[1];
+
+    // Verificar si es partida local (ambos jugadores tienen el mismo user_id)
+    if (player1.user_id && player2.user_id && player1.user_id === player2.user_id) {
+      console.log('ℹ️  Partida local detectada (mismo user_id). No se envían correos.');
+      return;
+    }
+
+    // Verificar si hay bots (no enviar a bots)
+    const humanPlayers = participants.filter((p: any) => !p.is_bot && p.user_id);
+    if (humanPlayers.length === 0) {
+      console.log('ℹ️  Partida bot vs bot. No se envían correos.');
+      return;
+    }
+
+    // Obtener scores usando el id interno del juego
+    const scores = await db.all(`
+      SELECT team_name, point_number
+      FROM scores
+      WHERE game_id = ?
+    `, [game.id]);
+
+    console.log('📧 [EMAIL] Scores encontrados:', scores?.length || 0);
+    if (scores && scores.length > 0) {
+      console.log('📧 [EMAIL] Detalles scores:', JSON.stringify(scores, null, 2));
+    }
+
+    const score1 = scores.find((s: any) => s.team_name === player1.team_name)?.point_number || 0;
+    const score2 = scores.find((s: any) => s.team_name === player2.team_name)?.point_number || 0;
+    const scoreText = `${score1}-${score2}`;
+    
+    console.log('📧 [EMAIL] Score del juego:', scoreText);
+
+    // Determinar si es torneo
+    const isTournament = game.tournament_id != null;
+    let tournamentName = null;
+    if (isTournament) {
+      const tournament = await db.get('SELECT name FROM tournaments WHERE id = ?', [game.tournament_id]);
+      tournamentName = tournament?.name || 'Torneo';
+      console.log('📧 [EMAIL] Juego de torneo:', tournamentName);
+    }
+
+    // Enviar correos a cada jugador humano
+    for (const player of humanPlayers) {
+      if (!player.email || !isNotificationEnabled(player.notifications)) {
+        console.log(`ℹ️  Jugador ${player.username} no tiene email o notificaciones desactivadas`);
+        continue;
+      }
+
+      const isWinner = player.team_name === winnerTeam;
+      const opponent = player.team_name === player1.team_name ? player2 : player1;
+      const opponentName = opponent.is_bot 
+        ? opponent.team_name || 'IA'
+        : opponent.username || opponent.team_name || 'Oponente';
+
+      console.log(`📧 [EMAIL] Enviando correo a ${player.username} (${player.email})`);
+      console.log(`📧 [EMAIL] Detalles: isWinner=${isWinner}, score=${scoreText}, vsAI=${opponent.is_bot}`);
+      
+      await sendGameResultEmail({
+        to: player.email,
+        username: player.username,
+        opponent: opponentName,
+        score: scoreText,
+        isWinner,
+        isVsAI: opponent.is_bot || false,
+        isTournamentGame: isTournament,
+        tournamentId: game.tournament_id || null,
+        match: isTournament ? tournamentName : null
+      });
+
+      console.log(`✅ Notificación enviada a ${player.username} (${player.email})`);
+    }
+  } catch (error) {
+    console.error('Error en sendGameFinishNotifications:', error);
+    throw error;
+  }
+}
+
 // Endpoint para finalizar juegos (llamado desde game-service)
 fastify.post('/api/games/finish', async (request, reply) => {
   const { gameId, winnerTeam, winnerId } = request.body as any;
+  
+  console.log('🎮 [FINISH] Solicitud recibida - gameId:', gameId, 'winnerTeam:', winnerTeam, 'winnerId:', winnerId);
   
   if (!gameId || (!winnerTeam && !winnerId)) {
     return reply.code(400).send({ message: 'gameId y (winnerTeam o winnerId) son requeridos' });
@@ -1397,6 +1542,8 @@ fastify.post('/api/games/finish', async (request, reply) => {
 
   try {
     const db = await openDb();
+    
+    console.log('🎮 [FINISH] Base de datos abierta correctamente');
     
     // Actualizar el juego como finalizado (encolar)
     await redisClient.rPush('sqlite_write_queue', JSON.stringify({
@@ -1430,9 +1577,18 @@ fastify.post('/api/games/finish', async (request, reply) => {
     // Esperar un momento para que las escrituras encoladas se procesen
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Consultar si pertenece a torneo y si quedan partidas pendientes en esa ronda
+    // Obtener información del juego para enviar notificaciones por email
     const gameRow = await db.get('SELECT id, tournament_id, match FROM games WHERE id = ? OR external_game_id = ? LIMIT 1', [gameId, gameId]);
+    console.log('🎮 [FINISH] gameRow encontrado:', gameRow);
     fastify.log.info({ gameRow }, 'DEBUG gameRow in /api/games/finish');
+    
+    // Enviar notificaciones por email para partidas online y torneos
+    console.log('🎮 [FINISH] Llamando a sendGameFinishNotifications...');
+    await sendGameFinishNotifications(db, gameId, winnerTeam, gameRow).catch(err => {
+      fastify.log.error({ err }, 'Error sending email notifications');
+      console.error('❌ [FINISH] Error en sendGameFinishNotifications:', err);
+    });
+    
     if (gameRow && gameRow.tournament_id) {
       const tournamentId = gameRow.tournament_id;
       // contar partidas no finalizadas para el torneo

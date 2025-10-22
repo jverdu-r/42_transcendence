@@ -201,14 +201,12 @@ export class UnifiedGameRenderer {
         if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
             if (!this.currentlyPressedKeys.has('up')) {
                 this.currentlyPressedKeys.add('up');
-                console.log('[Polling] UP key pressed');
                 // El primer comando se envía inmediatamente para responsividad
                 this.sendPlayerMove('up');
             }
         } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
             if (!this.currentlyPressedKeys.has('down')) {
                 this.currentlyPressedKeys.add('down');
-                console.log('[Polling] DOWN key pressed');
                 // El primer comando se envía inmediatamente para responsividad
                 this.sendPlayerMove('down');
             }
@@ -343,7 +341,6 @@ export class UnifiedGameRenderer {
         } else {
             // SISTEMA ANTERIOR PARA LOCAL/AI
             if (!wasPressed) {
-                console.log('[handleKeyDown] Key pressed:', e.key);
                 this.startPaddleMovement(e.key);
             } else {
                 // Si la tecla ya estaba presionada pero no hay intervalo, reiniciarlo
@@ -357,7 +354,6 @@ export class UnifiedGameRenderer {
     }
 
     private handleKeyUp(e: KeyboardEvent): void {
-        console.log('[handleKeyUp] Key released:', e.key);
         this.keys[e.key] = false;
         
         if (this.gameMode === 'online') {
@@ -374,13 +370,11 @@ export class UnifiedGameRenderer {
             const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown', 'o', 'O', 'l', 'L'];
             if (movementKeys.includes(e.key)) {
                 this.stopPaddleMovement(e.key);
-                console.log('[handleKeyUp] Stopped movement for key:', e.key);
             }
         }
     }
 
     private handleWindowBlur(): void {
-        console.log('[handleWindowBlur] Window lost focus, clearing all movements');
         this.clearAllMovementIntervals();
     }
 
@@ -403,10 +397,8 @@ export class UnifiedGameRenderer {
 
     private handleVisibilityChange(): void {
         if (document.hidden) {
-            console.log('[handleVisibilityChange] Page became hidden, clearing all movements');
             this.clearAllMovementIntervals();
         } else {
-            console.log('[handleVisibilityChange] Page became visible again, reinitializing system');
             // Al volver a la aplicación, reinicializar el sistema de polling si es online
             if (this.gameMode === 'online' && this.gameState.gameRunning) {
                 // Pequeño delay para asegurar que la página está completamente visible
@@ -558,7 +550,6 @@ export class UnifiedGameRenderer {
             this.websocket.onmessage = (event) => {
                 try {
                     const message = JSON.parse(event.data);
-                    console.log('[WebSocket] Message received:', message); // Debug log
                     
                     // On gameJoined, update both playerId and playerNumber from server
                     if (message.type === 'gameJoined' && message.data) {
@@ -601,7 +592,6 @@ export class UnifiedGameRenderer {
     
     public handleWebSocketMessage(message: any): void {
         const { type, data } = message;
-        console.log('[WebSocket] Message received:', message); // Log everything
         switch (type) {
             case 'gameState':
                 if (data.gameState) {
@@ -797,9 +787,6 @@ export class UnifiedGameRenderer {
                 this.stopPaddleMovement(key);
             }
         }, 8); // Aumentar frecuencia a ~120 FPS para movimiento más suave
-        
-        console.log('[startPaddleMovement] ✅ Started movement for key:', key);
-        console.log('[startPaddleMovement] Active intervals:', Object.keys(this.movementIntervals));
     }
     
     private stopPaddleMovement(key: string): void {
@@ -807,17 +794,14 @@ export class UnifiedGameRenderer {
         if (this.movementIntervals[key]) {
             clearInterval(this.movementIntervals[key]);
             delete this.movementIntervals[key];
-            console.log('[stopPaddleMovement] ✅ Stopped movement for key:', key);
         } else {
             console.log('[stopPaddleMovement] ⚠️ No interval found for key:', key);
         }
         
         // Debug: mostrar intervals activos
-        console.log('[stopPaddleMovement] Active intervals:', Object.keys(this.movementIntervals));
     }
     
     private clearAllMovementIntervals(): void {
-        console.log('[clearAllMovementIntervals] Clearing all movement intervals and polling');
         
         // Limpiar intervalos tradicionales
         Object.keys(this.movementIntervals).forEach(key => {
@@ -851,11 +835,6 @@ export class UnifiedGameRenderer {
             up: false,
             down: false
         };
-        
-        // Mantener currentlyPressedKeys para que el sistema pueda recuperar el estado
-        // this.currentlyPressedKeys.clear();  // <-- COMENTADO para preservar estado
-        
-        console.log('[clearAllMovementIntervals] All intervals cleared, key states preserved');
     }
     
     private movePaddle(key: string): void {

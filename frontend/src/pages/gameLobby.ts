@@ -312,7 +312,6 @@ class GameLobby {
             
             this.renderer.setCallbacks({
                 onScoreUpdate: (score: { left: number; right: number }) => {
-                    console.log('Score updated:', score);
                     this.finalScore = score;
                 },
                 onGameStateUpdate: (gameState: any) => {
