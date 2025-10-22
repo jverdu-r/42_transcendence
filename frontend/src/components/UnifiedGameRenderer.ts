@@ -374,7 +374,6 @@ export class UnifiedGameRenderer {
             const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown', 'o', 'O', 'l', 'L'];
             if (movementKeys.includes(e.key)) {
                 this.stopPaddleMovement(e.key);
-                console.log('[handleKeyUp] Stopped movement for key:', e.key);
             }
         }
     }
@@ -558,7 +557,6 @@ export class UnifiedGameRenderer {
             this.websocket.onmessage = (event) => {
                 try {
                     const message = JSON.parse(event.data);
-                    console.log('[WebSocket] Message received:', message); // Debug log
                     
                     // On gameJoined, update both playerId and playerNumber from server
                     if (message.type === 'gameJoined' && message.data) {
@@ -601,7 +599,6 @@ export class UnifiedGameRenderer {
     
     public handleWebSocketMessage(message: any): void {
         const { type, data } = message;
-        console.log('[WebSocket] Message received:', message); // Log everything
         switch (type) {
             case 'gameState':
                 if (data.gameState) {
@@ -797,9 +794,6 @@ export class UnifiedGameRenderer {
                 this.stopPaddleMovement(key);
             }
         }, 8); // Aumentar frecuencia a ~120 FPS para movimiento más suave
-        
-        console.log('[startPaddleMovement] ✅ Started movement for key:', key);
-        console.log('[startPaddleMovement] Active intervals:', Object.keys(this.movementIntervals));
     }
     
     private stopPaddleMovement(key: string): void {
@@ -807,7 +801,6 @@ export class UnifiedGameRenderer {
         if (this.movementIntervals[key]) {
             clearInterval(this.movementIntervals[key]);
             delete this.movementIntervals[key];
-            console.log('[stopPaddleMovement] ✅ Stopped movement for key:', key);
         } else {
             console.log('[stopPaddleMovement] ⚠️ No interval found for key:', key);
         }
@@ -817,7 +810,6 @@ export class UnifiedGameRenderer {
     }
     
     private clearAllMovementIntervals(): void {
-        console.log('[clearAllMovementIntervals] Clearing all movement intervals and polling');
         
         // Limpiar intervalos tradicionales
         Object.keys(this.movementIntervals).forEach(key => {
