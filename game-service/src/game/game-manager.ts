@@ -403,24 +403,63 @@ export class GameManager {
           const startedAt = state?.startedAt ?? state?.started_at ?? undefined;
           const finishedAt = result?.finishedAt ?? new Date().toISOString();
 
-          // Notificar al db-service (notifyGameFinished está importado en este fichero)
+          // IMPORTANTE: Para torneos, reordenar nombres y scores según el orden de la BD
+          const tournamentInfo = (game as any).tournamentInfo;
+          let finalP1Name = p1Name;
+          let finalP2Name = p2Name;
+          let finalS1 = s1;
+          let finalS2 = s2;
+          
+          if (tournamentInfo) {
+            // Verificar si players[0] corresponde a player2 en BD (están invertidos)
+            const p1NameInGame = p1?.name;
+            const p2NameInGame = p2?.name;
+            
+            // Si el jugador en players[0] es realmente player2 en la BD, invertir todo
+            if (p1NameInGame && tournamentInfo.player2_name && p1NameInGame === tournamentInfo.player2_name) {
+              console.log(`🔄 Torneo: Invirtiendo orden de datos para coincidir con BD (WebSocket: ${p1NameInGame} vs ${p2NameInGame}, BD: ${tournamentInfo.player1_name} vs ${tournamentInfo.player2_name})`);
+              finalP1Name = p2Name;
+              finalP2Name = p1Name;
+              finalS1 = s2;
+              finalS2 = s1;
+            } else {
+              console.log(`✅ Torneo: Orden correcto (WebSocket: ${p1NameInGame} vs ${p2NameInGame}, BD: ${tournamentInfo.player1_name} vs ${tournamentInfo.player2_name})`);
+            }
+          }
+
+          // Notificar al db-service
           try {
             await notifyGameStats({
                external_game_id: gameId,
-               player1_name: p1Name,
-               player2_name: p2Name,
-               score1: s1,
-               score2: s2,
+               player1_name: finalP1Name,
+               player2_name: finalP2Name,
+               score1: finalS1,
+               score2: finalS2,
                start_time: startedAt,
                end_time: finishedAt,
                reason: result?.reason ?? 'finished'
             });
-            const winnerTeam = s1 > s2 ? 'Team A' : (s2 > s1 ? 'Team B' : null);
-            if (winnerTeam) {
-              try {
-                await notifyGameFinished(gameId, winnerTeam);
-              } catch (err) {
-                console.error('notifyGameFinished (auth) failed:', err);
+            
+            // Para torneos, enviar el ID del ganador directamente (más confiable que Team A/B)
+            if (tournamentInfo) {
+              const winnerId = finalS1 > finalS2 ? tournamentInfo.player1_id : (finalS2 > finalS1 ? tournamentInfo.player2_id : null);
+              if (winnerId) {
+                try {
+                  await notifyGameFinished(gameId, null, winnerId);
+                  console.log(`🏆 Torneo: Ganador reportado por ID: ${winnerId} (score BD: ${finalS1}-${finalS2})`);
+                } catch (err) {
+                  console.error('notifyGameFinished (auth) failed:', err);
+                }
+              }
+            } else {
+              // Para partidas normales, usar Team A/B como antes
+              const winnerTeam = s1 > s2 ? 'Team A' : (s2 > s1 ? 'Team B' : null);
+              if (winnerTeam) {
+                try {
+                  await notifyGameFinished(gameId, winnerTeam);
+                } catch (err) {
+                  console.error('notifyGameFinished (auth) failed:', err);
+                }
               }
             }
           } catch (err) {

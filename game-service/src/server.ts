@@ -863,7 +863,18 @@ fastify.get("/api/games", async (request, reply) => {
 
 fastify.post("/api/games", async (request: any, reply) => {
   try {
-    const { nombre, gameMode = "pvp", maxPlayers = 2, playerName, customGameId } = request.body;
+    const { 
+      nombre, 
+      gameMode = "pvp", 
+      maxPlayers = 2, 
+      playerName, 
+      customGameId,
+      tournamentId,
+      player1_id,
+      player2_id,
+      player1_name,
+      player2_name
+    } = request.body;
     const finalPlayerName = playerName || "Jugador1";
     const gameId = customGameId || uuidv4(); // Use custom ID if provided (for challenges)
     const now = Date.now();
@@ -881,7 +892,15 @@ fastify.post("/api/games", async (request: any, reply) => {
         palaAncho: 15,
         palaAlto: 100
       },
-      createdAt: now
+      createdAt: now,
+      // Guardar información del torneo para mantener el orden de jugadores
+      tournamentInfo: tournamentId ? {
+        tournamentId,
+        player1_id,
+        player2_id,
+        player1_name,
+        player2_name
+      } : null
     };
     // Store in memory for fast gameplay
     activeGames.set(gameId, game);

@@ -1389,10 +1389,10 @@ fastify.get('/api/games/user-id', async (request, reply) => {
 
 // Endpoint para finalizar juegos (llamado desde game-service)
 fastify.post('/api/games/finish', async (request, reply) => {
-  const { gameId, winnerTeam } = request.body as any;
+  const { gameId, winnerTeam, winnerId } = request.body as any;
   
-  if (!gameId || !winnerTeam) {
-    return reply.code(400).send({ message: 'gameId y winnerTeam son requeridos' });
+  if (!gameId || (!winnerTeam && !winnerId)) {
+    return reply.code(400).send({ message: 'gameId y (winnerTeam o winnerId) son requeridos' });
   }
 
   try {
@@ -1404,15 +1404,28 @@ fastify.post('/api/games/finish', async (request, reply) => {
       params: ['finished', gameId, gameId]
     }));
 
-    // Marcar ganador/perdedor (encolar)
-    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-      sql: 'UPDATE participants SET is_winner = 1 WHERE game_id = (SELECT id FROM games WHERE id = ? OR external_game_id = ? LIMIT 1) AND team_name = ?',
-      params: [gameId, gameId, winnerTeam]
-    }));
-    await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-      sql: 'UPDATE participants SET is_winner = 0 WHERE game_id = (SELECT id FROM games WHERE id = ? OR external_game_id = ? LIMIT 1) AND team_name != ?',
-      params: [gameId, gameId, winnerTeam]
-    }));
+    // Marcar ganador/perdedor - Si tenemos winnerId (torneos), úsalo directamente
+    if (winnerId) {
+      // Marcar al ganador por user_id
+      await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+        sql: 'UPDATE participants SET is_winner = 1 WHERE game_id = (SELECT id FROM games WHERE id = ? OR external_game_id = ? LIMIT 1) AND user_id = ?',
+        params: [gameId, gameId, winnerId]
+      }));
+      await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+        sql: 'UPDATE participants SET is_winner = 0 WHERE game_id = (SELECT id FROM games WHERE id = ? OR external_game_id = ? LIMIT 1) AND user_id != ?',
+        params: [gameId, gameId, winnerId]
+      }));
+    } else {
+      // Usar team_name como antes (para partidas normales)
+      await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+        sql: 'UPDATE participants SET is_winner = 1 WHERE game_id = (SELECT id FROM games WHERE id = ? OR external_game_id = ? LIMIT 1) AND team_name = ?',
+        params: [gameId, gameId, winnerTeam]
+      }));
+      await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+        sql: 'UPDATE participants SET is_winner = 0 WHERE game_id = (SELECT id FROM games WHERE id = ? OR external_game_id = ? LIMIT 1) AND team_name != ?',
+        params: [gameId, gameId, winnerTeam]
+      }));
+    }
 
     // Esperar un momento para que las escrituras encoladas se procesen
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -1429,8 +1442,8 @@ fastify.post('/api/games/finish', async (request, reply) => {
       // Si ya no quedan partidas pendientes, generar la siguiente ronda directamente
       if (ready) {
         try {
-          // Llamar al endpoint del auth-service para avanzar el torneo
-          const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'https://auth-service:8000';
+          // Llamar al endpoint del auth-service para avanzar el torneo (usando HTTP interno, no HTTPS)
+          const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://auth-service:8000';
           const res = await fetch(`${AUTH_SERVICE_URL}/tournaments/${tournamentId}/advance`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1450,7 +1463,8 @@ fastify.post('/api/games/finish', async (request, reply) => {
 
     await db.close();
     
-    fastify.log.info(`Game ${gameId} finished, winner: ${winnerTeam}`);
+    const winnerInfo = winnerId ? `winnerId: ${winnerId}` : `winnerTeam: ${winnerTeam}`;
+    fastify.log.info(`Game ${gameId} finished, ${winnerInfo}`);
     return reply.send({ message: 'Game finished successfully' });
     
   } catch (error: any) {
@@ -1548,11 +1562,16 @@ fastify.post('/tournaments/:id/advance', async (request: any, reply: any) => {
       return;
     }
 
-    // 3) Si la ronda actual es Final o no hay siguiente, no crear más rondas
+    // 3) Si la ronda actual es Final o no hay siguiente, marcar torneo como terminado
     if (currentPrefix === 'Final' || latestIndex === roundPrefixes.length - 1) {
+      // Marcar torneo como finalizado
+      await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+        sql: 'UPDATE tournaments SET status = ? WHERE id = ?',
+        params: ['finished', id]
+      }));
       await db.close();
-      fastify.log.info({ tournamentId: id }, 'Tournament already in final round');
-      reply.send({ message: 'Tournament already in final round or no next round to generate' });
+      fastify.log.info({ tournamentId: id }, 'Tournament completed - marking as finished');
+      reply.send({ message: 'Tournament completed successfully' });
       return;
     }
 
@@ -1623,13 +1642,14 @@ fastify.post('/tournaments/:id/advance', async (request: any, reply: any) => {
       }));
 
       // 7.2) INSERT participants using subquery to get game_id
+      // IMPORTANTE: Siempre asignar 'Team A' al primer ganador y 'Team B' al segundo
       await redisClient.rPush('sqlite_write_queue', JSON.stringify({
         sql: `INSERT INTO participants (game_id, user_id, is_bot, is_winner, team_name)
               VALUES (
                 (SELECT id FROM games WHERE tournament_id = ? AND match = ? LIMIT 1),
                 ?, ?, 0, ?
               )`,
-        params: [id, matchLabel, w1.user_id ? w1.user_id : null, w1.is_bot ? 1 : 0, w1.team_name || 'Team A']
+        params: [id, matchLabel, w1.user_id ? w1.user_id : null, w1.is_bot ? 1 : 0, 'Team A']
       }));
       await redisClient.rPush('sqlite_write_queue', JSON.stringify({
         sql: `INSERT INTO participants (game_id, user_id, is_bot, is_winner, team_name)
@@ -1637,31 +1657,31 @@ fastify.post('/tournaments/:id/advance', async (request: any, reply: any) => {
                 (SELECT id FROM games WHERE tournament_id = ? AND match = ? LIMIT 1),
                 ?, ?, 0, ?
               )`,
-        params: [id, matchLabel, w2.user_id ? w2.user_id : null, w2.is_bot ? 1 : 0, w2.team_name || 'Team B']
+        params: [id, matchLabel, w2.user_id ? w2.user_id : null, w2.is_bot ? 1 : 0, 'Team B']
       }));
 
       // 7.3) INSERT initial scores (0)
       await redisClient.rPush('sqlite_write_queue', JSON.stringify({
         sql: `INSERT INTO scores (game_id, team_name, point_number)
               VALUES ((SELECT id FROM games WHERE tournament_id = ? AND match = ? LIMIT 1), ?, 0)`,
-        params: [id, matchLabel, w1.team_name || 'Team A']
+        params: [id, matchLabel, 'Team A']
       }));
       await redisClient.rPush('sqlite_write_queue', JSON.stringify({
         sql: `INSERT INTO scores (game_id, team_name, point_number)
               VALUES ((SELECT id FROM games WHERE tournament_id = ? AND match = ? LIMIT 1), ?, 0)`,
-        params: [id, matchLabel, w2.team_name || 'Team B']
+        params: [id, matchLabel, 'Team B']
       }));
 
       // 7.4) If one or both players are humans ask game-service to create real game and then update external_game_id
       if (!w1.is_bot || !w2.is_bot) {
         try {
-          const GAME_SERVICE_URL = process.env.GAME_SERVICE_URL || 'https://game-service:8000';
+          const GAME_SERVICE_URL = process.env.GAME_SERVICE_URL || 'http://game-service:8000';
           const playerName = (w1.is_bot ? w2.user_id : w1.user_id) ? 'Jugador' : 'Jugador';
           const gameRes = await fetch(`${GAME_SERVICE_URL}/api/games`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              nombre: `Torneo ${id} - ${w1.team_name || 'Team A'} vs ${w2.team_name || 'Team B'}`,
+              nombre: `Torneo ${id} - Team A vs Team B`,
               gameMode: (!w1.is_bot && !w2.is_bot) ? 'pvp' : 'pve',
               maxPlayers: 2,
               playerName,

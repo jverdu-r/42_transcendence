@@ -196,25 +196,73 @@ async function loadStartedTournaments() {
           if (currentUser && currentUser.id) {
             for (const round of rounds) {
               for (const match of round) {
-                if (
-                  match.external_game_id &&
-                  (match.status === 'started' || match.status === 'pending') &&
-                  (
-                    (match.player1?.user_id == currentUser.id) ||
-                    (match.player2?.user_id == currentUser.id)
-                  )
-                ) {
-                  sessionStorage.setItem('currentGameId', match.external_game_id);
+                // Verificar si el usuario participa en este partido
+                const userPlaysInMatch = (match.player1_user_id == currentUser.id) || (match.player2_user_id == currentUser.id);
+                
+                if (userPlaysInMatch && (match.status === 'started' || match.status === 'pending')) {
+                  let gameId = match.external_game_id;
+                  
+                  // Si no hay external_game_id, crear el juego ahora
+                  if (!gameId) {
+                    console.log('🎮 Creando juego para el partido del torneo...');
+                    try {
+                      // Determinar gameMode y playerName
+                      const isPlayer1 = match.player1_user_id == currentUser.id;
+                      const opponentIsBot = isPlayer1 ? !match.player2_user_id : !match.player1_user_id;
+                      const gameMode = opponentIsBot ? 'pve' : 'pvp';
+                      
+                      // IMPORTANTE: Pasar información de ambos jugadores para mantener el orden correcto
+                      const createRes = await fetch('/api/games', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          nombre: `Torneo ${tid} - Partido ${match.match}`,
+                          gameMode: gameMode,
+                          maxPlayers: 2,
+                          playerName: currentUser.username,
+                          aiDifficulty: 'medium',
+                          tournamentId: tid,
+                          // Pasar el orden de los equipos según la BD
+                          player1_id: match.player1_user_id,
+                          player2_id: match.player2_user_id,
+                          player1_name: match.player1,
+                          player2_name: match.player2
+                        })
+                      });
+                      
+                      if (createRes.ok) {
+                        const gameData = await createRes.json();
+                        gameId = gameData.id || gameData.gameId;
+                        
+                        // Actualizar external_game_id en la base de datos
+                        await fetch(`/api/tournaments/${tid}/matches/${match.id}/set-game`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ external_game_id: gameId })
+                        });
+                        
+                        console.log('✅ Juego creado:', gameId);
+                      } else {
+                        console.error('❌ Error al crear el juego');
+                        continue;
+                      }
+                    } catch (err) {
+                      console.error('❌ Error creando juego:', err);
+                      continue;
+                    }
+                  }
+                  
+                  sessionStorage.setItem('currentGameId', gameId);
 
                   console.log('🔍 Partida detectada en el cuadro:');
-                  console.log('   external_game_id:', match.external_game_id);
+                  console.log('   external_game_id:', gameId);
                   console.log('   status:', match.status);
-                  console.log('   jugador 1:', match.player1);
-                  console.log('   jugador 2:', match.player2);
-                  console.log('   redirigiendo a:', `/game-lobby?gameId=${match.external_game_id}`);
+                  console.log('   jugador 1:', match.player1, '(ID:', match.player1_user_id, ')');
+                  console.log('   jugador 2:', match.player2, '(ID:', match.player2_user_id, ')');
+                  console.log('   redirigiendo a:', `/game-lobby?gameId=${gameId}`);
                   
                   // Redirigir a la partida
-                  window.location.href = `/game-lobby?gameId=${match.external_game_id}`;
+                  window.location.href = `/game-lobby?gameId=${gameId}`;
                   return;
                 }
               }

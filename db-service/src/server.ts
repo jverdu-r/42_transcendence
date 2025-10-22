@@ -120,19 +120,18 @@ fastify.get('/tournaments/:id/matches', async (request: any, reply: any) => {
             if (!rounds[m.match]) rounds[m.match] = [];
             rounds[m.match].push({
                 id: m.id,
-                player1: {
-                    user_id: participants[0]?.user_id,
-                    username: player1
-                },
-                player2: participants.length > 1 ? {
-                    user_id: participants[1]?.user_id,
-                    username: player2
-                } : null,
+                player1: player1,  // Enviar directamente el string del nombre
+                player2: player2,  // Enviar directamente el string del nombre
+                player1_user_id: participants[0]?.user_id || null,  // Agregar IDs para lógica del frontend
+                player2_user_id: participants[1]?.user_id || null,  // Agregar IDs para lógica del frontend
+                team1: team1,
+                team2: team2,
                 score1,
                 score2,
                 status: m.status,
                 winner,
-                external_game_id: m.external_game_id 
+                external_game_id: m.external_game_id,
+                match: m.match  // Agregar el label del partido
             });
         }
         
@@ -178,6 +177,30 @@ fastify.get('/tournaments/:id/matches', async (request: any, reply: any) => {
         }
         
         reply.send(groupedRounds);
+    } catch (error: any) {
+        fastify.log.error(error);
+        reply.code(500).send({ message: 'Internal Server Error' });
+    } finally {
+        await db.close();
+    }
+});
+
+// Actualizar external_game_id de un partido
+fastify.post('/tournaments/:tournamentId/matches/:matchId/set-game', async (request: any, reply: any) => {
+    const { tournamentId, matchId } = request.params as any;
+    const { external_game_id } = request.body as any;
+    
+    if (!external_game_id) {
+        return reply.code(400).send({ message: 'external_game_id is required' });
+    }
+    
+    const db = await openDb();
+    try {
+        await db.run(
+            'UPDATE games SET external_game_id = ? WHERE id = ? AND tournament_id = ?',
+            [external_game_id, matchId, tournamentId]
+        );
+        reply.send({ message: 'Game ID updated successfully' });
     } catch (error: any) {
         fastify.log.error(error);
         reply.code(500).send({ message: 'Internal Server Error' });
@@ -263,99 +286,44 @@ fastify.post('/tournaments/:id/start', async (request: any, reply: any) => {
             if (roundPrefix === 'Final') return 'Final';
             return `${roundPrefix}(${matchIndex + 1})`;
         };
-        // Crear games, participants y scores
+        // Crear games, participants y scores - USAR ESCRITURAS DIRECTAS para garantizar orden
         for (let idx = 0; idx < gamesToCreate.length; idx++) {
             const [p1, p2] = gamesToCreate[idx];
 
             const matchLabel = getMatchLabel(idx);
 
-            // 1) Crear game (encolado)
-            await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-                sql: 'INSERT INTO games (tournament_id, match, status) VALUES (?, ?, ?)',
-                params: [id, matchLabel, 'pending']
-            }));
+            // 1) Crear game directamente en SQLite
+            const gameResult = await db.run(
+                'INSERT INTO games (tournament_id, match, status) VALUES (?, ?, ?)',
+                [id, matchLabel, 'pending']
+            );
+            const gameId = gameResult.lastID;
 
-            // 2) Encolar participants usando subquery para obtener game_id una vez que el worker ejecute el INSERT anterior
-            await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-                sql: `INSERT INTO participants (game_id, user_id, is_bot, is_winner, team_name)
-                      VALUES (
-                        (SELECT id FROM games WHERE tournament_id = ? AND match = ? LIMIT 1),
-                        ?, ?, 0, ?
-                      )`,
-                params: [id, matchLabel, p1.is_bot ? null : p1.user_id, p1.is_bot ? 1 : 0, p1.bot_name || p1.team_name || (p1.user_id ? 'Team A' : 'Team A')]
-            }));
-            await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-                sql: `INSERT INTO participants (game_id, user_id, is_bot, is_winner, team_name)
-                      VALUES (
-                        (SELECT id FROM games WHERE tournament_id = ? AND match = ? LIMIT 1),
-                        ?, ?, 0, ?
-                      )`,
-                params: [id, matchLabel, p2.is_bot ? null : p2.user_id, p2.is_bot ? 1 : 0, p2.bot_name || p2.team_name || (p2.user_id ? 'Team B' : 'Team B')]
-            }));
+            // 2) Insertar participants directamente (IMPORTANTE: en orden p1=Team A, p2=Team B)
+            await db.run(
+                'INSERT INTO participants (game_id, user_id, is_bot, is_winner, team_name) VALUES (?, ?, ?, 0, ?)',
+                [gameId, p1.is_bot ? null : p1.user_id, p1.is_bot ? 1 : 0, p1.bot_name || p1.team_name || 'Team A']
+            );
+            await db.run(
+                'INSERT INTO participants (game_id, user_id, is_bot, is_winner, team_name) VALUES (?, ?, ?, 0, ?)',
+                [gameId, p2.is_bot ? null : p2.user_id, p2.is_bot ? 1 : 0, p2.bot_name || p2.team_name || 'Team B']
+            );
 
-            // 3) Encolar scores (punto inicial 0) usando la misma subquery
-            await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-                sql: `INSERT INTO scores (game_id, team_name, point_number)
-                      VALUES ((SELECT id FROM games WHERE tournament_id = ? AND match = ? LIMIT 1), ?, 0)`,
-                params: [id, matchLabel, p1.bot_name || p1.team_name || (p1.user_id ? 'Team A' : 'Team A')]
-            }));
-            await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-                sql: `INSERT INTO scores (game_id, team_name, point_number)
-                      VALUES ((SELECT id FROM games WHERE tournament_id = ? AND match = ? LIMIT 1), ?, 0)`,
-                params: [id, matchLabel, p2.bot_name || p2.team_name || (p2.user_id ? 'Team B' : 'Team B')]
-            }));
+            // 3) Insertar scores directamente
+            await db.run(
+                'INSERT INTO scores (game_id, team_name, point_number) VALUES (?, ?, 0)',
+                [gameId, p1.bot_name || p1.team_name || 'Team A']
+            );
+            await db.run(
+                'INSERT INTO scores (game_id, team_name, point_number) VALUES (?, ?, 0)',
+                [gameId, p2.bot_name || p2.team_name || 'Team B']
+            );
 
-            // 4) Si corresponde, crear partida en game-service y encolar el UPDATE para external_game_id
-            if (!p1.is_bot || !p2.is_bot) {
-                let gameMode: 'pvp' | 'pve' = 'pvp';
-                let aiDifficulty: 'easy' | 'medium' | 'hard' = 'medium';
-
-                if (p1.is_bot || p2.is_bot) {
-                    gameMode = 'pve';
-                    aiDifficulty = tournament.bots_difficulty === 'easy' ? 'easy' :
-                                   tournament.bots_difficulty === 'hard' ? 'hard' : 'medium';
-                }
-
-                const humanPlayer = p1.is_bot ? p2 : p1;
-                const playerName = humanPlayer.username || humanPlayer.bot_name || 'Jugador';
-
-                try {
-                    const gameRes = await fetch('http://game-service:8000/api/games', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            nombre: `Torneo ${id} - ${getPlayerName(p1)} vs ${getPlayerName(p2)}`,
-                            gameMode,
-                            maxPlayers: 2,
-                            playerName,
-                            aiDifficulty,
-                            tournamentId: id  // Pass tournament ID to game-service
-                        })
-                    });
-
-                    if (gameRes.ok) {
-                        const gameData = await gameRes.json();
-                        // Encolar UPDATE usando tournament_id + match (no usar gameRow.id que depende de lecturas sincrónicas)
-                        await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-                            sql: 'UPDATE games SET external_game_id = ? WHERE tournament_id = ? AND match = ?',
-                            params: [gameData.id, id, matchLabel]
-                        }));
-                    } else {
-                        fastify.log.warn(`Failed to create game in game-service for match ${getPlayerName(p1)} vs ${getPlayerName(p2)}`);
-                    }
-                } catch (err) {
-                    fastify.log.error({ err }, 'Error calling game-service');
-                }
-            }
+            // 4) NO crear partida en game-service aquí - se creará cuando el jugador entre a verla
+            // Esto permite que los jugadores se unan dinámicamente cuando accedan al torneo
         }
-        // Cambiar estado a "started"
-        await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-            sql: 'UPDATE tournaments SET status = ? WHERE id = ?',
-            params: ['started', id]
-        }));
-
-        // Esperar a que los games y participants estén en la base de datos
-        await new Promise(res => setTimeout(res, 700));
+        // Cambiar estado a "started" directamente
+        await db.run('UPDATE tournaments SET status = ? WHERE id = ?', ['started', id]);
 
         // Resolver automáticamente los partidos bot vs bot y guardar resultado
         await resolveBotVsBotGamesWithScores(db, id);
@@ -620,60 +588,46 @@ fastify.post('/game/stats', async (request: any, reply: any) => {
         }
         const gameId = gameRow.id;
 
-        // 2) obtener participantes para ese game
-        const participants: Array<{ id: number; user_id: number | null; team_name: string | null; is_bot: any }> =
-            await db.all('SELECT id, user_id, team_name, is_bot FROM participants WHERE game_id = ? ORDER BY id ASC', gameId);
+        // 2) obtener participantes para ese game (con username de users)
+        const participants: Array<{ id: number; user_id: number | null; team_name: string | null; is_bot: any; username: string | null }> =
+            await db.all(`
+                SELECT p.id, p.user_id, p.team_name, p.is_bot, u.username 
+                FROM participants p
+                LEFT JOIN users u ON p.user_id = u.id
+                WHERE p.game_id = ? 
+                ORDER BY p.id ASC
+            `, gameId);
 
-        // resolver team_name mapping
-        let teamA: string | null = participants[0]?.team_name ?? null;
-        let teamB: string | null = participants[1]?.team_name ?? null;
+        // SIMPLIFICADO: Asumir que game-service ya envió los datos en el orden correcto
+        // player1_name/score1 corresponde a participants[0]
+        // player2_name/score2 corresponde a participants[1]
+        // El game-service es responsable de reordenar si detectó inversión por WebSocket
 
-        // Si game-service envía nombres de jugadores en lugar de team_name, intentar mapear
-        if (!teamA && player1_name) teamA = player1_name;
-        if (!teamB && player2_name) teamB = player2_name;
+        // 3) resolver team_name mapping
+        const teamA = participants[0]?.team_name ?? null;
+        const teamB = participants[1]?.team_name ?? null;
 
-        // 3) calcular ganador por winner_name / winner_id / score
-        let winnerIdx: number | null = null;
-        if (typeof winner_name === 'string') {
-            if (teamA && winner_name === teamA) winnerIdx = 0;
-            else if (teamB && winner_name === teamB) winnerIdx = 1;
-            else {
-                // intentar comparar con username de participants si existe user_id
-                const pUsers = await db.all('SELECT id, user_id FROM participants WHERE game_id = ? ORDER BY id ASC', gameId);
-                for (let i = 0; i < pUsers.length; i++) {
-                    if (pUsers[i].user_id && String(pUsers[i].user_id) === String(winner_name)) { winnerIdx = i; break; }
-                }
-            }
-        }
-        if (winnerIdx === null && typeof winner_id !== 'undefined') {
-            // buscar índice por user id
-            const idx = participants.findIndex(p => p.user_id && String(p.user_id) === String(winner_id));
-            if (idx >= 0) winnerIdx = idx;
-        }
-        if (winnerIdx === null) {
-            // fallback por scores
-            if (score1 > score2) winnerIdx = 0;
-            else if (score2 > score1) winnerIdx = 1;
-        }
-
-        // 4) encolar actualizaciones en Redis (no tocar SQLite aquí)
+        // 4) encolar actualizaciones en Redis
         // actualizar participants is_winner
         if (participants.length === 2) {
-            const winnerTeamName = winnerIdx === 0 ? teamA : (winnerIdx === 1 ? teamB : null);
-            await redisClient.rPush('sqlite_write_queue', JSON.stringify({
-                sql: 'UPDATE participants SET is_winner = CASE WHEN team_name = ? THEN 1 ELSE 0 END WHERE game_id = ?',
-                params: [winnerTeamName, gameId]
-            }));
+            const winnerTeamName = score1 > score2 ? teamA : (score2 > score1 ? teamB : null);
+            
+            if (winnerTeamName) {
+                await redisClient.rPush('sqlite_write_queue', JSON.stringify({
+                    sql: 'UPDATE participants SET is_winner = CASE WHEN team_name = ? THEN 1 ELSE 0 END WHERE game_id = ?',
+                    params: [winnerTeamName, gameId]
+                }));
+            }
         }
 
-        // actualizar scores (asumimos que filas scores ya existen)
-        if (teamA !== null) {
+        // actualizar scores - score1 para teamA (participants[0]), score2 para teamB (participants[1])
+        if (teamA) {
             await redisClient.rPush('sqlite_write_queue', JSON.stringify({
                 sql: 'UPDATE scores SET point_number = ? WHERE game_id = ? AND team_name = ?',
                 params: [score1, gameId, teamA]
             }));
         }
-        if (teamB !== null) {
+        if (teamB) {
             await redisClient.rPush('sqlite_write_queue', JSON.stringify({
                 sql: 'UPDATE scores SET point_number = ? WHERE game_id = ? AND team_name = ?',
                 params: [score2, gameId, teamB]

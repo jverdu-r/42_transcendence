@@ -25,11 +25,18 @@ export async function notifyScore(gameId: string, scorerId: string | null, teamN
   });
 }
 
-export async function notifyGameFinished(gameId: string, winnerTeam: string) {
+export async function notifyGameFinished(gameId: string, winnerTeam?: string | null, winnerId?: number | null) {
+  const body: any = { gameId };
+  if (winnerId) {
+    body.winnerId = winnerId;
+  } else if (winnerTeam) {
+    body.winnerTeam = winnerTeam;
+  }
+  
   await fetch(`${AUTH_SERVICE_URL}/api/games/finish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ gameId, winnerTeam })
+    body: JSON.stringify(body)
   });
 }
 
