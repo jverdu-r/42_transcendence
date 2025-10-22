@@ -274,7 +274,7 @@ export function renderRegister(): void {
         const renderGoogleButton = () => {
             if (window.google?.accounts?.id && googleDiv) {
                 window.google.accounts.id.initialize({
-                    client_id: '58128894262-ak29ohah5ovkh31dvp2srdbm16thp961.apps.googleusercontent.com',
+                    client_id: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
                     callback: (window as any).handleGoogleCredentialResponse
                 });
                 window.google.accounts.id.renderButton(googleDiv, {

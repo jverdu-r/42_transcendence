@@ -18,6 +18,7 @@ services:
       EMAIL_SECURE: "${EMAIL_SECURE}"
       EMAIL_USER: "${EMAIL_USER}"
       EMAIL_FROM: "${EMAIL_FROM}"
+      EMAIL_PASS: "${EMAIL_PASS}"
     depends_on:
       - db-service
       - vault
@@ -38,6 +39,7 @@ services:
     #   - "8002:8000" # Mapea el puerto 8000 interno a 8002 en el host
     environment:
       DB_SERVICE_URL: "http://db-service:8005"
+      AUTH_SERVICE_URL: "http://auth-service:8000"
       VAULT_ADDR: "https://vault:8200"
       VAULT_SKIP_VERIFY: "true"  # Solo para certificados autofirmados
       REDIS_HOST: "${REDIS_HOST}"

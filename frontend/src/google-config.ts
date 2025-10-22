@@ -1,5 +1,5 @@
 // Configuración de Google OAuth para desarrollo
-export const GOOGLE_CLIENT_ID = 'your-client-id-here.apps.googleusercontent.com';
+export const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
 
 // Para desarrollo local, podemos usar un mock o configurar correctamente
 export const GOOGLE_CONFIG = {

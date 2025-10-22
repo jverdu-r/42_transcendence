@@ -307,7 +307,8 @@ fastify.post('/tournaments/:id/start', async (request: any, reply: any) => {
                             gameMode,
                             maxPlayers: 2,
                             playerName,
-                            aiDifficulty
+                            aiDifficulty,
+                            tournamentId: id  // Pass tournament ID to game-service
                         })
                     });
 

@@ -45,6 +45,11 @@ vault kv put secret/database/config \
   encryption_key="$DB_ENCRYPTION_KEY" \
   backup_retention_days=30
 
+# Email secrets
+echo "Setting up email secrets..."
+vault kv put secret/email \
+  EMAIL_PASS="YOUR_GMAIL_APP_PASSWORD"
+
 # Redis secrets
 echo "Setting up Redis secrets..."
 vault kv put secret/redis/config \
