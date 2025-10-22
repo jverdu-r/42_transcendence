@@ -4,7 +4,7 @@ Después de hacer `git clone`, debes configurar las siguientes credenciales:
 
 ## 1. Google OAuth (para login con Google)
 
-### Archivos a modificar:
+### Archivos a modificar: 
 - `frontend/src/google-config.ts`
 - `frontend/src/pages/login.ts`
 - `frontend/src/pages/register.ts`
