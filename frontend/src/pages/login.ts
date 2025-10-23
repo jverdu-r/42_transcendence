@@ -216,8 +216,10 @@ export function renderLoginPage(): void {
                 // necesitas configurar los dominios autorizados en Google Cloud Console:
                 // 1. Ir a https://console.cloud.google.com/apis/credentials
                 // 2. Editar el OAuth 2.0 Client ID
-                // 3. Agregar tu dominio a "AuthorizYOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.comize({
-                    client_id: "YOUR_GOOGLE_CLIENT_ID.apYOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.comesponse,
+                // 3. Agregar tu dominio a "Authorized JavaScript origins"
+                window.google.accounts.id.initialize({
+                    client_id: "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+                    callback: (window as any).handleGoogleCredentialResponse,
                 });
 
                 // ✅ Aquí renderizas el botón oficial con estilo controlado
