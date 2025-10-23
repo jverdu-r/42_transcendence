@@ -93,7 +93,6 @@ async function ensurePveLobby(tournamentId: number | string, rounds: any[][]): P
         });
 
         if (!createRes.ok) {
-          console.error('No se pudo crear la partida PvE');
           continue; // intenta con otros m si los hubiera
         }
 
@@ -107,7 +106,6 @@ async function ensurePveLobby(tournamentId: number | string, rounds: any[][]): P
           return true;
         }
       } catch (e) {
-        console.error('Error creando PvE:', e);
       }
     }
   }
@@ -204,7 +202,6 @@ async function loadStartedTournaments() {
                   
                   // Si no hay external_game_id, crear el juego ahora
                   if (!gameId) {
-                    console.log('🎮 Creando juego para el partido del torneo...');
                     try {
                       // Determinar gameMode y playerName
                       const isPlayer1 = match.player1_user_id == currentUser.id;
@@ -241,26 +238,16 @@ async function loadStartedTournaments() {
                           body: JSON.stringify({ external_game_id: gameId })
                         });
                         
-                        console.log('✅ Juego creado:', gameId);
                       } else {
-                        console.error('❌ Error al crear el juego');
                         continue;
                       }
                     } catch (err) {
-                      console.error('❌ Error creando juego:', err);
                       continue;
                     }
                   }
                   
                   sessionStorage.setItem('currentGameId', gameId);
 
-                  console.log('🔍 Partida detectada en el cuadro:');
-                  console.log('   external_game_id:', gameId);
-                  console.log('   status:', match.status);
-                  console.log('   jugador 1:', match.player1, '(ID:', match.player1_user_id, ')');
-                  console.log('   jugador 2:', match.player2, '(ID:', match.player2_user_id, ')');
-                  console.log('   redirigiendo a:', `/game-lobby?gameId=${gameId}`);
-                  
                   // Redirigir a la partida
                   window.location.href = `/game-lobby?gameId=${gameId}`;
                   return;
@@ -281,7 +268,6 @@ async function loadStartedTournaments() {
       });
     });
   } catch (error) {
-    console.error('Error loading started tournaments:', error);
     container.innerHTML = `<p class="text-red-400 text-center">${getTranslation('tournaments', 'errorLoading') || 'Error al cargar torneos.'}</p>`;
   }
 }

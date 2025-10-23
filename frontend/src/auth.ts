@@ -31,7 +31,6 @@ function parseJwt(token: string): any {
     );
     return JSON.parse(jsonPayload);
   } catch (err) {
-    console.error(getTranslation('auth', 'errorParsingJWT'), err);
     return null;
   }
 }
@@ -51,13 +50,11 @@ export async function getUserSettings(): Promise<UserSettings | null> {
     });
 
     if (!response.ok) {
-      console.error(getTranslation('auth', 'errorGettingSettings'), response.status);
       return null;
     }
 
     return await response.json();
   } catch (error) {
-    console.error(getTranslation('auth', 'errorInSettingsRequest'), error);
     return null;
   }
 }
@@ -77,13 +74,11 @@ export async function fetchUserProfile(): Promise<User | null> {
     });
 
     if (!response.ok) {
-      console.error(getTranslation('auth', 'errorGettingUserData'), response.status);
       return null;
     }
 
     return await response.json();
   } catch (error) {
-    console.error(getTranslation('auth', 'errorInUserDataRequest'), error);
     return null;
   }
 }
@@ -145,7 +140,6 @@ export function getCurrentUser(): User | null {
         };
       }
     } catch (e) {
-      console.error(getTranslation('auth', 'errorParsingLocalUser'), e);
     }
   }
   
@@ -159,7 +153,6 @@ export function getCurrentUser(): User | null {
 // Función para hacer login y aplicar configuraciones
 export async function loginUser(token: string): Promise<void> {
   localStorage.setItem('jwt', token);
-  console.log(getTranslation('auth', 'sessionStarted'));
   
   // Aplicar configuraciones del usuario
   await applyUserSettings();

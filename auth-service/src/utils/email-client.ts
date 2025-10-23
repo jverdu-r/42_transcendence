@@ -33,12 +33,6 @@ function getEmailCredentials() {
       : process.env.EMAIL_PASS
   );
 
-  console.log('🔍 [EMAIL-CLIENT] Verificando credenciales:');
-  console.log('   EMAIL_USER:', EMAIL_USER ? '✅ presente' : '❌ ausente');
-  console.log('   EMAIL_PASS:', EMAIL_PASS ? '✅ presente' : '❌ ausente');
-  console.log('   EMAIL_HOST:', envVars.EMAIL_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com');
-  console.log('   EMAIL_PORT:', envVars.EMAIL_PORT || process.env.EMAIL_PORT || '587');
-
   return {
     user: EMAIL_USER,
     pass: EMAIL_PASS,
@@ -56,7 +50,6 @@ export async function sendEmail({ to, subject, html }: SendEmailParams): Promise
   // Verificar si el email está configurado
   if (!credentials.user || !credentials.pass) {
     console.warn('⚠️  Email no configurado (falta EMAIL_USER o EMAIL_PASS). No se enviará correo.');
-    console.log(`📧 Email que se habría enviado a: ${to}`);
     console.log(`   Asunto: ${subject}`);
     return; // No lanzar error, solo advertir
   }
@@ -81,7 +74,6 @@ export async function sendEmail({ to, subject, html }: SendEmailParams): Promise
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Correo enviado:', info.messageId, 'a:', to);
   } catch (error) {
     console.error('❌ Error al enviar correo a', to, ':', error);
     // No lanzar error para no interrumpir el flujo del juego

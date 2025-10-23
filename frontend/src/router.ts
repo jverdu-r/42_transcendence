@@ -37,7 +37,6 @@ export function setGameResults(results: any): void {
 
 function renderGameResultsWithData(): void {
   if (!pendingGameResults) {
-    console.error('No game results data available');
     navigateTo('/home');
     return;
   }
@@ -102,7 +101,6 @@ const routes: { [key: string]: () => void } = {
 function setupMainAppLayout(): void {
   const appRoot = document.getElementById('app-root');
   if (!appRoot) {
-    console.error('Elemento con id "app-root" no encontrado para configurar el layout principal.');
     return;
   }
 
@@ -123,7 +121,6 @@ function setupMainAppLayout(): void {
 export async function navigateTo(path: string): Promise<void> {
   const appRoot = document.getElementById('app-root') as HTMLElement;
   if (!appRoot) {
-    console.error('Elemento con id "app-root" no encontrado. No se puede navegar.');
     return;
   }
   
@@ -144,14 +141,12 @@ export async function navigateTo(path: string): Promise<void> {
   // Protección de rutas
   if (isAuthPage && userIsAuthenticated) {
     // Si el usuario está autenticado y trata de acceder a login/register, redirigir a home
-    console.log(getTranslation('router', 'redirectingToHome'));
     navigateTo('/home');
     return;
   }
 
   if (!isAuthPage && !userIsAuthenticated) {
     // Si el usuario no está autenticado y trata de acceder a páginas protegidas, redirigir a login
-    console.log(getTranslation('router', 'redirectingToLogin'));
     navigateTo('/login');
     return;
   }
@@ -166,8 +161,6 @@ export async function navigateTo(path: string): Promise<void> {
     const renderFunction = routes[routePath];
     if (renderFunction) {
       renderFunction(); // Llama a la función de renderizado de login/register
-    } else {
-      console.warn(`Ruta no encontrada para página de autenticación: ${routePath}`);
     }
     return;
   }
@@ -181,7 +174,6 @@ export async function navigateTo(path: string): Promise<void> {
 
   const pageContentContainer = document.getElementById('page-content');
   if (!pageContentContainer) {
-    console.error(getTranslation('router', 'pageContentNotFound'));
     return;
   }
 
@@ -194,7 +186,6 @@ export async function navigateTo(path: string): Promise<void> {
   } else {
     // Manejar 404 o redirigir a una página predeterminada
     pageContentContainer.innerHTML = '<h1>404 - Página No Encontrada</h1><p>Lo sentimos, la página que buscas no existe.</p>';
-    console.warn(`Ruta no encontrada para la ruta: ${routePath}`);
   }
 
   // Solo renderizar el navbar en páginas de la app principal

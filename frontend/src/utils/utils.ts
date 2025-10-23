@@ -28,6 +28,5 @@ export async function checkRankingChange() {
 
     localStorage.setItem('userRank', newRank.toString());
   } catch (err) {
-    console.error(getTranslation('utils', 'errorCheckingRanking'), err);
   }
 }

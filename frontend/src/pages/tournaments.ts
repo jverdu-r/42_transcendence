@@ -256,6 +256,5 @@ export function renderTournamentsPage() {
         }
 
     } else {
-        console.error(getTranslation('tournaments', 'containerNotFound'));
     }
 }

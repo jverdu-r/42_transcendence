@@ -142,8 +142,6 @@ fastify.register(async function (fastify) {
                         connections.set(userId, { socket, username, connectedAt: new Date() });
                         onlineUsers.add(userId);
                         
-                        console.log(`👤 Usuario ${userId} (${username}) conectado`);
-                        
                         // Enviar confirmación
                         (socket as any).send(JSON.stringify({
                             type: 'join_global',
@@ -218,8 +216,6 @@ fastify.register(async function (fastify) {
                 connections.delete(userId);
                 onlineUsers.delete(userId);
                 
-                console.log(`👋 Usuario ${userId} desconectado`);
-                
                 // Notificar a otros usuarios
                 broadcastToOthers(userId, 'user_left', {
                     userId,
@@ -255,7 +251,6 @@ function broadcastToOthers(excludeUserId: number, type: string, data: any) {
             try {
                 connection.socket.send(message);
             } catch (error) {
-                console.warn(`⚠️ Error enviando a usuario ${userId}:`, error);
                 connections.delete(userId);
                 onlineUsers.delete(userId);
             }

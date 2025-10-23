@@ -2752,8 +2752,6 @@ export function setLanguage(lang: string): void {
         currentLang = lang;
         localStorage.setItem('lang', lang);
         document.dispatchEvent(new Event('languageChanged'));
-    } else {
-        console.warn(`Language ${lang} not found in translations.`);
     }
 }
 

@@ -55,7 +55,5 @@ export function initSafariCompatibility(): void {
         window.addEventListener('orientationchange', () => {
             setTimeout(setVH, 100);
         });
-
-        console.log('🍎 Safari compatibility fixes applied');
     }
 }

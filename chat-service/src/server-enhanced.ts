@@ -36,7 +36,6 @@ const onlineUsers = new Set<number>();
 
 async function connectDatabase() {
     try {
-        console.log('🔌 Conectando a SQLite en:', DB_PATH);
         db = new Database(DB_PATH);
 
         // Crear tablas si no existen
@@ -75,8 +74,6 @@ async function connectDatabase() {
                 FOREIGN KEY (invitee_id) REFERENCES users(id) ON DELETE CASCADE
             );
         `);
-        
-        console.log('✅ Conectado a SQLite y tablas creadas/verificadas');
     } catch (error) {
         console.error('❌ Error conectando a SQLite:', error);
         throw error;
@@ -399,7 +396,6 @@ fastify.get('/invitations/:userId', async (request, reply) => {
 fastify.register(async function (fastify) {
     fastify.get('/ws', { websocket: true }, (connection, req) => {
         const socket = connection.socket;
-        console.log('🔌 Nueva conexión WebSocket');
         
         let userId: number | null = null;
         let username: string | null = null;
@@ -407,7 +403,6 @@ fastify.register(async function (fastify) {
         socket.on('message', async (rawMessage) => {
             try {
                 const message = JSON.parse(rawMessage.toString());
-                console.log('📨 Mensaje recibido:', message.type);
 
                 switch (message.type) {
                     // ===== CONEXIÓN Y AUTENTICACIÓN =====
@@ -666,8 +661,6 @@ fastify.register(async function (fastify) {
                     userId,
                     username
                 }, userId);
-                
-                console.log(`👋 Usuario ${userId} desconectado`);
             }
         });
 
@@ -685,14 +678,6 @@ async function start() {
     try {
         await connectDatabase();
         await fastify.listen({ port: 8000, host: '0.0.0.0' });
-        console.log('🎉 Enhanced Chat Service iniciado en puerto 8000');
-        console.log('📋 Funcionalidades:');
-        console.log('   ✅ Mensajes globales');
-        console.log('   ✅ Mensajes directos (DMs)');
-        console.log('   ✅ Bloqueo de usuarios');
-        console.log('   ✅ Invitaciones a juegos');
-        console.log('   ✅ Notificaciones de torneo');
-        console.log('   ✅ Acceso a perfiles');
     } catch (error) {
         console.error('❌ Error iniciando servidor:', error);
         process.exit(1);
@@ -701,14 +686,12 @@ async function start() {
 
 // Manejo graceful shutdown
 process.on('SIGTERM', async () => {
-    console.log('🛑 Cerrando servidor...');
     if (db) db.close();
     await fastify.close();
     process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-    console.log('🛑 Cerrando servidor...');
     if (db) db.close();
     await fastify.close();
     process.exit(0);

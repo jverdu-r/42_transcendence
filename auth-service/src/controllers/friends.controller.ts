@@ -32,10 +32,6 @@ export async function sendFriendRequestHandler(request: FastifyRequest, reply: F
   const requesterId = (request as any).user.user_id;
   const { targetId } = request.body as { targetId: number };
 
-  console.log('🔍 [sendFriendRequestHandler] requesterId:', requesterId);
-  console.log('🔍 [sendFriendRequestHandler] targetId:', targetId);
-  console.log('🔍 [sendFriendRequestHandler] request.body:', request.body);
-
   if (!targetId || requesterId === targetId) {
     return reply.status(400).send({ error: 'Invalid target user' });
   }

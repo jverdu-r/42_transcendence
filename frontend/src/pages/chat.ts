@@ -152,8 +152,6 @@ function initializeChat(): void {
         return;
     }
     
-    console.log('🎮 Inicializando chat para usuario:', currentUser.username);
-    
     connectWebSocket();
     setupEventListeners();
 }

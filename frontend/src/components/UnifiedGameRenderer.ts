@@ -216,10 +216,8 @@ export class UnifiedGameRenderer {
     private handleKeyUpPolling(e: KeyboardEvent): void {
         if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
             this.currentlyPressedKeys.delete('up');
-            console.log('[Polling] UP key released');
         } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
             this.currentlyPressedKeys.delete('down');
-            console.log('[Polling] DOWN key released');
         }
     }
     
@@ -283,14 +281,11 @@ export class UnifiedGameRenderer {
             // Enviar comando para cada tecla presionada
             if (this.currentlyPressedKeys.has('up')) {
                 this.sendPlayerMove('up');
-                console.log('[sendContinuousCommands] Sent continuous UP command');
             }
             if (this.currentlyPressedKeys.has('down')) {
                 this.sendPlayerMove('down');
-                console.log('[sendContinuousCommands] Sent continuous DOWN command');
             }
         } catch (error) {
-            console.error('[sendContinuousCommands] Error sending continuous commands:', error);
             this.clearAllMovementIntervals();
         }
     }
@@ -329,13 +324,11 @@ export class UnifiedGameRenderer {
                 if (!this.paddleMovementState.up) {
                     this.paddleMovementState.up = true;
                     this.sendPlayerMove('up');
-                    console.log('[handleKeyDown] Started UP movement');
                 }
             } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
                 if (!this.paddleMovementState.down) {
                     this.paddleMovementState.down = true;
                     this.sendPlayerMove('down');
-                    console.log('[handleKeyDown] Started DOWN movement');
                 }
             }
         } else {
@@ -346,7 +339,6 @@ export class UnifiedGameRenderer {
                 // Si la tecla ya estaba presionada pero no hay intervalo, reiniciarlo
                 const movementKeys = ['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown', 'o', 'O', 'l', 'L'];
                 if (movementKeys.includes(e.key) && !this.movementIntervals[e.key]) {
-                    console.log('[handleKeyDown] Restarting lost movement for key:', e.key);
                     this.startPaddleMovement(e.key);
                 }
             }
@@ -360,10 +352,8 @@ export class UnifiedGameRenderer {
             // NUEVO SISTEMA PARA ONLINE: Solo marcar estado de parada
             if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
                 this.paddleMovementState.up = false;
-                console.log('[handleKeyUp] Stopped UP movement');
             } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
                 this.paddleMovementState.down = false;
-                console.log('[handleKeyUp] Stopped DOWN movement');
             }
         } else {
             // SISTEMA ANTERIOR PARA LOCAL/AI
@@ -379,14 +369,12 @@ export class UnifiedGameRenderer {
     }
 
     private handleWindowFocus(): void {
-        console.log('[handleWindowFocus] Window gained focus, checking system state');
         // Al volver el foco a la ventana, reinicializar si es necesario
         if (this.gameMode === 'online' && this.gameState.gameRunning) {
             // Pequeño delay para asegurar que todo está estable
             setTimeout(() => {
                 // Solo reinicializar si no hay intervalos activos
                 if (!this.keyPollingInterval || !this.serverCommandInterval) {
-                    console.log('[handleWindowFocus] Reinitializing due to missing intervals');
                     this.reinitializeOnlineSystem();
                 }
                 // CRUCIAL: Verificar estado de teclas después de volver del cambio de app
@@ -429,12 +417,10 @@ export class UnifiedGameRenderer {
         const keyStateChecker = () => {
             // Verificar si hay alguna tecla en el estado currentlyPressedKeys que deba persistir
             if (this.currentlyPressedKeys.has('up')) {
-                console.log('[recheckKeyStates] UP key still pressed after app switch');
                 // Re-activar el estado de movimiento
                 this.paddleMovementState.up = true;
             }
             if (this.currentlyPressedKeys.has('down')) {
-                console.log('[recheckKeyStates] DOWN key still pressed after app switch');
                 // Re-activar el estado de movimiento
                 this.paddleMovementState.down = true;
             }
@@ -442,8 +428,6 @@ export class UnifiedGameRenderer {
         
         // Ejecutar la verificación después de un pequeño delay
         setTimeout(keyStateChecker, 50);
-        
-        console.log('[recheckKeyStates] Key state check completed, movement states restored');
     }
     
     private reinitializeOnlineSystem(): void {
@@ -487,7 +471,6 @@ export class UnifiedGameRenderer {
         };
         
         try {
-            console.log('[WebSocket] Sending playerMove:', msg);
             this.websocket.send(JSON.stringify(msg));
         } catch (error) {
             console.error('[sendPlayerMove] Error sending message:', error);
@@ -555,21 +538,17 @@ export class UnifiedGameRenderer {
                     if (message.type === 'gameJoined' && message.data) {
                         if (message.data.playerId) {
                             this.playerId = message.data.playerId;
-                            console.log('[WebSocket] PlayerId assigned:', this.playerId);
                         }
                         if (message.data.playerNumber) {
                             this.playerNumber = message.data.playerNumber;
-                            console.log('[WebSocket] PlayerNumber assigned:', this.playerNumber);
                         }
                     }
                     if (message.type === 'gameCreated' && message.data) {
                         if (message.data.playerId) {
                             this.playerId = message.data.playerId;
-                            console.log('[WebSocket] PlayerId assigned (created):', this.playerId);
                         }
                         if (message.data.playerNumber) {
                             this.playerNumber = message.data.playerNumber;
-                            console.log('[WebSocket] PlayerNumber assigned (created):', this.playerNumber);
                         }
                     }
                     this.handleWebSocketMessage(message);
@@ -783,7 +762,6 @@ export class UnifiedGameRenderer {
                 this.draw(); // Redibujar solo si se movió la paleta
             } else {
                 // Si la tecla ya no está presionada, detener el movimiento
-                console.log('[startPaddleMovement] Key released during interval, stopping:', key);
                 this.stopPaddleMovement(key);
             }
         }, 8); // Aumentar frecuencia a ~120 FPS para movimiento más suave

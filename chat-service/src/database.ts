@@ -23,13 +23,10 @@ class ChatDatabase {
 
     async connect(): Promise<void> {
         try {
-            console.log('🔌 Conectando a SQLite en:', DB_PATH);
-            
             this.db = new Database(DB_PATH);
 
             // Verificar que la tabla existe
             this.createTables();
-            console.log('✅ Conectado a la base de datos SQLite');
         } catch (error) {
             console.error('❌ Error conectando a la base de datos:', error);
             throw error;
@@ -47,8 +44,6 @@ class ChatDatabase {
                 sent_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        
-        console.log('📋 Tabla chat_messages verificada/creada');
     }
 
     async saveMessage(senderId: number, message: string): Promise<number> {
@@ -61,7 +56,6 @@ class ChatDatabase {
             const result = stmt.run(senderId, message);
             const messageId = result.lastInsertRowid as number;
             
-            console.log(`📝 Mensaje guardado en SQLite: ID ${messageId}, sender: ${senderId}`);
             return messageId;
         } catch (error) {
             console.error('❌ Error guardando mensaje en SQLite:', error);
@@ -89,7 +83,6 @@ class ChatDatabase {
                 timestamp: row.sent_at
             }));
 
-            console.log(`📋 Obtenidos ${recentMessages.length} mensajes recientes de SQLite`);
             return recentMessages;
         } catch (error) {
             console.error('❌ Error obteniendo mensajes de SQLite:', error);
@@ -127,7 +120,6 @@ class ChatDatabase {
     async close(): Promise<void> {
         if (this.db) {
             await this.db.close();
-            console.log('✅ Conexión a base de datos SQLite cerrada');
         }
     }
 }

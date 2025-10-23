@@ -80,8 +80,6 @@ export async function getAvailableUsers(userId: number) {
 }
 
 export async function sendFriendRequest(requesterId: number, targetId: number): Promise<boolean> {
-  console.log('🔍 [sendFriendRequest] requesterId:', requesterId, 'targetId:', targetId);
-
   const db = await openDb();
 
   try {
@@ -106,7 +104,6 @@ export async function sendFriendRequest(requesterId: number, targetId: number): 
     );
 
     if (existing) {
-      console.log('⚠️  Solicitud duplicada:', existing);
       await db.close();
       return false;
     }
@@ -117,7 +114,6 @@ export async function sendFriendRequest(requesterId: number, targetId: number): 
       params: [requesterId, targetId]
     }));
 
-    console.log('✅ Solicitud añadida a la cola Redis');
     await db.close();
     return true;
   } catch (err) {

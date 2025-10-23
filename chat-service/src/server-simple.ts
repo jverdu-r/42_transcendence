@@ -48,16 +48,12 @@ fastify.get('/stats', async (request, reply) => {
 // WebSocket para chat
 fastify.register(async function (fastify) {
     fastify.get('/ws', { websocket: true }, (socket, req) => {
-        console.log('🔌 Nueva conexión WebSocket');
-        
         let userId: number | null = null;
         let username: string | null = null;
 
         socket.on('message', async (message) => {
             try {
                 const data = JSON.parse(message.toString());
-                console.log('📨 Mensaje WebSocket recibido:', data);
-
                 switch (data.type) {
                     case 'join_global':
                         // Usar datos del usuario
@@ -67,8 +63,6 @@ fastify.register(async function (fastify) {
                         // Guardar conexión
                         connections.set(userId, { socket, username, connectedAt: new Date() });
                         onlineUsers.add(userId);
-                        
-                        console.log(`👤 Usuario ${userId} (${username}) conectado`);
                         
                         // Enviar confirmación
                         (socket as any).send(JSON.stringify({
@@ -128,8 +122,6 @@ fastify.register(async function (fastify) {
                             };
 
                             messages.push(messageData);
-                            
-                            console.log(`✅ Mensaje ${messageId} guardado en memoria y enviado a ${connections.size} usuarios`);
 
                             // Enviar a todos los usuarios conectados
                             broadcastToAll('new_message', messageData);
@@ -168,8 +160,6 @@ fastify.register(async function (fastify) {
                 connections.delete(userId);
                 onlineUsers.delete(userId);
                 
-                console.log(`👋 Usuario ${userId} desconectado`);
-                
                 // Notificar a otros usuarios
                 broadcastToOthers(userId, 'user_left', {
                     userId,
@@ -189,7 +179,6 @@ function broadcastToAll(type: string, data: any) {
         try {
             connection.socket.send(message);
         } catch (error) {
-            console.warn(`⚠️ Error enviando a usuario ${userId}:`, error);
             connections.delete(userId);
             onlineUsers.delete(userId);
         }
@@ -205,7 +194,6 @@ function broadcastToOthers(excludeUserId: number, type: string, data: any) {
             try {
                 connection.socket.send(message);
             } catch (error) {
-                console.warn(`⚠️ Error enviando a usuario ${userId}:`, error);
                 connections.delete(userId);
                 onlineUsers.delete(userId);
             }
