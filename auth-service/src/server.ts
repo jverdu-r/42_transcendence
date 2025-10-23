@@ -1402,7 +1402,6 @@ fastify.get('/api/games/user-id', async (request, reply) => {
 // Función auxiliar para enviar notificaciones de finalización de juego
 async function sendGameFinishNotifications(db: any, gameId: string, winnerTeam: string, gameRow: any) {
   try {
-    console.log('📧 [EMAIL] Iniciando proceso de notificaciones para gameId:', gameId);
     
     // Esperar a que el juego se guarde en la base de datos (race condition fix)
     // El endpoint /api/games/finish se llama ANTES que /api/games/create-online
@@ -1419,12 +1418,10 @@ async function sendGameFinishNotifications(db: any, gameId: string, winnerTeam: 
       `, [gameId]);
       
       if (game) {
-        console.log(`📧 [EMAIL] Juego encontrado en intento ${i + 1} (id interno: ${game.id})`);
         break;
       }
       
       if (i < maxRetries - 1) {
-        console.log(`📧 [EMAIL] Juego no encontrado, reintentando en ${retryDelay}ms... (intento ${i + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
     }
@@ -1451,9 +1448,7 @@ async function sendGameFinishNotifications(db: any, gameId: string, winnerTeam: 
       ORDER BY p.id ASC
     `, [game.id]);
 
-    console.log('📧 [EMAIL] Participantes encontrados:', participants?.length || 0);
     if (participants && participants.length > 0) {
-      console.log('📧 [EMAIL] Detalles participantes:', JSON.stringify(participants, null, 2));
     }
 
     if (!participants || participants.length < 2) {
@@ -1484,9 +1479,7 @@ async function sendGameFinishNotifications(db: any, gameId: string, winnerTeam: 
       WHERE game_id = ?
     `, [game.id]);
 
-    console.log('📧 [EMAIL] Scores encontrados:', scores?.length || 0);
     if (scores && scores.length > 0) {
-      console.log('📧 [EMAIL] Detalles scores:', JSON.stringify(scores, null, 2));
     }
 
     const score1 = scores.find((s: any) => s.team_name === player1.team_name)?.point_number || 0;
@@ -1507,7 +1500,6 @@ async function sendGameFinishNotifications(db: any, gameId: string, winnerTeam: 
     // Enviar correos a cada jugador humano
     for (const player of humanPlayers) {
       if (!player.email || !isNotificationEnabled(player.notifications)) {
-        console.log(`ℹ️  Jugador ${player.username} no tiene email o notificaciones desactivadas`);
         continue;
       }
 
@@ -1532,7 +1524,6 @@ async function sendGameFinishNotifications(db: any, gameId: string, winnerTeam: 
         match: isTournament ? tournamentName : null
       });
 
-      console.log(`✅ Notificación enviada a ${player.username} (${player.email})`);
     }
   } catch (error) {
     console.error('Error en sendGameFinishNotifications:', error);
@@ -1895,7 +1886,6 @@ connectRedis()
         fastify.log.error(err);
         process.exit(1);
       }
-      console.log(`Servidor escuchando en ${address}`);
     });
   })
   .catch((err) => {

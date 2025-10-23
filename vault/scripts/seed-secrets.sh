@@ -48,7 +48,7 @@ vault kv put secret/database/config \
 # Email secrets
 echo "Setting up email secrets..."
 vault kv put secret/email \
-  EMAIL_PASS="YOUR_GMAIL_APP_PASSWORD"
+  EMAIL_PASS="YOUR_GMAIL_APP_PASSWORDASSWORDSSWORD"
 
 # Redis secrets
 echo "Setting up Redis secrets..."

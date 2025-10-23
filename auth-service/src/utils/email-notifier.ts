@@ -43,7 +43,6 @@ export async function sendGameResultEmail({
       <div style="background-color: #f9fafb; padding: 15px; border-radius: 8px; margin: 20px 0;">
         <p><strong>Jugador:</strong> ${username}</p>
         <p><strong>Oponente:</strong> ${opponentText}</p>
-        <p><strong>Resultado:</strong> ${score}</p>
         <p><strong>Modo:</strong> ${isVsAI ? 'Contra IA' : 'Contra humano'}</p>
         ${tournamentText}
       </div>

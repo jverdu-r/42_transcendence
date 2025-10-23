@@ -32,20 +32,16 @@ export function renderTournamentsPage() {
         function showCreateForm() {
             if (content) {
                 content.innerHTML = `
-                    <form id="create-tournament-form" class="flex flex-col gap-4">
-                        <label class="font-semibold text-[#ffc300]">
+                   <form id="create-tournament-form" class="flex flex-col gap-4">
+                        <label class="font-semibold text-[#FFC300]">
                             ${getTranslation('tournaments', 'tournamentNameLabel') || 'Nombre del torneo'}:<br>
-                            <input type="text" name="name" required class="mt-1 p-2 rounded w-full bg-[#003566] text-[#ffc300] border border-[#ffc300]" />
+                            <input type="text" name="name" required class="mt-1 p-2 rounded w-full bg-[#003566] text-[#FFC300] border border-[#FFC300]" />
                         </label>
-                        <label class="font-semibold text-[#ffc300]">
-                            ${getTranslation('tournaments', 'numPlayersLabel') || 'Número de jugadores'}:<br>
-                            <select name="numPlayers" required class="mt-1 p-2 rounded w-full bg-[#003566] text-[#ffc300] border border-[#ffc300]">
-                                <option value="4">4</option>
-                                <option value="8">8</option>
-                                <option value="16">16</option>
-                            </select>
-                        </label>
-                        <button type="submit" class="px-4 py-2 rounded bg-[#ffc300] text-[#003566] font-bold hover:bg-[#003566] hover:text-[#ffc300] transition">${getTranslation('tournaments', 'createTournamentButton') || 'Crear torneo'}</button>
+                        <!-- Participantes ocultos, siempre 4 -->
+                        <input type="hidden" name="numPlayers" value="4" />
+                        <button type="submit" class="px-4 py-2 rounded bg-[#FFC300] text-[#003566] font-bold hover:bg-[#003566] hover:text-[#FFC300] transition">
+                            ${getTranslation('tournaments', 'createTournamentButton') || 'Crear torneo'}
+                        </button>
                     </form>
                 `;
 
