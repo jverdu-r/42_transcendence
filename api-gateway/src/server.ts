@@ -11,7 +11,6 @@ dotenv.config();
 
 process.on('SIGHUP', () => {
   dotenv.config();
-  console.log('Variables de entorno recargadas por SIGHUP');
 });
 
 // Redis connection setup

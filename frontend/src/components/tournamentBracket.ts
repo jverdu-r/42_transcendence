@@ -73,11 +73,23 @@ function renderMatchBox(match: BracketMatch, opts: { showStatus: boolean }) {
 }
 
 function inferRoundTitles(total: number): string[] {
-  if (total === 4) return ['Octavos de final', 'Cuartos de final', 'Semifinales', 'Final'];
-  if (total === 3) return ['Cuartos de final', 'Semifinales', 'Final'];
-  if (total === 2) return ['Semifinales', 'Final'];
-  if (total === 1) return ['Final'];
-  return Array.from({ length: total }, (_, i) => `Ronda ${i + 1}`);
+  if (total === 4) return [
+    getTranslation('tournaments', 'octavos') || 'Octavos de final',
+    getTranslation('tournaments', 'cuartos') || 'Cuartos de final',
+    getTranslation('tournaments', 'semifinales') || 'Semifinales',
+    getTranslation('tournaments', 'final') || 'Final'
+  ];
+  if (total === 3) return [
+    getTranslation('tournaments', 'cuartos') || 'Cuartos de final',
+    getTranslation('tournaments', 'semifinales') || 'Semifinales',
+    getTranslation('tournaments', 'final') || 'Final'
+  ];
+  if (total === 2) return [
+    getTranslation('tournaments', 'semifinales') || 'Semifinales',
+    getTranslation('tournaments', 'final') || 'Final'
+  ];
+  if (total === 1) return [getTranslation('tournaments', 'final') || 'Final'];
+  return Array.from({ length: total }, (_, i) => `${getTranslation('tournaments', 'roundLabel')} ${i + 1}`);
 }
 
 function escapeHtml(s: unknown) {

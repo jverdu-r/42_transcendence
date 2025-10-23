@@ -276,13 +276,13 @@ async function loadStartedTournaments() {
           });
         } catch (e) {
           const content = document.getElementById('eliminatorias-content');
-          if (content) content.innerHTML = `<p class="text-red-400">Error: ${(e as Error)?.message || e}</p>`;
+          if (content) content.innerHTML = `<p class="text-red-400">${getTranslation('tournaments', 'errorLoadingBracket')}: ${(e as Error)?.message || e}</p>`;
         }
       });
     });
   } catch (error) {
     console.error('Error loading started tournaments:', error);
-    container.innerHTML = `<p class="text-red-400 text-center">Error al cargar torneos.</p>`;
+    container.innerHTML = `<p class="text-red-400 text-center">${getTranslation('tournaments', 'errorLoading') || 'Error al cargar torneos.'}</p>`;
   }
 }
 
@@ -314,7 +314,7 @@ async function openBracketModal(tournamentId: number) {
     renderTournamentBracket(rounds, 'eliminatorias-content', { showStatus: true, roundTitles: titles });
   } catch (e) {
     const content = document.getElementById('eliminatorias-content');
-    if (content) content.innerHTML = `<p class="text-red-400">Error cargando cuadro: ${(e as Error)?.message || e}</p>`;
+    if (content) content.innerHTML = `<p class="text-red-400">${getTranslation('tournaments', 'errorLoadingBracket')}: ${(e as Error)?.message || e}</p>`;
   }
 }
 
@@ -324,11 +324,11 @@ function titleForRound(round: any[]): string {
     const match = m?.match;
     return typeof match === 'string' ? match : '';
   });
-  if (labels.some(l => /^1\/8/i.test(l)) || n === 8) return 'Octavos de Final';
-  if (labels.some(l => /^1\/4/i.test(l)) || n === 4) return 'Cuartos de Final';
-  if (labels.some(l => /^1\/2/i.test(l)) || n === 2) return 'Semifinales';
-  if (labels.some(l => /final/i.test(l))  || n === 1) return 'Final';
-  return 'Ronda';
+  if (labels.some(l => /^1\/8/i.test(l)) || n === 8) return getTranslation('tournaments', 'octavos') || 'Octavos de Final';
+  if (labels.some(l => /^1\/4/i.test(l)) || n === 4) return getTranslation('tournaments', 'cuartos') || 'Cuartos de Final';
+  if (labels.some(l => /^1\/2/i.test(l)) || n === 2) return getTranslation('tournaments', 'semifinales') || 'Semifinales';
+  if (labels.some(l => /final/i.test(l))  || n === 1) return getTranslation('tournaments', 'final') || 'Final';
+  return getTranslation('tournaments', 'roundLabel') || 'Ronda';
 }
 
 function normalizeRoundsAndTitles(input: any): { rounds: BracketMatch[][]; titles: string[] } {

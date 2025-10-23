@@ -58,7 +58,7 @@ export function renderTournamentsPage() {
                         const numPlayers = Number(formData.get('numPlayers'));
                         let user = getCurrentUser();
                         if (!user || !user.id) {
-                            alert('You must be logged in to create a tournament.');
+                            alert(getTranslation('tournaments', 'mustBeLoggedInCreate') || 'You must be logged in to create a tournament.');
                             return;
                         }
                         // Verificar si el usuario ya ha creado un torneo pendiente
@@ -66,7 +66,7 @@ export function renderTournamentsPage() {
                         const userTournaments = tournamentsRes.ok ? await tournamentsRes.json() : [];
                         const hasPending = userTournaments.some((t:any) => t.status === 'pending');
                         if (hasPending) {
-                            alert('You have already created a pending tournament. You must start or delete it before creating another.');
+                            alert(getTranslation('tournaments', 'alreadyHasPending') || 'You have already created a pending tournament. You must start or delete it before creating another.');
                             return;
                         }
                         try {
@@ -84,7 +84,7 @@ export function renderTournamentsPage() {
                             if (!res.ok) throw new Error(await res.text());
                             showTournamentsList();
                         } catch (err) {
-                            alert('Error creating tournament: ' + err);
+                            alert((getTranslation('tournaments', 'errorCreating') || 'Error creating tournament') + ': ' + err);
                         }
                     });
                 }
@@ -127,6 +127,9 @@ export function renderTournamentsPage() {
                                     const participants = Array.isArray(allParticipantsArr[i]) ? allParticipantsArr[i] : [];
                                     const joined = !!(currentUser && currentUser.id && participants.find((p:any) => p.user_id==currentUser.id));
                                     const playerCount = `${participants.length} / ${t.players || 'N/A'}`;
+                                    const statusText = t.status === 'pending' ? getTranslation('tournaments', 'statusPending') : 
+                                                      t.status === 'started' ? getTranslation('tournaments', 'statusStarted') : 
+                                                      t.status === 'finished' ? getTranslation('tournaments', 'statusFinished') : t.status;
                                     if (currentUser && currentUser.id && t.created_by === currentUser.id) {
                                         // Lógica para activar el botón Start
                                         const canStart = participants.length === t.players;
@@ -134,30 +137,31 @@ export function renderTournamentsPage() {
                                             <li class="border border-[#ffc300] rounded-lg p-4 flex flex-col gap-2 bg-[#003566]">
                                                 <div class="flex justify-between items-center">
                                                     <span class="font-semibold text-[#ffc300]">${t.name}</span>
-                                                    <span class="text-[#ffd60a]">Estado: ${t.status === 'pending' ? 'Pendiente' : t.status === 'started' ? 'En curso' : t.status === 'finished' ? 'Finalizado' : t.status}</span>
+                                                    <span class="text-[#ffd60a]">${getTranslation('tournaments', 'status')}: ${statusText}</span>
                                                 </div>
                                                 <div class="flex justify-between items-center text-sm">
-                                                    <span class="text-[#ffc300]">Players: ${playerCount}</span>
+                                                    <span class="text-[#ffc300]">${getTranslation('tournaments', 'players')}: ${playerCount}</span>
                                                 </div>
                                                 <div class="flex gap-2 mt-2">
-                                                    <button data-start-id="${t.id}" class="px-3 py-1 rounded bg-green-400 text-[#003566] font-bold hover:bg-green-600 hover:text-white transition" ${canStart ? '' : 'disabled style="opacity:0.5;cursor:not-allowed"'}>Comenzar</button>
-                                                    <button data-delete-id="${t.id}" class="px-3 py-1 rounded bg-red-400 text-[#003566] font-bold hover:bg-red-600 hover:text-white transition">Borrar</button>
+                                                    <button data-start-id="${t.id}" class="px-3 py-1 rounded bg-green-400 text-[#003566] font-bold hover:bg-green-600 hover:text-white transition" ${canStart ? '' : 'disabled style="opacity:0.5;cursor:not-allowed"'}>${getTranslation('tournaments', 'startButton')}</button>
+                                                    <button data-delete-id="${t.id}" class="px-3 py-1 rounded bg-red-400 text-[#003566] font-bold hover:bg-red-600 hover:text-white transition">${getTranslation('tournaments', 'deleteButton')}</button>
                                                 </div>
                                             </li>
                                         `;
                                     } else {
                                         const alreadyJoinedOther = joinedTournamentIds.length > 0 && !joined;
                                         const isFull = participants.length >= t.players;
+                                        const buttonText = joined ? getTranslation('tournaments', 'joinedButton') : isFull ? getTranslation('tournaments', 'fullButton') : getTranslation('tournaments', 'signUpButton');
                                         return `
                                             <li class="border border-[#ffc300] rounded-lg p-4 flex flex-col gap-2 bg-[#003566]">
                                                 <div class="flex justify-between items-center">
                                                     <span class="font-semibold text-[#ffc300]">${t.name}</span>
-                                                    <span class="text-[#ffd60a]">Estado: ${t.status === 'pending' ? 'Pendiente' : t.status === 'started' ? 'En curso' : t.status === 'finished' ? 'Finalizado' : t.status}</span>
+                                                    <span class="text-[#ffd60a]">${getTranslation('tournaments', 'status')}: ${statusText}</span>
                                                 </div>
                                                 <div class="flex justify-between items-center text-sm">
-                                                    <span class="text-[#ffc300]">Players: ${playerCount}</span>
+                                                    <span class="text-[#ffc300]">${getTranslation('tournaments', 'players')}: ${playerCount}</span>
                                                 </div>
-                                                <button data-id="${t.id}" class="mt-2 px-3 py-1 rounded bg-[#ffc300] text-[#003566] font-bold hover:bg-[#003566] hover:text-[#ffc300] transition" ${joined ? 'disabled style="opacity:0.7;cursor:not-allowed"' : alreadyJoinedOther || isFull ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>${joined ? 'Joined' : isFull ? 'Full' : 'Inscribirse'}</button>
+                                                <button data-id="${t.id}" class="mt-2 px-3 py-1 rounded bg-[#ffc300] text-[#003566] font-bold hover:bg-[#003566] hover:text-[#ffc300] transition" ${joined ? 'disabled style="opacity:0.7;cursor:not-allowed"' : alreadyJoinedOther || isFull ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>${buttonText}</button>
                                             </li>
                                         `;
                                     }
@@ -174,7 +178,7 @@ export function renderTournamentsPage() {
                                     const tournamentId = btn.getAttribute('data-id');
                                     let currentUser: any = getCurrentUser();
                                     if (!currentUser || !currentUser.id) {
-                                        alert('You must be logged in to join a tournament.');
+                                        alert(getTranslation('tournaments', 'mustBeLoggedInJoin') || 'You must be logged in to join a tournament.');
                                         return;
                                     }
                                     // comprobación adicional en cliente para evitar race condition:
@@ -186,7 +190,7 @@ export function renderTournamentsPage() {
                                     const parts = resCheck.ok ? await resCheck.json() : [];
                                     const tourn = resTourn.ok ? await resTourn.json() : null;
                                     if (tourn && Array.isArray(parts) && parts.length >= Number(tourn.players)) {
-                                        alert('Tournament is full.');
+                                        alert(getTranslation('tournaments', 'tournamentFull') || 'Tournament is full.');
                                         return;
                                     }
                                     try {
@@ -198,7 +202,7 @@ export function renderTournamentsPage() {
                                         if (!res.ok) throw new Error(await res.text());
                                         showTournamentsList();
                                     } catch (err) {
-                                        alert('Error joining tournament: ' + err);
+                                        alert((getTranslation('tournaments', 'errorJoining') || 'Error joining tournament') + ': ' + err);
                                     }
                                 });
                             });
@@ -216,7 +220,7 @@ export function renderTournamentsPage() {
                                         if (!res.ok) throw new Error(await res.text());
                                         showTournamentsList();
                                     } catch (err) {
-                                        alert('Error starting tournament: ' + err);
+                                        alert((getTranslation('tournaments', 'errorStarting') || 'Error starting tournament') + ': ' + err);
                                     }
                                 });
                             });
@@ -224,7 +228,7 @@ export function renderTournamentsPage() {
                             (content as HTMLElement).querySelectorAll('button[data-delete-id]').forEach(btn => {
                                 btn.addEventListener('click', async () => {
                                     const tournamentId = btn.getAttribute('data-delete-id');
-                                    if (!confirm('¿Seguro que quieres borrar este torneo?')) return;
+                                    if (!confirm(getTranslation('tournaments', 'confirmDelete') || '¿Seguro que quieres borrar este torneo?')) return;
                                     try {
                                         const res = await fetch(`/api/tournaments/${tournamentId}`, {
                                             method: 'DELETE',
@@ -233,7 +237,7 @@ export function renderTournamentsPage() {
                                         if (!res.ok) throw new Error(await res.text());
                                         showTournamentsList();
                                     } catch (err) {
-                                        alert('Error deleting tournament: ' + err);
+                                        alert((getTranslation('tournaments', 'errorDeleting') || 'Error deleting tournament') + ': ' + err);
                                     }
                                 });
                             });
@@ -241,7 +245,7 @@ export function renderTournamentsPage() {
                     })
                     .catch(() => {
                         if (content)
-                            content.innerHTML = '<p class="text-red-400">Error loading tournaments.</p>';
+                            content.innerHTML = `<p class="text-red-400">${getTranslation('tournaments', 'errorLoading') || 'Error loading tournaments.'}</p>`;
                     });
             }
         }
