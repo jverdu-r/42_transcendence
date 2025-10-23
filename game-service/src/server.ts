@@ -525,6 +525,7 @@ async function saveGameStats(gameId: string, game: any, winnerPlayer: number, wi
 
   let score1 = game.gameState?.puntuacion?.jugador1 ?? 0;
   let score2 = game.gameState?.puntuacion?.jugador2 ?? 0;
+  let correctedWinnerPlayer = winnerPlayer; // Inicialmente el ganador basado en WebSocket
   
   // CORRECCIÓN PARA TORNEOS: Reordenar scores según el orden de la BD
   // En torneos, el db-service espera score1=participants[0] y score2=participants[1]
@@ -537,9 +538,12 @@ async function saveGameStats(gameId: string, game: any, winnerPlayer: number, wi
     
     // Verificar si el orden de jugadores en WebSocket es inverso al orden en BD
     if (p1Name === dbPlayer2Name && p2Name === dbPlayer1Name) {
-      // Los jugadores están invertidos → intercambiar scores
+      // Los jugadores están invertidos → intercambiar scores Y winner
       fastify.log.info(`🔄 TORNEO ${gameId}: Invirtiendo scores (WebSocket: [${p1Name}=${score1}, ${p2Name}=${score2}] → BD: [${dbPlayer1Name}=${score2}, ${dbPlayer2Name}=${score1}])`);
       [score1, score2] = [score2, score1];  // Swap scores
+      // CRÍTICO: También invertir el winner_player para que coincida con el nuevo orden
+      correctedWinnerPlayer = winnerPlayer === 1 ? 2 : 1;
+      fastify.log.info(`🔄 TORNEO ${gameId}: Invirtiendo winner_player de ${winnerPlayer} a ${correctedWinnerPlayer}`);
     } else {
       fastify.log.info(`✅ TORNEO ${gameId}: Scores en orden correcto (WebSocket: [${p1Name}=${score1}, ${p2Name}=${score2}] → BD: [${dbPlayer1Name}=${score1}, ${dbPlayer2Name}=${score2}])`);
     }
@@ -547,8 +551,8 @@ async function saveGameStats(gameId: string, game: any, winnerPlayer: number, wi
   
   const start_time = game.startedAt || new Date().toISOString();
   const end_time = new Date().toISOString();
-  const winner_player = winnerPlayer; // 1 or 2
-  const winnerTeam = winnerPlayer === 1 ? 'Team A' : 'Team B';
+  const winner_player = correctedWinnerPlayer; // Usar el winner corregido
+  const winnerTeam = correctedWinnerPlayer === 1 ? 'Team A' : 'Team B';
 
   try {
     if (gameId) {
