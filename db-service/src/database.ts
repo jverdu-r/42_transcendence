@@ -36,6 +36,10 @@ export async function initializeDb() {
             INSERT OR IGNORE INTO users (id, username, email, password_hash, is_active, is_admin, created_at) VALUES (5, 'David', 'david.aparicio247@hotmail.com', '$2b$12$iASlBV76WELxwwjOUmWeM.FjqHuDhkWQEEbTBBNRZb4B6/tEfyCmC', 1, 1, datetime('now', '-5 days'));
             INSERT OR IGNORE INTO users (id, username, email, password_hash, is_active, is_admin, created_at) VALUES (6, 'ManuFern', 'manufern@student.42madrid.com', '$2b$12$1Mqudh5FrajQHKxtBOG26O/dL47xnZrbbQ8HjcipegON1NQdMFXou', 1, 1, datetime('now', '-6 days'));
             INSERT OR IGNORE INTO users (id, username, email, password_hash, is_active, is_admin, created_at) VALUES (7, 'Diego', 'diegorubiomorato@gmail.com', '$2b$12$SC.8HYivrjOrLQQscZz7SuBNY4vodoHRh.cWXQ0htB/vBBJxblJPa', 1, 1, datetime('now', '-7 days'));
+            INSERT OR IGNORE INTO users (id, username, email, password_hash, is_active, is_admin, created_at) VALUES (8, 'aaa', 'a@a.a', '$2a$12$CbBAF2BmnnV.GYrYmRJk1erzzVo90SN4iOuig8xO0TD1Ro.dI570m', 1, 1, datetime('now', '-1 days'));
+            INSERT OR IGNORE INTO users (id, username, email, password_hash, is_active, is_admin, created_at) VALUES (9, 'bbb', 'b@b.b', '$2a$12$CbBAF2BmnnV.GYrYmRJk1erzzVo90SN4iOuig8xO0TD1Ro.dI570m', 1, 1, datetime('now', '-1 days'));
+            INSERT OR IGNORE INTO users (id, username, email, password_hash, is_active, is_admin, created_at) VALUES (10, 'ccc', 'c@c.c', '$2a$12$CbBAF2BmnnV.GYrYmRJk1erzzVo90SN4iOuig8xO0TD1Ro.dI570m', 1, 1, datetime('now', '-1 days'));
+            INSERT OR IGNORE INTO users (id, username, email, password_hash, is_active, is_admin, created_at) VALUES (11, 'ddd', 'd@d.d', '$2a$12$CbBAF2BmnnV.GYrYmRJk1erzzVo90SN4iOuig8xO0TD1Ro.dI570m', 1, 1, datetime('now', '-1 days'));
             INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, doubleFactor, difficulty) VALUES (1, NULL, 'es', 'true', 'false', 'normal');
             INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, doubleFactor, difficulty) VALUES (2, NULL, 'gl', 'true', 'false', 'normal');
             INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, doubleFactor, difficulty) VALUES (3, NULL, 'en', 'true', 'false', 'normal');
@@ -43,6 +47,10 @@ export async function initializeDb() {
             INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, doubleFactor, difficulty) VALUES (5, NULL, 'en', 'true', 'false', 'normal');
             INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, doubleFactor, difficulty) VALUES (6, NULL, 'es', 'true', 'false', 'normal');
             INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, doubleFactor, difficulty) VALUES (7, NULL, 'en', 'true', 'false', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, doubleFactor, difficulty) VALUES (8, NULL, 'es', 'false', 'false', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, doubleFactor, difficulty) VALUES (9, NULL, 'es', 'false', 'false', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, doubleFactor, difficulty) VALUES (10, NULL, 'es', 'false', 'false', 'normal');
+            INSERT OR IGNORE INTO user_profiles (user_id, avatar_url, language, notifications, doubleFactor, difficulty) VALUES (11, NULL, 'es', 'false', 'false', 'normal');
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (1, 1, 2, 'pending', datetime('now', '-1 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (2, 1, 4, 'accepted', datetime('now', '-2 hours'));
             INSERT OR IGNORE INTO friendships (id, requester_id, approver_id, status, created_at) VALUES (3, 1, 6, 'accepted', datetime('now', '-3 hours'));

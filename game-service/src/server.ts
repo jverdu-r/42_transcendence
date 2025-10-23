@@ -523,8 +523,28 @@ async function saveGameStats(gameId: string, game: any, winnerPlayer: number, wi
     player2Id = await getUserId(player2.nombre);
   }
 
-  const score1 = game.gameState?.puntuacion?.jugador1 ?? 0;
-  const score2 = game.gameState?.puntuacion?.jugador2 ?? 0;
+  let score1 = game.gameState?.puntuacion?.jugador1 ?? 0;
+  let score2 = game.gameState?.puntuacion?.jugador2 ?? 0;
+  
+  // CORRECCIÓN PARA TORNEOS: Reordenar scores según el orden de la BD
+  // En torneos, el db-service espera score1=participants[0] y score2=participants[1]
+  // pero en WebSocket, jugador1=quien se conectó primero, jugador2=quien se conectó segundo
+  if (game.tournamentInfo) {
+    const p1Name = player1?.nombre;
+    const p2Name = player2?.nombre;
+    const dbPlayer1Name = game.tournamentInfo.player1_name;
+    const dbPlayer2Name = game.tournamentInfo.player2_name;
+    
+    // Verificar si el orden de jugadores en WebSocket es inverso al orden en BD
+    if (p1Name === dbPlayer2Name && p2Name === dbPlayer1Name) {
+      // Los jugadores están invertidos → intercambiar scores
+      fastify.log.info(`🔄 TORNEO ${gameId}: Invirtiendo scores (WebSocket: [${p1Name}=${score1}, ${p2Name}=${score2}] → BD: [${dbPlayer1Name}=${score2}, ${dbPlayer2Name}=${score1}])`);
+      [score1, score2] = [score2, score1];  // Swap scores
+    } else {
+      fastify.log.info(`✅ TORNEO ${gameId}: Scores en orden correcto (WebSocket: [${p1Name}=${score1}, ${p2Name}=${score2}] → BD: [${dbPlayer1Name}=${score1}, ${dbPlayer2Name}=${score2}])`);
+    }
+  }
+  
   const start_time = game.startedAt || new Date().toISOString();
   const end_time = new Date().toISOString();
   const winner_player = winnerPlayer; // 1 or 2

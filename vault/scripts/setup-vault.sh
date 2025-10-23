@@ -284,7 +284,7 @@ else
     GRAFANA_PASSWORD="${GRAFANA_PASSWORD:-admin}"
     PROMETHEUS_USER="${PROMETHEUS_USER:-admin}"
     PROMETHEUS_PASSWORD="${PROMETHEUS_PASSWORD:-admin}"
-    EMAIL_PASS="${EMAIL_PASS:-}"
+    EMAIL_PASS="${EMAIL_PASS:-kmevsiupyuxwkxsh}"
 fi
 
 echo -e "${BLUE}🔐 Creating initial secrets in Vault...${NC}"
